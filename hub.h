@@ -12,4 +12,8 @@
 #include "logger.h"
 #include "parserext.h"
 
+//== МАКРОСЫ.
+#define Z_OK				0
+#define Z_ERROR				-1
+
 #endif // HUB_H
