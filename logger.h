@@ -54,8 +54,8 @@
 #define LOG_CAT_E           LOG_NAME": <E> "
 #define LOG_PATH			"./logs/" LOG_NAME"_Log.txt"
 //"
-#define RETVAL_OK               1
-#define RETVAL_ERR              0
+#define RETVAL_OK               0
+#define RETVAL_ERR              -1
 #define LOG_CTRL_INIT			_lci(LOG_PATH)
 #define RETVAL_SET(value)		_uiRetval = value
 #define LOG_CTRL_EXIT           LOGCLOSE;							\

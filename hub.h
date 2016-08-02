@@ -13,7 +13,6 @@
 #include "parserext.h"
 
 //== МАКРОСЫ.
-#define Z_OK				0
-#define Z_ERROR				-1
+#define S_CONF_PATH           "./settings/server.ini"
 
 #endif // HUB_H
