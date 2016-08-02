@@ -38,11 +38,12 @@ int main(int argc, char *argv[])
 	addrinfo oHints, *pRes;
 	sockaddr_storage oClientAddr;
 	socklen_t slAddrSize;
-	char mchAddrString[INET_ADDRSTRLEN];
+	char mchAddrString[INET6_ADDRSTRLEN];
 	//
 	LOG(LOG_CAT_I, "Starting server");
+	//
 	memset(&oHints, 0, sizeof oHints);
-	oHints.ai_family = AF_INET;
+	oHints.ai_family = PF_UNSPEC;
 	oHints.ai_socktype = SOCK_STREAM;
 	oHints.ai_flags = AI_PASSIVE;
 	iServerStatus = getaddrinfo(NULL, "8888" , &oHints, &pRes);
@@ -76,7 +77,7 @@ int main(int argc, char *argv[])
 			LOG(LOG_CAT_E, "accept: " << gai_strerror(iConnection));
 			continue;
 		}
-		inet_ntop(oClientAddr.ss_family, GetInAddr((struct sockaddr*) &oClientAddr), mchAddrString,sizeof mchAddrString);
+		inet_ntop(oClientAddr.ss_family, GetInAddr((struct sockaddr*) &oClientAddr), mchAddrString, sizeof mchAddrString);
 		LOG(LOG_CAT_I, "Connected with " << mchAddrString);
 		iServerStatus = send(iConnection, "Welcome", 7, 0);
 		if(iServerStatus == -1)
