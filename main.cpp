@@ -46,6 +46,10 @@ int main(int argc, char *argv[])
 	sockaddr_storage oClientAddr;
 	socklen_t slAddrSize;
 	char mchAddrString[INET6_ADDRSTRLEN];
+	char mchServerHostName[80];
+	hostent *pHost;
+	in_addr oAddr;
+	char* p_chServerIP;
 #ifdef WIN32
 	WSADATA wsadata = WSADATA();
 #endif
@@ -53,38 +57,58 @@ int main(int argc, char *argv[])
 	LOG(LOG_CAT_I, "Starting server");
 	//
 #ifdef WIN32
-	WSAStartup(MAKEWORD(2, 2), &wsadata);
+	if(WSAStartup(MAKEWORD(2, 2), &wsadata) != NO_ERROR)
+	{
+		LOG(LOG_CAT_E, "'WSAStartup' failed");
+	}
 #endif
 	memset(&oHints, 0, sizeof oHints);
 	oHints.ai_family = PF_UNSPEC;
 	oHints.ai_socktype = SOCK_STREAM;
 	oHints.ai_flags = AI_PASSIVE;
 	oHints.ai_protocol = IPPROTO_TCP;
-	iServerStatus = getaddrinfo(NULL, "8888" , &oHints, &pRes);
+	if (gethostname(mchServerHostName, sizeof(mchServerHostName)) == SOCKET_ERROR)
+	{
+		LOG(LOG_CAT_E, "Can`t get server host name");
+		iAppResult = Z_ERROR;
+		goto ex;
+	}
+	LOG(LOG_CAT_I, "Server host: " << mchServerHostName);
+	pHost = gethostbyname(mchServerHostName);
+	if(pHost == NULL)
+	{
+		LOG(LOG_CAT_E, "Can`t get server host data");
+		iAppResult = Z_ERROR;
+		goto ex;
+	}
+	oAddr.s_addr = *(u_long*) pHost->h_addr_list[0];
+	p_chServerIP = inet_ntoa(oAddr);
+	LOG(LOG_CAT_I, "Server IP: " << p_chServerIP);
+	iServerStatus = getaddrinfo((PCSTR)p_chServerIP, "8888" , &oHints, &pRes);
 	if(iServerStatus != 0)
 	{
-		LOG(LOG_CAT_E, "getaddrinfo error: " << gai_strerror(iServerStatus));
+		LOG(LOG_CAT_E, "'getaddrinfo': " << gai_strerror(iServerStatus));
 		iAppResult = Z_ERROR;
 		goto ex;
 	}
 	iListener = socket(pRes->ai_family, pRes->ai_socktype, pRes->ai_protocol);
 	if(iListener < 0 )
 	{
-		LOG(LOG_CAT_E, "socket error: "  << gai_strerror(iServerStatus));
+		LOG(LOG_CAT_E, "'socket': "  << gai_strerror(iServerStatus));
 		iAppResult = Z_ERROR;
 		goto ex;
 	}
 	iServerStatus = bind(iListener, pRes->ai_addr, (int)pRes->ai_addrlen);
 	if(iServerStatus < 0)
 	{
-		LOG(LOG_CAT_E, "bind: " << gai_strerror(iServerStatus));
+		LOG(LOG_CAT_E, "'bind': " << gai_strerror(iServerStatus));
 		iAppResult = Z_ERROR;
 		goto ex;
 	}
 	iServerStatus = listen(iListener, 10);
 	if(iServerStatus < 0)
 	{
-		LOG(LOG_CAT_E, "listen: " << gai_strerror(iServerStatus));
+		LOG(LOG_CAT_E, "'listen': " << gai_strerror(iServerStatus));
 		iAppResult = Z_ERROR;
 		goto ex;
 	}
@@ -93,18 +117,19 @@ int main(int argc, char *argv[])
 	LOG(LOG_CAT_I, "Accepting connections");
 	while(true)
 	{
-		iConnection = accept(iListener, (struct sockaddr *) & oClientAddr, &slAddrSize);
+		iConnection = accept(iListener, NULL, NULL);
+		LOG(LOG_CAT_I, "Accepted");
 		if(iConnection < 0)
 		{
-			LOG(LOG_CAT_E, "accept: " << gai_strerror(iConnection));
+			LOG(LOG_CAT_E, "'accept': " << gai_strerror(iConnection));
 			continue;
 		}
-		inet_ntop(oClientAddr.ss_family, GetInAddr((struct sockaddr*) &oClientAddr), mchAddrString, sizeof mchAddrString);
-		LOG(LOG_CAT_I, "Connected with " << mchAddrString);
+		inet_ntop(oClientAddr.ss_family, GetInAddr((sockaddr*)&oClientAddr), mchAddrString, sizeof mchAddrString);
+		LOG(LOG_CAT_I, "Connected with: " << mchAddrString);
 		iServerStatus = send(iConnection, "Welcome", 7, 0);
 		if(iServerStatus == -1)
 		{
-			LOG(LOG_CAT_E, "Error in transaction: " << gai_strerror(iServerStatus));
+			LOG(LOG_CAT_E, "'send': " << gai_strerror(iServerStatus));
 			iAppResult = Z_ERROR;
 			continue;
 		}
