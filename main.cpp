@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #else
+#include <pthread/include/pthread.h>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 #endif
@@ -45,12 +46,13 @@ struct ThreadData
 };
 
 //== ФУНКЦИИ.
+#ifndef WIN32
 ///
 void SignalHandler(int iSignal)
 {
 	if(iSignal == SIGTSTP) bExitSignal = true;
 }
-
+#endif
 /// Взятие адреса.
 void* GetInAddr(sockaddr *p_SockAddr)
 {
@@ -75,9 +77,8 @@ int main(int argc, char *argv[])
 	addrinfo o_Hints, *p_Res;
 	char* p_chServerIP = 0;
 	char* p_chPort = 0;
-	struct sigaction sigIntHandler;
 #ifndef WIN32
-
+	struct sigaction sigIntHandler;
 #else
 	WSADATA wsadata = WSADATA();
 #endif
@@ -150,7 +151,7 @@ int main(int argc, char *argv[])
 		RETVAL_SET(RETVAL_ERR);
 		goto ex;
 	}
-	iListener = socket(p_Res->ai_family, p_Res->ai_socktype, p_Res->ai_protocol);
+	iListener = (int)socket(p_Res->ai_family, p_Res->ai_socktype, p_Res->ai_protocol);
 	if(iListener < 0 )
 	{
 		LOG(LOG_CAT_E, "'socket': "  << gai_strerror(iServerStatus));
@@ -172,15 +173,25 @@ int main(int argc, char *argv[])
 		goto ex;
 	}
 	freeaddrinfo(p_Res);
-	LOG(LOG_CAT_I, "Accepting connections, press 'Ctrl+Z' for exit");
 	//
+#ifndef WIN32
+	LOG(LOG_CAT_I, "Accepting connections, press 'Ctrl+Z' for exit");
 	sigemptyset(&sigIntHandler.sa_mask);
 	sigIntHandler.sa_flags = 0;
 	sigIntHandler.sa_handler = SignalHandler;
 	sigaction(SIGTSTP, &sigIntHandler, NULL);
+#else
+	LOG(LOG_CAT_I, "Accepting connections, press 'Esc' for exit");
+#endif
 	while(!bExitSignal)
 	{
-		iConnection = accept(iListener, NULL, NULL);
+#ifdef WIN32
+		if(GetConsoleWindow() == GetForegroundWindow())
+		{
+			if(GetAsyncKeyState(VK_ESCAPE)) bExitSignal = true;
+		}
+#endif
+		iConnection = (int)accept(iListener, NULL, NULL);
 		if(bExitSignal) continue;
 		LOG(LOG_CAT_I, "Accepted");
 		if(iConnection < 0)

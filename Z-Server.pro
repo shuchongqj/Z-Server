@@ -12,7 +12,8 @@ LIBS += -ldl -lX11 -lXtst
 win32 {
 LIBS += "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib\x64\User32.Lib" \
     "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib\x64\Shell32.lib" \
-    "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib\x64\Ws2_32.lib"
+    "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib\x64\Ws2_32.lib" \
+    ".\pthread\lib\x64\pthreadVC2.lib"
 CONFIG += console
 }
 
@@ -29,4 +30,11 @@ HEADERS += \
     dlfcn-win32/dlfcn.h \
     TinyXML2/tinyxml2.h \
     logger.h \
-    parserext.h
+    parserext.h \
+    pthread/include/pthread.h \
+    pthread/include/sched.h \
+    pthread/include/semaphore.h
+
+DISTFILES += \
+    pthread/dll/x64/pthreadVC2.dll \
+    pthread/lib/x64/pthreadVC2.lib
