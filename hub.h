@@ -5,7 +5,6 @@
 #include "TinyXML2/tinyxml2.h"
 #ifdef WIN32
 #include "dlfcn-win32/dlfcn.h"
-#include <QTextCodec>
 #else
 #include <dlfcn.h>
 #endif

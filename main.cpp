@@ -1,13 +1,14 @@
 //== ВКЛЮЧЕНИЯ.
-#include <QCoreApplication>
 #define _WINSOCKAPI_
 #include "hub.h"
+#include <signal.h>
 #ifndef WIN32
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <pthread.h>
 #else
 #include <WinSock2.h>
 #include <WS2tcpip.h>
@@ -15,6 +16,8 @@
 
 //== МАКРОСЫ.
 #define LOG_NAME				"Z-Server"
+#define ThreadDataPtr			((ThreadData*)p_Object)
+#define MAXDATA					1024
 //
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
@@ -22,8 +25,32 @@ LOGDECL
 #ifndef WIN32
 ; // Баг в QtCreator`е на Windows, на Linux ';' нужна.
 #endif
+const pthread_mutex_t NetworkMutex = PTHREAD_MUTEX_INITIALIZER;
+bool bExitSignal = false;
+
+//== СТРУКТУРЫ.
+//
+struct ThreadData
+{
+	pthread_t p_Thread;
+	sockaddr_in cli_addr;
+	socklen_t addressLength;
+	int iClient;
+	char m_ch1[MAXDATA];
+	int iResult, iSended;
+	bool bKeepConnection;
+	char mchHBuf[NI_MAXHOST], mchSBuf[NI_MAXSERV];
+	ThreadData* p_ThreadData;
+	unsigned int ui0I;
+};
 
 //== ФУНКЦИИ.
+///
+void SignalHandler(int iSignal)
+{
+	if(iSignal == SIGTSTP) bExitSignal = true;
+}
+
 /// Взятие адреса.
 void* GetInAddr(sockaddr *p_SockAddr)
 {
@@ -33,6 +60,7 @@ void* GetInAddr(sockaddr *p_SockAddr)
 	}
 	return &(((struct sockaddr_in6 *)p_SockAddr)->sin6_addr);
 }
+
 /// Точка входа в приложение.
 int main(int argc, char *argv[])
 {
@@ -44,9 +72,10 @@ int main(int argc, char *argv[])
 	LOG_CTRL_INIT;
 	_uiRetval = _uiRetval; // Заглушка.
 	int iServerStatus, iListener, iConnection;
-	addrinfo oHints, *pRes;
+	addrinfo o_Hints, *p_Res;
 	char* p_chServerIP = 0;
 	char* p_chPort = 0;
+	struct sigaction sigIntHandler;
 #ifndef WIN32
 
 #else
@@ -109,26 +138,26 @@ int main(int argc, char *argv[])
 		LOG(LOG_CAT_E, "'WSAStartup' failed");
 	}
 #endif
-	memset(&oHints, 0, sizeof oHints);
-	oHints.ai_family = PF_UNSPEC;
-	oHints.ai_socktype = SOCK_STREAM;
-	oHints.ai_flags = AI_PASSIVE;
-	oHints.ai_protocol = IPPROTO_TCP;
-	iServerStatus = getaddrinfo(p_chServerIP, p_chPort, &oHints, &pRes);
+	memset(&o_Hints, 0, sizeof o_Hints);
+	o_Hints.ai_family = PF_UNSPEC;
+	o_Hints.ai_socktype = SOCK_STREAM;
+	o_Hints.ai_flags = AI_PASSIVE;
+	o_Hints.ai_protocol = IPPROTO_TCP;
+	iServerStatus = getaddrinfo(p_chServerIP, p_chPort, &o_Hints, &p_Res);
 	if(iServerStatus != 0)
 	{
 		LOG(LOG_CAT_E, "'getaddrinfo': " << gai_strerror(iServerStatus));
 		RETVAL_SET(RETVAL_ERR);
 		goto ex;
 	}
-	iListener = socket(pRes->ai_family, pRes->ai_socktype, pRes->ai_protocol);
+	iListener = socket(p_Res->ai_family, p_Res->ai_socktype, p_Res->ai_protocol);
 	if(iListener < 0 )
 	{
 		LOG(LOG_CAT_E, "'socket': "  << gai_strerror(iServerStatus));
 		RETVAL_SET(RETVAL_ERR);
 		goto ex;
 	}
-	iServerStatus = bind(iListener, pRes->ai_addr, (int)pRes->ai_addrlen);
+	iServerStatus = bind(iListener, p_Res->ai_addr, (int)p_Res->ai_addrlen);
 	if(iServerStatus < 0)
 	{
 		LOG(LOG_CAT_E, "'bind': " << gai_strerror(iServerStatus));
@@ -142,11 +171,17 @@ int main(int argc, char *argv[])
 		RETVAL_SET(RETVAL_ERR);
 		goto ex;
 	}
-	freeaddrinfo(pRes);
-	LOG(LOG_CAT_I, "Accepting connections");
-	while(true)
+	freeaddrinfo(p_Res);
+	LOG(LOG_CAT_I, "Accepting connections, press 'Ctrl+Z' for exit");
+	//
+	sigemptyset(&sigIntHandler.sa_mask);
+	sigIntHandler.sa_flags = 0;
+	sigIntHandler.sa_handler = SignalHandler;
+	sigaction(SIGTSTP, &sigIntHandler, NULL);
+	while(!bExitSignal)
 	{
 		iConnection = accept(iListener, NULL, NULL);
+		if(bExitSignal) continue;
 		LOG(LOG_CAT_I, "Accepted");
 		if(iConnection < 0)
 		{
@@ -155,11 +190,11 @@ int main(int argc, char *argv[])
 			continue;
 		}
 		//
-		sockaddr_in oAddrInet;
+		sockaddr_in o_AddrInet;
 		socklen_t slLenInet;
 		slLenInet = sizeof(sockaddr);
-		getpeername(iConnection, (sockaddr*)&oAddrInet, &slLenInet);
-		LOG(LOG_CAT_I, "Connected with: " << inet_ntoa(oAddrInet.sin_addr));
+		getpeername(iConnection, (sockaddr*)&o_AddrInet, &slLenInet);
+		LOG(LOG_CAT_I, "Connected with: " << inet_ntoa(o_AddrInet.sin_addr));
 		iServerStatus = send(iConnection, "Welcome", 7, 0);
 		if(iServerStatus == -1)
 		{
@@ -168,6 +203,8 @@ int main(int argc, char *argv[])
 			continue;
 		}
 	}
+	printf("\b\b");
+	LOG(LOG_CAT_I, "Stopped by user");
 #ifndef WIN32
 	close(iConnection);
 #else
