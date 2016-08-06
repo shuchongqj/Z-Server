@@ -35,5 +35,7 @@ HEADERS += \
     pthread\include\sched.h \
     pthread\include\semaphore.h
 
+win32 {
 DISTFILES += $${PWD}\pthread\dll\pthreadVC2.dll \
     $${PWD}\pthread\lib\pthreadVC2.lib
+}
