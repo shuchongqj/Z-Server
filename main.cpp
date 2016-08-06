@@ -382,5 +382,5 @@ ex:
 	Sleep(1000);
 #endif
 	LOGCLOSE;
-	pthread_exit(NULL);
+	return _uiRetval;
 }
