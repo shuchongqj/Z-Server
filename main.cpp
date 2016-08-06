@@ -75,6 +75,7 @@ int FindFreeThrDadaPos()
 }
 
 ///
+#ifndef WIN32
 char getch()
 {
 	char buf = 0;
@@ -107,6 +108,7 @@ void* WaitingThread(void *p_vPlug)
 	bRequestNewConn = false;
 	pthread_exit(p_vPlug);
 }
+#endif
 
 ///
 void* ConversationThread(void* p_vNum)
@@ -118,7 +120,11 @@ void* ConversationThread(void* p_vNum)
 	//
 	iTPos = *((int*)p_vNum);
 	mThreadDadas[iTPos].p_Thread = pthread_self();
+#ifndef WIN32
 	LOG(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread);
+#else
+	LOG(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread.p);
+#endif
 	iConnection = (int)accept(iListener, NULL, NULL);
 	mThreadDadas[iTPos].bConnected = true;
 	if((iConnection < 0))
@@ -169,16 +175,24 @@ void* ConversationThread(void* p_vNum)
 		iStatus = send(iConnection, "Message received\n", sizeof("Message received\n"), 0);
 	}
 	//
-ec: shutdown(iConnection, SHUT_RDWR);
+ec:
 #ifndef WIN32
+	shutdown(iConnection, SHUT_RDWR);
 	close(iConnection);
 #else
 	closesocket(iConnection);
 #endif
 	LOG(LOG_CAT_I, "Socket closed: " << p_chSocketName);
-enc:LOG(LOG_CAT_I, "Exiting thread: " << mThreadDadas[iTPos].p_Thread);
+enc:
+
+#ifndef WIN32
+	LOG(LOG_CAT_I, "Exiting thread: " << mThreadDadas[iTPos].p_Thread);
+#else
+	LOG(LOG_CAT_I, "Exiting thread: " << mThreadDadas[iTPos].p_Thread.p);
+#endif
 	CleanThrDadaPos(iTPos);
 	pthread_exit(p_vNum);
+	return 0;
 }
 
 /// Взятие адреса.
@@ -207,8 +221,9 @@ int main(int argc, char *argv[])
 	char* p_chPort = 0;
 	addrinfo* p_Res;
 	int iCurrPos = 0;
+#ifndef WIN32
 	pthread_t KeyThr;
-#ifdef WIN32
+#else
 	WSADATA wsadata = WSADATA();
 #endif
 	//
@@ -304,13 +319,19 @@ int main(int argc, char *argv[])
 	}
 	freeaddrinfo(p_Res);
 	//
+#ifndef WIN32
 	pthread_create(&KeyThr, NULL, WaitingThread, NULL);
+#endif
 	LOG(LOG_CAT_I, "Accepting connections, press 'Esc' for exit");
 nc:	bRequestNewConn = false;
 	iCurrPos = FindFreeThrDadaPos();
 	mThreadDadas[iCurrPos].bInUse = true;
 	pthread_create(&mThreadDadas[iCurrPos].p_Thread, NULL, ConversationThread, &iCurrPos);
+#ifndef WIN32
 	sleep(1);
+#else
+	Sleep(1000);
+#endif
 	while(!bExitSignal)
 	{
 #ifndef WIN32
@@ -325,21 +346,25 @@ nc:	bRequestNewConn = false;
 	}
 	printf("\b\b");
 	LOG(LOG_CAT_I, "Stopped by user");
-	shutdown(iListener, SHUT_RDWR);
 #ifndef WIN32
+	shutdown(iListener, SHUT_RDWR);
 	close(iListener);
 #else
 	closesocket(iListener);
 #endif
+#ifndef WIN32
 	sleep(1);
+#else
+	Sleep(1000);
+#endif
 	LOG(LOG_CAT_I, "Cleaning...");
 	pthread_mutex_lock(&ptMutex);
 	for(int iPos = 0; iPos != MAXCONN; iPos++)
 	{
 		if(mThreadDadas[iPos].bInUse == true)
 		{
-			shutdown(mThreadDadas[iPos].iConnection, SHUT_RDWR);
 #ifndef WIN32
+			shutdown(mThreadDadas[iPos].iConnection, SHUT_RDWR);
 			close(mThreadDadas[iPos].iConnection);
 #else
 			closesocket(mThreadDadas[iPos].iConnection);
@@ -350,7 +375,12 @@ nc:	bRequestNewConn = false;
 #ifdef WIN32
 		WSACleanup();
 #endif
-ex:	sleep(1);
+ex:
+#ifndef WIN32
+	sleep(1);
+#else
+	Sleep(1000);
+#endif
 	LOGCLOSE;
 	pthread_exit(NULL);
 }

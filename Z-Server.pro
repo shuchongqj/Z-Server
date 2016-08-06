@@ -13,7 +13,7 @@ win32 {
 LIBS += "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib\x64\User32.Lib" \
     "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib\x64\Shell32.lib" \
     "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib\x64\Ws2_32.lib" \
-    ".\pthread\lib\x64\pthreadVC2.lib"
+    $${PWD}\pthread\lib\pthreadVC2.lib
 CONFIG += console
 }
 
@@ -31,10 +31,9 @@ HEADERS += \
     TinyXML2/tinyxml2.h \
     logger.h \
     parserext.h \
-    pthread/include/pthread.h \
-    pthread/include/sched.h \
-    pthread/include/semaphore.h
+    pthread\include\pthread.h \
+    pthread\include\sched.h \
+    pthread\include\semaphore.h
 
-DISTFILES += \
-    pthread/dll/x64/pthreadVC2.dll \
-    pthread/lib/x64/pthreadVC2.lib
+DISTFILES += $${PWD}\pthread\dll\pthreadVC2.dll \
+    $${PWD}\pthread\lib\pthreadVC2.lib
