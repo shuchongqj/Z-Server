@@ -9,6 +9,9 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <termios.h>
 #else
 #include <pthread/include/pthread.h>
 #include <WinSock2.h>
@@ -19,40 +22,165 @@
 #define LOG_NAME				"Z-Server"
 #define ThreadDataPtr			((ThreadData*)p_Object)
 #define MAXDATA					1024
+#define MAXCONN					128
 //
+
+//== СТРУКТУРЫ.
+//
+struct ThreadData
+{
+	bool bInUse;
+	bool bConnected;
+	int iConnection;
+	pthread_t p_Thread;
+	char m_chData[MAXDATA];
+};
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL
 #ifndef WIN32
 ; // Баг в QtCreator`е на Windows, на Linux ';' нужна.
 #endif
-const pthread_mutex_t NetworkMutex = PTHREAD_MUTEX_INITIALIZER;
 bool bExitSignal = false;
-
-//== СТРУКТУРЫ.
+pthread_mutex_t ptMutex = PTHREAD_MUTEX_INITIALIZER;
+int iListener;
+bool bRequestNewConn;
 //
-struct ThreadData
-{
-	pthread_t p_Thread;
-	sockaddr_in cli_addr;
-	socklen_t addressLength;
-	int iClient;
-	char m_ch1[MAXDATA];
-	int iResult, iSended;
-	bool bKeepConnection;
-	char mchHBuf[NI_MAXHOST], mchSBuf[NI_MAXSERV];
-	ThreadData* p_ThreadData;
-	unsigned int ui0I;
-};
+ThreadData mThreadDadas[MAXCONN];
+//
 
 //== ФУНКЦИИ.
-#ifndef WIN32
-///
-void SignalHandler(int iSignal)
+/// Очистка позиции данных потока.
+void CleanThrDadaPos(int iPos)
 {
-	if(iSignal == SIGTSTP) bExitSignal = true;
+	memset(&mThreadDadas[iPos], 0, sizeof(ThreadData));
 }
+
+/// Поиск свободной позиции данных потока.
+int FindFreeThrDadaPos()
+{
+	int iPos = 0;
+	//
+	pthread_mutex_lock(&ptMutex);
+	for(; iPos != MAXCONN; iPos++)
+	{
+		if(mThreadDadas[iPos].bInUse == false)
+		{
+			pthread_mutex_unlock(&ptMutex);
+			return iPos;
+		}
+	}
+	pthread_mutex_unlock(&ptMutex);
+	return -1;
+}
+
+///
+char getch()
+{
+	char buf = 0;
+	termios old;
+	//
+	memset(&old, 0, sizeof old);
+	if (tcgetattr(0, &old) < 0)
+		perror("tcsetattr()");
+	old.c_lflag &= ~ICANON;
+	old.c_lflag &= ~ECHO;
+	old.c_cc[VMIN] = 1;
+	old.c_cc[VTIME] = 0;
+	if (tcsetattr(0, TCSANOW, &old) < 0)
+		perror("tcsetattr ICANON");
+	if (read(0, &buf, 1) < 0)
+		perror ("read()");
+	old.c_lflag |= ICANON;
+	old.c_lflag |= ECHO;
+	if (tcsetattr(0, TCSADRAIN, &old) < 0)
+		perror ("tcsetattr ~ICANON");
+	return (buf);
+}
+
+///
+void* WaitingThread(void *p_vPlug)
+{
+	p_vPlug = p_vPlug;
+	while(getch() != 0x1b);
+	bExitSignal = true;
+	bRequestNewConn = false;
+	pthread_exit(p_vPlug);
+}
+
+///
+void* ConversationThread(void* p_vNum)
+{
+	int iConnection, iStatus, iTPos;
+	sockaddr_in saInet;
+	socklen_t slLenInet;
+	char* p_chSocketName;
+	//
+	iTPos = *((int*)p_vNum);
+	mThreadDadas[iTPos].p_Thread = pthread_self();
+	LOG(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread);
+	iConnection = (int)accept(iListener, NULL, NULL);
+	mThreadDadas[iTPos].bConnected = true;
+	if((iConnection < 0))
+	{
+		if(!bExitSignal)
+		{
+			LOG(LOG_CAT_E, "'accept': " << gai_strerror(iConnection));
+			goto enc;
+		}
+		else
+		{
+			LOG(LOG_CAT_I, "Accepting connections terminated");
+			goto enc;
+		}
+	}
+	LOG(LOG_CAT_I, "New connection accepted");
+	mThreadDadas[iTPos].iConnection = iConnection;
+	slLenInet = sizeof(sockaddr);
+	getpeername(iConnection, (sockaddr*)&saInet, &slLenInet);
+	p_chSocketName = inet_ntoa(saInet.sin_addr);
+	LOG(LOG_CAT_I, "Connected with: " << p_chSocketName);
+	iStatus = send(iConnection, "Welcome\n", 9, 0);
+	if(iStatus == -1)
+	{
+		LOG(LOG_CAT_E, "'send': " << gai_strerror(iStatus));
+		goto ec;
+	}
+	//
+	bRequestNewConn = true;
+	while(bExitSignal == false)
+	{
+		iStatus = recv(iConnection, mThreadDadas[iTPos].m_chData, sizeof(mThreadDadas[iTPos].m_chData), 0);
+		if (bExitSignal == true)
+		{
+			LOG(LOG_CAT_I, "Exiting reading: " << p_chSocketName);
+			break;
+		}
+		if (iStatus <= 0)
+		{
+			LOG(LOG_CAT_I, "Reading socket stopped: " << p_chSocketName);
+			break;
+		}
+		pthread_mutex_lock(&ptMutex);
+		mThreadDadas[iTPos].m_chData[iStatus - 1] = 0;
+		LOG(LOG_CAT_I, "Received: " << mThreadDadas[iTPos].m_chData);
+		printf("\b\b");
+		pthread_mutex_unlock(&ptMutex);
+		iStatus = send(iConnection, "Message received\n", sizeof("Message received\n"), 0);
+	}
+	//
+ec: shutdown(iConnection, SHUT_RDWR);
+#ifndef WIN32
+	close(iConnection);
+#else
+	closesocket(iConnection);
 #endif
+	LOG(LOG_CAT_I, "Socket closed: " << p_chSocketName);
+enc:LOG(LOG_CAT_I, "Exiting thread: " << mThreadDadas[iTPos].p_Thread);
+	CleanThrDadaPos(iTPos);
+	pthread_exit(p_vNum);
+}
+
 /// Взятие адреса.
 void* GetInAddr(sockaddr *p_SockAddr)
 {
@@ -73,18 +201,20 @@ int main(int argc, char *argv[])
 	XMLError eResult;
 	LOG_CTRL_INIT;
 	_uiRetval = _uiRetval; // Заглушка.
-	int iServerStatus, iListener, iConnection;
-	addrinfo o_Hints, *p_Res;
+	int iServerStatus;
+	addrinfo o_Hints;
 	char* p_chServerIP = 0;
 	char* p_chPort = 0;
-#ifndef WIN32
-	struct sigaction sigIntHandler;
-#else
+	addrinfo* p_Res;
+	int iCurrPos = 0;
+	pthread_t KeyThr;
+#ifdef WIN32
 	WSADATA wsadata = WSADATA();
 #endif
 	//
 	LOG(LOG_CAT_I, "Starting server");
 	//
+	memset(&mThreadDadas, 0, sizeof mThreadDadas);
 	eResult = xmlDocSConf.LoadFile(S_CONF_PATH);
 	if (eResult != XML_SUCCESS)
 	{
@@ -174,57 +304,53 @@ int main(int argc, char *argv[])
 	}
 	freeaddrinfo(p_Res);
 	//
-#ifndef WIN32
-	LOG(LOG_CAT_I, "Accepting connections, press 'Ctrl+Z' for exit");
-	sigemptyset(&sigIntHandler.sa_mask);
-	sigIntHandler.sa_flags = 0;
-	sigIntHandler.sa_handler = SignalHandler;
-	sigaction(SIGTSTP, &sigIntHandler, NULL);
-#else
+	pthread_create(&KeyThr, NULL, WaitingThread, NULL);
 	LOG(LOG_CAT_I, "Accepting connections, press 'Esc' for exit");
-#endif
+nc:	bRequestNewConn = false;
+	iCurrPos = FindFreeThrDadaPos();
+	mThreadDadas[iCurrPos].bInUse = true;
+	pthread_create(&mThreadDadas[iCurrPos].p_Thread, NULL, ConversationThread, &iCurrPos);
+	sleep(1);
 	while(!bExitSignal)
 	{
-#ifdef WIN32
+#ifndef WIN32
+#else
 		if(GetConsoleWindow() == GetForegroundWindow())
 		{
 			if(GetAsyncKeyState(VK_ESCAPE)) bExitSignal = true;
 		}
 #endif
-		iConnection = (int)accept(iListener, NULL, NULL);
-		if(bExitSignal) continue;
-		LOG(LOG_CAT_I, "Accepted");
-		if(iConnection < 0)
-		{
-			LOG(LOG_CAT_E, "'accept': " << gai_strerror(iConnection));
-			RETVAL_SET(RETVAL_ERR);
-			continue;
-		}
-		//
-		sockaddr_in o_AddrInet;
-		socklen_t slLenInet;
-		slLenInet = sizeof(sockaddr);
-		getpeername(iConnection, (sockaddr*)&o_AddrInet, &slLenInet);
-		LOG(LOG_CAT_I, "Connected with: " << inet_ntoa(o_AddrInet.sin_addr));
-		iServerStatus = send(iConnection, "Welcome", 7, 0);
-		if(iServerStatus == -1)
-		{
-			LOG(LOG_CAT_E, "'send': " << gai_strerror(iServerStatus));
-			RETVAL_SET(RETVAL_ERR);
-			continue;
-		}
+		if(bRequestNewConn == true)
+			goto nc;
 	}
 	printf("\b\b");
 	LOG(LOG_CAT_I, "Stopped by user");
+	shutdown(iListener, SHUT_RDWR);
 #ifndef WIN32
-	close(iConnection);
+	close(iListener);
 #else
-	closesocket(iConnection);
+	closesocket(iListener);
 #endif
-	//
-ex:	LOGCLOSE;
+	sleep(1);
+	LOG(LOG_CAT_I, "Cleaning...");
+	pthread_mutex_lock(&ptMutex);
+	for(int iPos = 0; iPos != MAXCONN; iPos++)
+	{
+		if(mThreadDadas[iPos].bInUse == true)
+		{
+			shutdown(mThreadDadas[iPos].iConnection, SHUT_RDWR);
+#ifndef WIN32
+			close(mThreadDadas[iPos].iConnection);
+#else
+			closesocket(mThreadDadas[iPos].iConnection);
+#endif
+		}
+	}
+	pthread_mutex_unlock(&ptMutex);
 #ifdef WIN32
 		WSACleanup();
 #endif
-	LOG_CTRL_EXIT;
+ex:	sleep(1);
+	LOGCLOSE;
+	pthread_exit(NULL);
 }
