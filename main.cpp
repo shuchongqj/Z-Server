@@ -29,7 +29,6 @@
 struct ConversationThreadData
 {
 	bool bInUse; ///< Флаг использования в соотв. потоке.
-	bool bConnected; ///< Флаг наличия соединения в потоке.
 	int iConnection; ///< ИД соединения.
 	pthread_t p_Thread; ///< Указатель на рабочий поток.
 	char m_chData[MAXDATA]; ///< Принятый от клиента пакет.
@@ -42,7 +41,7 @@ LOGDECL
 #endif
 bool bExitSignal = false; ///< Сигнал на общее завершение.
 pthread_mutex_t ptMutex = PTHREAD_MUTEX_INITIALIZER; ///< Инициализатор мьютекса.
-int iListener; ///< ИД приёмника.
+int iListener; ///< Сокет приёмника.
 bool bRequestNewConn; ///< Сигнал запроса нового соединения.
 ConversationThreadData mThreadDadas[MAXCONN]; ///< Массив структур описания потоков соединений.
 
@@ -62,7 +61,7 @@ int FindFreeThrDadaPos()
 	pthread_mutex_lock(&ptMutex);
 	for(; iPos != MAXCONN; iPos++)
 	{
-		if(mThreadDadas[iPos].bInUse == false)
+		if(mThreadDadas[iPos].bInUse == false) // Если не стоит флаг занятости - годен.
 		{
 			pthread_mutex_unlock(&ptMutex);
 			return iPos;
@@ -122,57 +121,56 @@ void* ConversationThread(void* p_vNum)
 	socklen_t slLenInet;
 	char* p_chSocketName;
 	//
-	iTPos = *((int*)p_vNum);
-	mThreadDadas[iTPos].p_Thread = pthread_self();
+	iTPos = *((int*)p_vNum); // Получили номер в массиве.
+	mThreadDadas[iTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
 #ifndef WIN32
 	LOG(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread);
 #else
 	LOG(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread.p);
 #endif
-	iConnection = (int)accept(iListener, NULL, NULL);
-	mThreadDadas[iTPos].bConnected = true;
-	if((iConnection < 0))
+	iConnection = (int)accept(iListener, NULL, NULL); // Ждём входящих.
+	if((iConnection < 0)) // При ошибке после выхода из ожидания входящих...
 	{
-		if(!bExitSignal)
+		if(!bExitSignal) // Если не было сигнала на выход от основного потока...
 		{
-			LOG(LOG_CAT_E, "'accept': " << gai_strerror(iConnection));
+			LOG(LOG_CAT_E, "'accept': " << gai_strerror(iConnection)); // Про ошибку.
 			goto enc;
 		}
 		else
 		{
-			LOG(LOG_CAT_I, "Accepting connections terminated");
+			LOG(LOG_CAT_I, "Accepting connections terminated"); // Норм. сообщение.
 			goto enc;
 		}
 	}
 	LOG(LOG_CAT_I, "New connection accepted");
-	mThreadDadas[iTPos].iConnection = iConnection;
+	mThreadDadas[iTPos].iConnection = iConnection; // Установка ИД соединения.
 	slLenInet = sizeof(sockaddr);
 	getpeername(iConnection, (sockaddr*)&saInet, &slLenInet);
 	p_chSocketName = inet_ntoa(saInet.sin_addr);
-	LOG(LOG_CAT_I, "Connected with: " << p_chSocketName);
+	LOG(LOG_CAT_I, "Connected with: " << p_chSocketName); // Инфо про входящий IP.
 	iStatus = send(iConnection, "Welcome\n", 9, 0);
-	if(iStatus == -1)
+	if(iStatus == -1) // Если не вышло отправить...
 	{
 		LOG(LOG_CAT_E, "'send': " << gai_strerror(iStatus));
 		goto ec;
 	}
 	//
-	bRequestNewConn = true;
-	while(bExitSignal == false)
+	bRequestNewConn = true; // Соединение готово - установка флага для главного потока на запрос нового.
+	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
 	{
-		iStatus = recv(iConnection, mThreadDadas[iTPos].m_chData, sizeof(mThreadDadas[iTPos].m_chData), 0);
-		if (bExitSignal == true)
+		iStatus = recv(iConnection, mThreadDadas[iTPos].m_chData, sizeof(mThreadDadas[iTPos].m_chData), 0); // Принимаем пакет.
+		if (bExitSignal == true) // Если по выходу из приёмки обнаружен общий сигнал на выход...
 		{
 			LOG(LOG_CAT_I, "Exiting reading: " << p_chSocketName);
 			break;
 		}
-		if (iStatus <= 0)
+		if (iStatus <= 0) // Если статус приёмки - отказ (вместо кол-ва принятых байт)...
 		{
 			LOG(LOG_CAT_I, "Reading socket stopped: " << p_chSocketName);
 			break;
 		}
 		pthread_mutex_lock(&ptMutex);
-		mThreadDadas[iTPos].m_chData[iStatus - 1] = 0;
+		mThreadDadas[iTPos].m_chData[iStatus - 1] = 0; // (временно!) ноль в конце, для текста.
 		LOG(LOG_CAT_I, "Received: " << mThreadDadas[iTPos].m_chData);
 		printf("\b\b");
 		pthread_mutex_unlock(&ptMutex);
@@ -238,6 +236,7 @@ int main(int argc, char *argv[])
 	LOG(LOG_CAT_I, "Starting server");
 	//
 	memset(&mThreadDadas, 0, sizeof mThreadDadas);
+	// Работа с файлом конфигурации.
 	eResult = xmlDocSConf.LoadFile(S_CONF_PATH);
 	if (eResult != XML_SUCCESS)
 	{
@@ -286,6 +285,7 @@ int main(int argc, char *argv[])
 		RETVAL_SET(RETVAL_ERR);
 		LOG_CTRL_EXIT;
 	}
+	// Подготовка соединения сервера.
 #ifdef WIN32
 	if(WSAStartup(MAKEWORD(2, 2), &wsadata) != NO_ERROR)
 	{
@@ -304,21 +304,21 @@ int main(int argc, char *argv[])
 		RETVAL_SET(RETVAL_ERR);
 		goto ex;
 	}
-	iListener = (int)socket(p_Res->ai_family, p_Res->ai_socktype, p_Res->ai_protocol);
+	iListener = (int)socket(p_Res->ai_family, p_Res->ai_socktype, p_Res->ai_protocol); // Получение сокета для приёмника.
 	if(iListener < 0 )
 	{
 		LOG(LOG_CAT_E, "'socket': "  << gai_strerror(iServerStatus));
 		RETVAL_SET(RETVAL_ERR);
 		goto ex;
 	}
-	iServerStatus = bind(iListener, p_Res->ai_addr, (int)p_Res->ai_addrlen);
+	iServerStatus = bind(iListener, p_Res->ai_addr, (int)p_Res->ai_addrlen); // Привязка к указанному IP.
 	if(iServerStatus < 0)
 	{
 		LOG(LOG_CAT_E, "'bind': " << gai_strerror(iServerStatus));
 		RETVAL_SET(RETVAL_ERR);
 		goto ex;
 	}
-	iServerStatus = listen(iListener, 10);
+	iServerStatus = listen(iListener, 10); // Запуск приёмника.
 	if(iServerStatus < 0)
 	{
 		LOG(LOG_CAT_E, "'listen': " << gai_strerror(iServerStatus));
@@ -328,18 +328,14 @@ int main(int argc, char *argv[])
 	freeaddrinfo(p_Res);
 	//
 #ifndef WIN32
-	pthread_create(&KeyThr, NULL, WaitingThread, NULL);
+	pthread_create(&KeyThr, NULL, WaitingThread, NULL); // Запуск потока ожидания ввода (только для линукса).
 #endif
 	LOG(LOG_CAT_I, "Accepting connections, press 'Esc' for exit");
-nc:	bRequestNewConn = false;
+	// Цикл ожидания входа клиентов.
+nc:	bRequestNewConn = false; // Вход в звено цикла ожидания клиентов - сброс флага запроса.
 	iCurrPos = FindFreeThrDadaPos();
-	mThreadDadas[iCurrPos].bInUse = true;
-	pthread_create(&mThreadDadas[iCurrPos].p_Thread, NULL, ConversationThread, &iCurrPos);
-#ifndef WIN32
-	sleep(1);
-#else
-	Sleep(1000);
-#endif
+	mThreadDadas[iCurrPos].bInUse = true; // Флаг занятости структуры.
+	pthread_create(&mThreadDadas[iCurrPos].p_Thread, NULL, ConversationThread, &iCurrPos); // Создание нового потока приёмки.
 	while(!bExitSignal)
 	{
 #ifndef WIN32
@@ -354,40 +350,40 @@ nc:	bRequestNewConn = false;
 	}
 	printf("\b\b");
 	LOG(LOG_CAT_I, "Stopped by user");
+	// Закрытие приёмника.
 #ifndef WIN32
 	shutdown(iListener, SHUT_RDWR);
 	close(iListener);
 #else
 	closesocket(iListener);
 #endif
-#ifndef WIN32
-	sleep(1);
-#else
-	Sleep(1000);
-#endif
-	LOG(LOG_CAT_I, "Cleaning...");
+	LOG(LOG_CAT_I, "Closing client sockets...");
 	pthread_mutex_lock(&ptMutex);
-	for(int iPos = 0; iPos != MAXCONN; iPos++)
+	for(iCurrPos = 0; iCurrPos != MAXCONN; iCurrPos++) // Закрываем все клиентские сокеты.
 	{
-		if(mThreadDadas[iPos].bInUse == true)
+		if(mThreadDadas[iCurrPos].bInUse == true)
 		{
 #ifndef WIN32
-			shutdown(mThreadDadas[iPos].iConnection, SHUT_RDWR);
-			close(mThreadDadas[iPos].iConnection);
+			shutdown(mThreadDadas[iCurrPos].iConnection, SHUT_RDWR);
+			close(mThreadDadas[iCurrPos].iConnection);
 #else
-			closesocket(mThreadDadas[iPos].iConnection);
+			closesocket(mThreadDadas[iCurrPos].iConnection);
 #endif
 		}
 	}
 	pthread_mutex_unlock(&ptMutex);
+	// Ждём, пока дойдёт до всех потоков соединений с клиентами.
+stc:iCurrPos = 0;
+	for(; iCurrPos != MAXCONN; iCurrPos++)
+	{
+		if(mThreadDadas[iCurrPos].bInUse == true)
+		{
+			goto stc;
+		}
+	}
+ex:
 #ifdef WIN32
 		WSACleanup();
-#endif
-ex:
-#ifndef WIN32
-	sleep(1);
-#else
-	Sleep(1000);
 #endif
 	LOGCLOSE;
 	return _uiRetval;
