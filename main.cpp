@@ -20,20 +20,19 @@
 
 //== МАКРОСЫ.
 #define LOG_NAME				"Z-Server"
-#define ThreadDataPtr			((ThreadData*)p_Object)
 #define MAXDATA					1024
 #define MAXCONN					128
 //
 
 //== СТРУКТУРЫ.
-//
-struct ThreadData
+/// Структура описания данных потока соединения.
+struct ConversationThreadData
 {
-	bool bInUse;
-	bool bConnected;
-	int iConnection;
-	pthread_t p_Thread;
-	char m_chData[MAXDATA];
+	bool bInUse; ///< Флаг использования в соотв. потоке.
+	bool bConnected; ///< Флаг наличия соединения в потоке.
+	int iConnection; ///< ИД соединения.
+	pthread_t p_Thread; ///< Указатель на рабочий поток.
+	char m_chData[MAXDATA]; ///< Принятый от клиента пакет.
 };
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
@@ -41,23 +40,22 @@ LOGDECL
 #ifndef WIN32
 ; // Баг в QtCreator`е на Windows, на Linux ';' нужна.
 #endif
-bool bExitSignal = false;
-pthread_mutex_t ptMutex = PTHREAD_MUTEX_INITIALIZER;
-int iListener;
-bool bRequestNewConn;
-//
-ThreadData mThreadDadas[MAXCONN];
-//
+bool bExitSignal = false; ///< Сигнал на общее завершение.
+pthread_mutex_t ptMutex = PTHREAD_MUTEX_INITIALIZER; ///< Инициализатор мьютекса.
+int iListener; ///< ИД приёмника.
+bool bRequestNewConn; ///< Сигнал запроса нового соединения.
+ConversationThreadData mThreadDadas[MAXCONN]; ///< Массив структур описания потоков соединений.
 
 //== ФУНКЦИИ.
 /// Очистка позиции данных потока.
 void CleanThrDadaPos(int iPos)
 {
-	memset(&mThreadDadas[iPos], 0, sizeof(ThreadData));
+	memset(&mThreadDadas[iPos], 0, sizeof(ConversationThreadData));
 }
 
 /// Поиск свободной позиции данных потока.
 int FindFreeThrDadaPos()
+							///< \return Возвращает номер свободной позиции, иначе - RETVAL_ERR.
 {
 	int iPos = 0;
 	//
@@ -71,12 +69,13 @@ int FindFreeThrDadaPos()
 		}
 	}
 	pthread_mutex_unlock(&ptMutex);
-	return -1;
+	return RETVAL_ERR;
 }
 
-///
+/// Импортированная функция получения символа от пользователя в терминал (только для линукса).
 #ifndef WIN32
-char getch()
+char GetChar()
+							///< \return Возвращает код символа от пользователя.
 {
 	char buf = 0;
 	termios old;
@@ -99,20 +98,25 @@ char getch()
 	return (buf);
 }
 
-///
+/// Поток ожидания ввода символа от пользователя в терминал (только для линукса).
 void* WaitingThread(void *p_vPlug)
+							///< \param[in] p_vPlug Заглушка.
+							///< \return Заглушка.
 {
 	p_vPlug = p_vPlug;
-	while(getch() != 0x1b);
+	while(GetChar() != 0x1b);
 	bExitSignal = true;
 	bRequestNewConn = false;
 	pthread_exit(p_vPlug);
+	return 0;
 }
 #endif
 
-///
+/// Поток соединения.
 void* ConversationThread(void* p_vNum)
 {
+							///< \param[in] p_vNum Ук. на переменную типа int с номером предоставленной структуры в mThreadDadas.
+							///< \return Заглушка.
 	int iConnection, iStatus, iTPos;
 	sockaddr_in saInet;
 	socklen_t slLenInet;
@@ -195,8 +199,9 @@ enc:
 	return 0;
 }
 
-/// Взятие адреса.
+/// Взятие адреса на входе.
 void* GetInAddr(sockaddr *p_SockAddr)
+							///< \param[in] p_SockAddr Указатель на структуру описания адреса сокета.
 {
 	if(p_SockAddr->sa_family == AF_INET)
 	{
@@ -207,6 +212,9 @@ void* GetInAddr(sockaddr *p_SockAddr)
 
 /// Точка входа в приложение.
 int main(int argc, char *argv[])
+							///< \param[in] argc Заглушка.
+							///< \param[in] argv Заглушка.
+							///< \return Общий результат работы.
 {
 	argc = argc; // Заглушка.
 	argv = argv; // Заглушка.

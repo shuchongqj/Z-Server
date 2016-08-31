@@ -47,5 +47,7 @@ bool FindChildNodes(XMLNode* p_NodeExt, list <XMLNode*> &a_lFoundedElements, con
 						   bool bOneLevel = false, bool bFirstOnly = false);
 												///< \param[in] p_NodeExt Указатель на разъём родителя.
 												///< \param[out] a_lFoundedElements Ссылка на список для заполнения.
+												///< \param[in] p_chTarget Ссылка имя искомого разъёма.
 												///< \param[in] bOneLevel Флаг прохода по одному уровню.
 												///< \param[in] bFirstOnly Флаг единовременного срабатывания.
+												///< \return true, если удачно.
