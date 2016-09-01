@@ -413,9 +413,9 @@ stc:iCurrPos = 0;
 		// Если занят - на начало.
 		if(mThreadDadas[iCurrPos].bInUse == true)
 		{
+			MSleep(USER_RESPONSE_MS);
 			goto stc;
 		}
-		MSleep(USER_RESPONSE_MS);
 	}
 	Z_LOG(LOG_CAT_I, "Clients has been disconnected");
 ex:
