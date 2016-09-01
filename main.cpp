@@ -49,13 +49,14 @@ LOGDECL
 #ifndef WIN32
 ; // Баг в QtCreator`е на Windows, на Linux ';' нужна.
 #endif
+static bool bExitSignalInit = false; ///< Сигнал от пользователя на завершение.
 static bool bExitSignal = false; ///< Сигнал на общее завершение.
 static pthread_mutex_t ptConnMutex = PTHREAD_MUTEX_INITIALIZER; ///< Инициализатор мьютекса соединений.
 static pthread_mutex_t ptLogMutex = PTHREAD_MUTEX_INITIALIZER; ///< Инициализатор мьютекса лога.
 static int iListener; ///< Сокет приёмника.
 static bool bRequestNewConn; ///< Сигнал запроса нового соединения.
 static ConversationThreadData mThreadDadas[MAX_CONN]; ///< Массив структур описания потоков соединений.
-static bool bListenerAlive; ///< Признак жизни приёмника.
+static bool bListenerAlive; ///< Признак жизни приёмника.я
 
 //== ФУНКЦИИ.
 /// Очистка позиции данных потока.
@@ -116,7 +117,7 @@ void* WaitingThread(void *p_vPlug)
 {
 	p_vPlug = p_vPlug;
 	while(GetChar() != 0x1b);
-	bExitSignal = true;
+	bExitSignalInit = true;
 	pthread_exit(p_vPlug);
 	return 0;
 }
@@ -142,21 +143,23 @@ void* ConversationThread(void* p_vNum)
 #endif
 	bKillListenerAccept = false;
 	iConnection = (int)accept(iListener, NULL, NULL); // Ждём входящих.
-	mThreadDadas[iTPos].bInUse = true; // Флаг занятости структуры.
 	if((iConnection < 0)) // При ошибке после выхода из ожидания входящих...
 	{
 		if(!bExitSignal) // Если не было сигнала на выход от основного потока...
 		{
+			pthread_mutex_lock(&ptConnMutex);
 			Z_LOG(LOG_CAT_E, "'accept': " << gai_strerror(iConnection)); // Про ошибку.
 			goto enc;
 		}
 		else
 		{
+			pthread_mutex_lock(&ptConnMutex);
 			Z_LOG(LOG_CAT_I, "Accepting connections terminated"); // Норм. сообщение.
 			bKillListenerAccept = true; // Заказываем подтверждение закрытия приёмника.
 			goto enc;
 		}
 	}
+	mThreadDadas[iTPos].bInUse = true; // Флаг занятости структуры.
 	Z_LOG(LOG_CAT_I, "New connection accepted");
 	mThreadDadas[iTPos].iConnection = iConnection; // Установка ИД соединения.
 	slLenInet = sizeof(sockaddr);
@@ -167,49 +170,48 @@ void* ConversationThread(void* p_vNum)
 	iStatus = send(iConnection, "Welcome\n", 9, 0);
 	if(iStatus == -1) // Если не вышло отправить...
 	{
+		pthread_mutex_lock(&ptConnMutex);
 		Z_LOG(LOG_CAT_E, "'send': " << gai_strerror(iStatus));
 		goto ec;
 	}
 	//
 	bRequestNewConn = true; // Соединение готово - установка флага для главного потока на запрос нового.
-	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
+	// Принимаем пакет.
+eag:iStatus = recv(iConnection, mThreadDadas[iTPos].m_chData, sizeof(mThreadDadas[iTPos].m_chData), MSG_DONTWAIT);
+	if (bExitSignal == true) // Если в цикле обнаружен общий сигнал на выход...
 	{
-		iStatus = recv(iConnection, mThreadDadas[iTPos].m_chData, sizeof(mThreadDadas[iTPos].m_chData), 0); // Принимаем пакет.
 		pthread_mutex_lock(&ptConnMutex);
-		if (bExitSignal == true) // Если по выходу из приёмки обнаружен общий сигнал на выход...
-		{
-			Z_LOG(LOG_CAT_I, "Exiting reading: " << p_chSocketName);
-			pthread_mutex_unlock(&ptConnMutex);
-			break;
-		}
-		if (iStatus <= 0) // Если статус приёмки - отказ (вместо кол-ва принятых байт)...
-		{
-			Z_LOG(LOG_CAT_I, "Reading socket stopped: " << p_chSocketName);
-			pthread_mutex_unlock(&ptConnMutex);
-			break;
-		}
-		mThreadDadas[iTPos].m_chData[iStatus - 1] = 0; // (временно!) ноль в конце, для текста.
-		Z_LOG(LOG_CAT_I, "Received: " << mThreadDadas[iTPos].m_chData);
-		printf("\b\b");
-		pthread_mutex_unlock(&ptConnMutex);
-		iStatus = send(iConnection, "Message received\n", sizeof("Message received\n"), 0);
+		Z_LOG(LOG_CAT_I, "Exiting reading: " << p_chSocketName);
+		goto ec;
 	}
-	//
+	if((iStatus == -1) && (errno == EAGAIN)) goto eag;
+	// Что-то пришло...
+	if (iStatus <= 0) // Если статус приёмки - отказ (вместо кол-ва принятых байт)...
+	{
+		pthread_mutex_lock(&ptConnMutex);
+		Z_LOG(LOG_CAT_I, "Reading socket stopped: " << p_chSocketName);
+		goto ec;
+	}
+	Z_LOG(LOG_CAT_I, "Received: " << mThreadDadas[iTPos].m_chData);
+	printf("\b\b");
+	iStatus = send(iConnection, "Message received\n", sizeof("Message received\n"), 0);
+	goto eag;
 ec:
-	pthread_mutex_lock(&ptConnMutex);
+#ifndef WIN32
+	shutdown(iConnection, SHUT_RDWR);
+	close(iConnection);
+#else
+	closesocket(iConnection);
+#endif
 	if(bExitSignal == false)
 	{
-#ifndef WIN32
-		shutdown(iConnection, SHUT_RDWR);
-		close(iConnection);
-#else
-		closesocket(iConnection);
-#endif
 		Z_LOG(LOG_CAT_I, "Socket closed by client absence: " << p_chSocketName);
 	}
-	pthread_mutex_unlock(&ptConnMutex);
+	else
+	{
+		Z_LOG(LOG_CAT_I, "Socket closed internally: " << p_chSocketName);
+	}
 enc:
-	pthread_mutex_lock(&ptConnMutex);
 #ifndef WIN32
 	Z_LOG(LOG_CAT_I, "Exiting thread: " << mThreadDadas[iTPos].p_Thread);
 #else
@@ -361,13 +363,13 @@ int main(int argc, char *argv[])
 nc:	bRequestNewConn = false; // Вход в звено цикла ожидания клиентов - сброс флага запроса.
 	iCurrPos = FindFreeThrDadaPos();
 	pthread_create(&mThreadDadas[iCurrPos].p_Thread, NULL, ConversationThread, &iCurrPos); // Создание нового потока приёмки.
-	while(!bExitSignal)
+	while(!bExitSignalInit)
 	{
 #ifndef WIN32
 #else
 		if(GetConsoleWindow() == GetForegroundWindow())
 		{
-			if(GetAsyncKeyState(VK_ESCAPE)) bExitSignal = true;
+			if(GetAsyncKeyState(VK_ESCAPE)) bExitSignalInit = true;
 		}
 #endif
 		if(bRequestNewConn == true)
@@ -375,8 +377,23 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 		MSleep(USER_RESPONSE_MS);
 	}
 	printf("\b\b");
-	// Закрытие приёмника.
 	Z_LOG(LOG_CAT_I, "Terminated by user.");
+	// Закрытие сокетов клиентов.
+	Z_LOG(LOG_CAT_I, "Check for clients disconnecting...");
+	// Ждём, пока дойдёт до всех потоков соединений с клиентами.
+	bExitSignal = true;
+stc:iCurrPos = 0;
+	for(; iCurrPos != MAX_CONN; iCurrPos++)
+	{
+		// Если занят - на начало.
+		if(mThreadDadas[iCurrPos].bInUse == true)
+		{
+			MSleep(USER_RESPONSE_MS);
+			goto stc;
+		}
+	}
+	Z_LOG(LOG_CAT_I, "All clients has been disconnected");
+	// Закрытие приёмника.
 	Z_LOG(LOG_CAT_I, "Closing listener...");
 #ifndef WIN32
 	shutdown(iListener, SHUT_RDWR);
@@ -389,35 +406,6 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 		MSleep(USER_RESPONSE_MS);
 	}
 	Z_LOG(LOG_CAT_I, "Listener has been closed");
-	// Закрытие сокетов клиентов.
-	Z_LOG(LOG_CAT_I, "Disconnecting clients...");
-	pthread_mutex_lock(&ptConnMutex);
-	for(iCurrPos = 0; iCurrPos != MAX_CONN; iCurrPos++) // Закрываем все клиентские сокеты.
-	{
-		if(mThreadDadas[iCurrPos].bInUse == true)
-		{
-#ifndef WIN32
-			shutdown(mThreadDadas[iCurrPos].iConnection, SHUT_RDWR);
-			close(mThreadDadas[iCurrPos].iConnection);
-#else
-			closesocket(mThreadDadas[iCurrPos].iConnection);
-#endif
-			Z_LOG(LOG_CAT_I, "Socket closed internally: " << inet_ntoa(mThreadDadas[iCurrPos].saInet.sin_addr));
-		}
-	}
-	pthread_mutex_unlock(&ptConnMutex);
-	// Ждём, пока дойдёт до всех потоков соединений с клиентами.
-stc:iCurrPos = 0;
-	for(; iCurrPos != MAX_CONN; iCurrPos++)
-	{
-		// Если занят - на начало.
-		if(mThreadDadas[iCurrPos].bInUse == true)
-		{
-			MSleep(USER_RESPONSE_MS);
-			goto stc;
-		}
-	}
-	Z_LOG(LOG_CAT_I, "Clients has been disconnected");
 ex:
 #ifdef WIN32
 		WSACleanup();
