@@ -23,6 +23,7 @@
 #define MAX_DATA				1024
 #define MAX_CONN				128
 #define USER_RESPONSE_MS		100
+#define SERVER_RESPONSE_MS		1
 #define Z_LOG(Category,Text)	pthread_mutex_lock(&ptLogMutex);															\
 								LOG(Category,Text);																			\
 								pthread_mutex_unlock(&ptLogMutex);
@@ -133,6 +134,9 @@ void* ConversationThread(void* p_vNum)
 	socklen_t slLenInet;
 	char* p_chSocketName;
 	bool bKillListenerAccept;
+#ifdef WIN32
+	u_long iMode = 1;
+#endif
 	//
 	iTPos = *((int*)p_vNum); // Получили номер в массиве.
 	mThreadDadas[iTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
@@ -176,17 +180,30 @@ void* ConversationThread(void* p_vNum)
 	}
 	//
 	bRequestNewConn = true; // Соединение готово - установка флага для главного потока на запрос нового.
+#ifdef WIN32
+	ioctlsocket(iConnection, FIONBIO, &iMode);
+#endif
 	// Принимаем пакет.
+	#ifndef WIN32
+
 eag:iStatus = recv(iConnection, mThreadDadas[iTPos].m_chData, sizeof(mThreadDadas[iTPos].m_chData), MSG_DONTWAIT);
+#else
+eag:iStatus = recv(iConnection, mThreadDadas[iTPos].m_chData, sizeof(mThreadDadas[iTPos].m_chData), 0);
+#endif
 	if (bExitSignal == true) // Если в цикле обнаружен общий сигнал на выход...
 	{
 		pthread_mutex_lock(&ptConnMutex);
 		Z_LOG(LOG_CAT_I, "Exiting reading: " << p_chSocketName);
 		goto ec;
 	}
-	if((iStatus == -1) && (errno == EAGAIN)) goto eag;
+#ifndef WIN32
+	usleep(SERVER_RESPONSE_MS);
+#else
+	Sleep(SERVER_RESPONSE_MS);
+#endif
+	if(iStatus < 0) goto eag; // Если не данные (больше нуля) и не отказ (ноль) - возврат в чтение.
 	// Что-то пришло...
-	if (iStatus <= 0) // Если статус приёмки - отказ (вместо кол-ва принятых байт)...
+	if (iStatus == 0) // Если статус приёмки - отказ (вместо кол-ва принятых байт)...
 	{
 		pthread_mutex_lock(&ptConnMutex);
 		Z_LOG(LOG_CAT_I, "Reading socket stopped: " << p_chSocketName);
