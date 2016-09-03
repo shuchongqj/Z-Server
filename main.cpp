@@ -1,6 +1,7 @@
 //== ВКЛЮЧЕНИЯ.
 #define _WINSOCKAPI_
 #include "hub.h"
+#include "protoparser.h"
 #include <signal.h>
 #ifndef WIN32
 #include <sys/socket.h>
@@ -132,6 +133,8 @@ void* ConversationThread(void* p_vNum)
 	socklen_t slLenInet;
 	char* p_chSocketName;
 	bool bKillListenerAccept;
+	ProtoParser* p_ProtoParser;
+	char chPersingResult;
 	//
 	iTPos = *((int*)p_vNum); // Получили номер в массиве.
 	mThreadDadas[iTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
@@ -175,6 +178,7 @@ void* ConversationThread(void* p_vNum)
 	}
 	//
 	bRequestNewConn = true; // Соединение готово - установка флага для главного потока на запрос нового.
+	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
 	{
 		iStatus = recv(iConnection, mThreadDadas[iTPos].m_chData, sizeof(mThreadDadas[iTPos].m_chData), 0); // Принимаем пакет.
@@ -182,20 +186,53 @@ void* ConversationThread(void* p_vNum)
 		if (bExitSignal == true) // Если по выходу из приёмки обнаружен общий сигнал на выход...
 		{
 			Z_LOG(LOG_CAT_I, "Exiting reading: " << p_chSocketName);
-			goto ec;
+			goto ecd;
 		}
 		if (iStatus <= 0) // Если статус приёмки - отказ (вместо кол-ва принятых байт)...
 		{
 			Z_LOG(LOG_CAT_I, "Reading socket stopped: " << p_chSocketName);
-			goto ec;
+			goto ecd;
 		}
-		mThreadDadas[iTPos].m_chData[iStatus - 1] = 0; // (временно!) ноль в конце, для текста.
-		Z_LOG(LOG_CAT_I, "Received: " << mThreadDadas[iTPos].m_chData);
+		chPersingResult = p_ProtoParser->ParsePocket(mThreadDadas[iTPos].m_chData, iStatus);
+		switch(chPersingResult)
+		{
+			case PROTOPARSER_COMMAND:
+			{
+				Z_LOG(LOG_CAT_I, "Command recognized");
+			}
+			case PROTOPARSER_OK:
+			{
+				switch(p_ProtoParser->oParsedObject.chTypeCode)
+				{
+					case PROTO_O_TEXT_MSG:
+					{
+						// DEBUG
+						p_ProtoParser->oParsedObject.oProtocolStorage.oTextMsg.m_chMsg[iStatus - 2] = 0; // Чтобы не переводило вк.
+						//
+						Z_LOG(LOG_CAT_I, "Received text message: "
+							  << p_ProtoParser->oParsedObject.oProtocolStorage.oTextMsg.m_chMsg);
+						break;
+					}
+				}
+				break;
+			}
+			case PROTOPARSER_OUT_OF_RANGE:
+			{
+				Z_LOG(LOG_CAT_E, "Pocket out of range: " << p_ProtoParser->oParsedObject.iDataLength);
+				break;
+			}
+			case PROTOPARSER_UNKNOWN_COMMAND:
+			{
+				Z_LOG(LOG_CAT_E, "Unknown command");
+				break;
+			}
+		}
 		printf("\b\b");
 		pthread_mutex_unlock(&ptConnMutex);
-		iStatus = send(iConnection, "Message received\n", sizeof("Message received\n"), 0);
+		iStatus = send(iConnection, "tMessage received\n", sizeof("tMessage received\n"), 0);
 	}
 	pthread_mutex_lock(&ptConnMutex);
+ecd:delete p_ProtoParser;
 	//
 ec: if(bExitSignal == false)
 	{

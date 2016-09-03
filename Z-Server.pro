@@ -21,7 +21,8 @@ TEMPLATE = app
 SOURCES += main.cpp \
     TinyXML2/tinyxml2.cpp \
     parserext.cpp \
-    dlfcn-win32/dlfcn.c
+    dlfcn-win32/dlfcn.c \
+    protoparser.cpp
 
 HEADERS += \
     hub.h \
@@ -32,7 +33,9 @@ HEADERS += \
     parserext.h \
     pthread/include/pthread.h \
     pthread/include/sched.h \
-    pthread/include/semaphore.h
+    pthread/include/semaphore.h \
+    protoparser.h \
+    protocol.h
 
 DISTFILES += \
     pthread/lib/pthreadVC2.lib \
