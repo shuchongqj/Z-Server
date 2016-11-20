@@ -13,5 +13,6 @@
 
 //== МАКРОСЫ.
 #define S_CONF_PATH           "./settings/server.ini"
+#define C_CONF_PATH           "./settings/client.ini"
 
 #endif // HUB_H
