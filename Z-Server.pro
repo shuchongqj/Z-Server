@@ -22,7 +22,8 @@ SOURCES += main.cpp \
     TinyXML2/tinyxml2.cpp \
     parserext.cpp \
     dlfcn-win32/dlfcn.c \
-    protoparser.cpp
+    protoparser.cpp \
+    hub.cpp
 
 HEADERS += \
     hub.h \
