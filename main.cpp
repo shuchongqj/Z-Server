@@ -166,11 +166,18 @@ void* ConversationThread(void* p_vNum)
 	Z_LOG(LOG_CAT_I, "New connection accepted");
 	mThreadDadas[iTPos].iConnection = oConnectionData.iSocket; // Установка ИД соединения.
 	oConnectionData.ai_addrlen = sizeof(sockaddr);
-	getpeername(oConnectionData.iSocket, &oConnectionData.ai_addr, &oConnectionData.ai_addrlen);
+	getpeername(oConnectionData.iSocket, &oConnectionData.ai_addr, (int*)&oConnectionData.ai_addrlen);
 	mThreadDadas[iTPos].saInet = oConnectionData.ai_addr;
 	mThreadDadas[iTPos].ai_addrlen = oConnectionData.ai_addrlen;
+
+
+#ifndef WIN32
 	getnameinfo(&mThreadDadas[iTPos].saInet, mThreadDadas[iTPos].ai_addrlen,
 			m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
+#else
+	getnameinfo(&mThreadDadas[iTPos].saInet, (socklen_t)mThreadDadas[iTPos].ai_addrlen,
+			m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
+#endif
 	Z_LOG(LOG_CAT_I, "Connected with: " << m_chNameBuffer); // Инфо про входящий IP.
 	SendToAddress(oConnectionData, 'T', (char*)"Welcome!", (int)strlen("Welcome!"));
 	if(oConnectionData.iStatus == -1) // Если не вышло отправить...
@@ -238,7 +245,7 @@ ec: if(bExitSignal == false)
 		shutdown(oConnectionData.iSocket, SHUT_RDWR);
 		close(oConnectionData.iSocket);
 #else
-		closesocket(iConnection);
+		closesocket(oConnectionData.iSocket);
 #endif
 		Z_LOG(LOG_CAT_I, "Socket closed by client absence: " << m_chNameBuffer);
 	}
@@ -425,8 +432,13 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 #else
 			closesocket(mThreadDadas[iCurrPos].iConnection);
 #endif
+#ifndef WIN32
 			getnameinfo(&mThreadDadas[iCurrPos].saInet, mThreadDadas[iCurrPos].ai_addrlen,
 					m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
+#else
+			getnameinfo(&mThreadDadas[iCurrPos].saInet, (socklen_t)mThreadDadas[iCurrPos].ai_addrlen,
+					m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
+#endif
 			Z_LOG(LOG_CAT_I, "Socket closed internally: " << m_chNameBuffer);
 		}
 	}
