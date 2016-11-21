@@ -4,7 +4,6 @@
 #include "protoparser.h"
 #include <signal.h>
 #ifndef WIN32
-#include <sys/socket.h>
 #include <sys/types.h>
 #include <netdb.h>
 #include <arpa/inet.h>
@@ -15,7 +14,6 @@
 #include <termios.h>
 #else
 #include <pthread/include/pthread.h>
-#include <WinSock2.h>
 #include <WS2tcpip.h>
 #endif
 
@@ -39,7 +37,12 @@ struct ConversationThreadData
 {
 	bool bInUse; ///< Флаг использования в соотв. потоке.
 	int iConnection; ///< ИД соединения.
-	sockaddr_in saInet; ///< Адрес клиента.
+	sockaddr saInet; ///< Адрес клиента.
+#ifndef WIN32
+	socklen_t ai_addrlen; ///< Длина адреса.
+#else
+	size_t ai_addrlen; ///< Длина адреса.
+#endif
 	pthread_t p_Thread; ///< Указатель на рабочий поток.
 	char m_chData[MAX_DATA]; ///< Принятый от клиента пакет.
 };
@@ -127,13 +130,12 @@ void* ConversationThread(void* p_vNum)
 {
 							///< \param[in] p_vNum Ук. на переменную типа int с номером предоставленной структуры в mThreadDadas.
 							///< \return Заглушка.
-	int iConnection, iStatus, iTPos;
-	sockaddr_in saInet;
-	socklen_t slLenInet;
-	char* p_chSocketName;
+	int iTPos;
 	bool bKillListenerAccept;
 	ProtoParser* p_ProtoParser;
 	char chPersingResult;
+	ConnectionData oConnectionData;
+	char m_chNameBuffer[INET6_ADDRSTRLEN];
 	//
 	iTPos = *((int*)p_vNum); // Получили номер в массиве.
 	mThreadDadas[iTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
@@ -143,13 +145,13 @@ void* ConversationThread(void* p_vNum)
 	Z_LOG(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread.p);
 #endif
 	bKillListenerAccept = false;
-	iConnection = (int)accept(iListener, NULL, NULL); // Ждём входящих.
-	if((iConnection < 0)) // При ошибке после выхода из ожидания входящих...
+	oConnectionData.iSocket = (int)accept(iListener, NULL, NULL); // Ждём входящих.
+	if((oConnectionData.iSocket < 0)) // При ошибке после выхода из ожидания входящих...
 	{
 		if(!bExitSignal) // Если не было сигнала на выход от основного потока...
 		{
 			pthread_mutex_lock(&ptConnMutex);
-			Z_LOG(LOG_CAT_E, "'accept': " << gai_strerror(iConnection)); // Про ошибку.
+			Z_LOG(LOG_CAT_E, "'accept': " << gai_strerror(oConnectionData.iSocket)); // Про ошибку.
 			goto enc;
 		}
 		else
@@ -162,17 +164,19 @@ void* ConversationThread(void* p_vNum)
 	}
 	mThreadDadas[iTPos].bInUse = true; // Флаг занятости структуры.
 	Z_LOG(LOG_CAT_I, "New connection accepted");
-	mThreadDadas[iTPos].iConnection = iConnection; // Установка ИД соединения.
-	slLenInet = sizeof(sockaddr);
-	getpeername(iConnection, (sockaddr*)&saInet, &slLenInet);
-	mThreadDadas[iTPos].saInet = saInet;
-	p_chSocketName = inet_ntoa(saInet.sin_addr);
-	Z_LOG(LOG_CAT_I, "Connected with: " << p_chSocketName); // Инфо про входящий IP.
-	iStatus = send(iConnection, "Welcome\n", 9, 0);
-	if(iStatus == -1) // Если не вышло отправить...
+	mThreadDadas[iTPos].iConnection = oConnectionData.iSocket; // Установка ИД соединения.
+	oConnectionData.ai_addrlen = sizeof(sockaddr);
+	getpeername(oConnectionData.iSocket, &oConnectionData.ai_addr, &oConnectionData.ai_addrlen);
+	mThreadDadas[iTPos].saInet = oConnectionData.ai_addr;
+	mThreadDadas[iTPos].ai_addrlen = oConnectionData.ai_addrlen;
+	getnameinfo(&mThreadDadas[iTPos].saInet, mThreadDadas[iTPos].ai_addrlen,
+			m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
+	Z_LOG(LOG_CAT_I, "Connected with: " << m_chNameBuffer); // Инфо про входящий IP.
+	SendToAddress(oConnectionData, 'T', (char*)"Welcome!", (int)strlen("Welcome!"));
+	if(oConnectionData.iStatus == -1) // Если не вышло отправить...
 	{
 		pthread_mutex_lock(&ptConnMutex);
-		Z_LOG(LOG_CAT_E, "'send': " << gai_strerror(iStatus));
+		Z_LOG(LOG_CAT_E, "'send': " << gai_strerror(oConnectionData.iStatus));
 		goto ec;
 	}
 	//
@@ -180,19 +184,21 @@ void* ConversationThread(void* p_vNum)
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
 	{
-		iStatus = recv(iConnection, mThreadDadas[iTPos].m_chData, sizeof(mThreadDadas[iTPos].m_chData), 0); // Принимаем пакет.
+		oConnectionData.iStatus =
+				recv(oConnectionData.iSocket, mThreadDadas[iTPos].m_chData,
+					 sizeof(mThreadDadas[iTPos].m_chData), 0); // Принимаем пакет.
 		pthread_mutex_lock(&ptConnMutex);
 		if (bExitSignal == true) // Если по выходу из приёмки обнаружен общий сигнал на выход...
 		{
-			Z_LOG(LOG_CAT_I, "Exiting reading: " << p_chSocketName);
+			Z_LOG(LOG_CAT_I, "Exiting reading: " << m_chNameBuffer);
 			goto ecd;
 		}
-		if (iStatus <= 0) // Если статус приёмки - отказ (вместо кол-ва принятых байт)...
+		if (oConnectionData.iStatus <= 0) // Если статус приёмки - отказ (вместо кол-ва принятых байт)...
 		{
-			Z_LOG(LOG_CAT_I, "Reading socket stopped: " << p_chSocketName);
+			Z_LOG(LOG_CAT_I, "Reading socket stopped: " << m_chNameBuffer);
 			goto ecd;
 		}
-		chPersingResult = p_ProtoParser->ParsePocket(mThreadDadas[iTPos].m_chData, iStatus);
+		chPersingResult = p_ProtoParser->ParsePocket(mThreadDadas[iTPos].m_chData, oConnectionData.iStatus);
 		switch(chPersingResult)
 		{
 			case PROTOPARSER_OK:
@@ -203,7 +209,8 @@ void* ConversationThread(void* p_vNum)
 					{
 						Z_LOG(LOG_CAT_I, "Received text message: "
 							  << p_ProtoParser->oParsedObject.oProtocolStorage.oTextMsg.m_chMsg);
-						iStatus = send(iConnection, "TMessage received\n", sizeof("TMessage received\n"), 0);
+						oConnectionData.iStatus =
+								send(oConnectionData.iSocket, "TMessage received\n", sizeof("TMessage received\n"), 0);
 						break;
 					}
 				}
@@ -228,12 +235,12 @@ ecd:delete p_ProtoParser;
 ec: if(bExitSignal == false)
 	{
 #ifndef WIN32
-		shutdown(iConnection, SHUT_RDWR);
-		close(iConnection);
+		shutdown(oConnectionData.iSocket, SHUT_RDWR);
+		close(oConnectionData.iSocket);
 #else
 		closesocket(iConnection);
 #endif
-		Z_LOG(LOG_CAT_I, "Socket closed by client absence: " << p_chSocketName);
+		Z_LOG(LOG_CAT_I, "Socket closed by client absence: " << m_chNameBuffer);
 	}
 enc:
 #ifndef WIN32
@@ -246,17 +253,6 @@ enc:
 	if(bKillListenerAccept) bListenerAlive = false;
 	pthread_exit(p_vNum);
 	return 0;
-}
-
-/// Взятие адреса на входе.
-void* GetInAddr(sockaddr *p_SockAddr)
-							///< \param[in] p_SockAddr Указатель на структуру описания адреса сокета.
-{
-	if(p_SockAddr->sa_family == AF_INET)
-	{
-		return &(((struct sockaddr_in *)p_SockAddr)->sin_addr);
-	}
-	return &(((struct sockaddr_in6 *)p_SockAddr)->sin6_addr);
 }
 
 /// Точка входа в приложение.
@@ -278,6 +274,7 @@ int main(int argc, char *argv[])
 	char* p_chPort = 0;
 	addrinfo* p_Res;
 	int iCurrPos = 0;
+	char m_chNameBuffer[INET6_ADDRSTRLEN];
 #ifndef WIN32
 	pthread_t KeyThr;
 #else
@@ -428,7 +425,9 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 #else
 			closesocket(mThreadDadas[iCurrPos].iConnection);
 #endif
-			Z_LOG(LOG_CAT_I, "Socket closed internally: " << inet_ntoa(mThreadDadas[iCurrPos].saInet.sin_addr));
+			getnameinfo(&mThreadDadas[iCurrPos].saInet, mThreadDadas[iCurrPos].ai_addrlen,
+					m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
+			Z_LOG(LOG_CAT_I, "Socket closed internally: " << m_chNameBuffer);
 		}
 	}
 	pthread_mutex_unlock(&ptConnMutex);
