@@ -21,7 +21,6 @@
 
 //== МАКРОСЫ.
 #define LOG_NAME				"Z-Server"
-#define MAX_DATA				1024
 #define MAX_CONN				128
 #define USER_RESPONSE_MS		100
 #define Z_LOG(Category,Text)	pthread_mutex_lock(&ptLogMutex);															\
@@ -196,21 +195,15 @@ void* ConversationThread(void* p_vNum)
 		chPersingResult = p_ProtoParser->ParsePocket(mThreadDadas[iTPos].m_chData, iStatus);
 		switch(chPersingResult)
 		{
-			case PROTOPARSER_COMMAND:
-			{
-				Z_LOG(LOG_CAT_I, "Command recognized");
-			}
 			case PROTOPARSER_OK:
 			{
 				switch(p_ProtoParser->oParsedObject.chTypeCode)
 				{
 					case PROTO_O_TEXT_MSG:
 					{
-						// DEBUG
-						p_ProtoParser->oParsedObject.oProtocolStorage.oTextMsg.m_chMsg[iStatus - 2] = 0; // Чтобы не переводило вк.
-						//
 						Z_LOG(LOG_CAT_I, "Received text message: "
 							  << p_ProtoParser->oParsedObject.oProtocolStorage.oTextMsg.m_chMsg);
+						iStatus = send(iConnection, "TMessage received\n", sizeof("TMessage received\n"), 0);
 						break;
 					}
 				}
@@ -227,9 +220,7 @@ void* ConversationThread(void* p_vNum)
 				break;
 			}
 		}
-		printf("\b\b");
 		pthread_mutex_unlock(&ptConnMutex);
-		iStatus = send(iConnection, "tMessage received\n", sizeof("tMessage received\n"), 0);
 	}
 	pthread_mutex_lock(&ptConnMutex);
 ecd:delete p_ProtoParser;

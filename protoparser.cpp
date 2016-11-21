@@ -5,7 +5,7 @@
 //== МАКРОСЫ.
 // Утиль.
 #define _ParsedPSName(name)				oParsedObject.oProtocolStorage.name
-#define _PPControlSize(name)				if((int)sizeof(_ParsedPSName(PObjNaming(name))) < oParsedObject.iDataLength)		\
+#define _PPControlSize(name)			if((int)sizeof(_ParsedPSName(PObjNaming(name))) < oParsedObject.iDataLength)			\
 										{																						\
 											oParsedObject.iDataLength = (int)sizeof(_ParsedPSName(PObjNaming(name)));			\
 											chRetVal = PROTOPARSER_OUT_OF_RANGE;												\
@@ -18,7 +18,7 @@
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс парсера протокола.
-
+// Парсинг пакета в соответствующий член хранилища класса парсера.
 char ProtoParser::ParsePocket(char* p_chData, int iLength)
 {
 	char* p_chCurrPos;
@@ -33,17 +33,32 @@ char ProtoParser::ParsePocket(char* p_chData, int iLength)
 		// ОБРАБОТКА КОМАНД УПРАВЛЕНИЯ.
 		case PROTO_C_SEND_PASSW:
 		{
-			chRetVal = PROTOPARSER_COMMAND;
+			chRetVal = PROTOPARSER_OK;
 			break;
 		}
 		case PROTO_S_PASSW_OK:
 		{
-			chRetVal = PROTOPARSER_COMMAND;
+			chRetVal = PROTOPARSER_OK;
 			break;
 		}
 		case PROTO_S_PASSW_ERR:
 		{
-			chRetVal = PROTOPARSER_COMMAND;
+			chRetVal = PROTOPARSER_OK;
+			break;
+		}
+		case PROTO_C_REQUEST_LEAVING:
+		{
+			chRetVal = PROTOPARSER_OK;
+			break;
+		}
+		case PROTO_S_ACCEPT_LEAVING:
+		{
+			chRetVal = PROTOPARSER_OK;
+			break;
+		}
+		case PROTO_S_SHUTDOWN_INFO:
+		{
+			chRetVal = PROTOPARSER_OK;
 			break;
 		}
 		// ОБРАБОТКА ПАКЕТОВ.
@@ -52,6 +67,7 @@ char ProtoParser::ParsePocket(char* p_chData, int iLength)
 		case PROTO_O_TEXT_MSG:
 		{
 			ProcessToStorage(TextMsg);
+			chRetVal = PROTOPARSER_OK;
 			break;
 		}
 	}

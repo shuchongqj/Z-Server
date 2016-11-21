@@ -15,4 +15,6 @@
 #define S_CONF_PATH           "./settings/server.ini"
 #define C_CONF_PATH           "./settings/client.ini"
 
+#define MAX_DATA				1024
+
 #endif // HUB_H
