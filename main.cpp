@@ -166,11 +166,13 @@ void* ConversationThread(void* p_vNum)
 	Z_LOG(LOG_CAT_I, "New connection accepted");
 	mThreadDadas[iTPos].iConnection = oConnectionData.iSocket; // Установка ИД соединения.
 	oConnectionData.ai_addrlen = sizeof(sockaddr);
+#ifndef WIN32
+	getpeername(oConnectionData.iSocket, &oConnectionData.ai_addr, &oConnectionData.ai_addrlen);
+#else
 	getpeername(oConnectionData.iSocket, &oConnectionData.ai_addr, (int*)&oConnectionData.ai_addrlen);
+#endif
 	mThreadDadas[iTPos].saInet = oConnectionData.ai_addr;
 	mThreadDadas[iTPos].ai_addrlen = oConnectionData.ai_addrlen;
-
-
 #ifndef WIN32
 	getnameinfo(&mThreadDadas[iTPos].saInet, mThreadDadas[iTPos].ai_addrlen,
 			m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
