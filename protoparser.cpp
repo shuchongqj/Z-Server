@@ -33,6 +33,7 @@ char ProtoParser::ParsePocket(char* p_chData, int iLength)
 		// ОБРАБОТКА КОМАНД УПРАВЛЕНИЯ.
 		case PROTO_C_SEND_PASSW:
 		{
+			ProcessToStorage(Password);
 			chRetVal = PROTOPARSER_OK;
 			break;
 		}
@@ -67,6 +68,8 @@ char ProtoParser::ParsePocket(char* p_chData, int iLength)
 		case PROTO_O_TEXT_MSG:
 		{
 			ProcessToStorage(TextMsg);
+			oParsedObject.oProtocolStorage.oTextMsg.m_chMsg[oParsedObject.iDataLength - 1] = 0; // DEBUG.
+			oParsedObject.oProtocolStorage.oTextMsg.m_chMsg[oParsedObject.iDataLength] = 0;
 			chRetVal = PROTOPARSER_OK;
 			break;
 		}

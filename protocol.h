@@ -3,6 +3,7 @@
 
 //== МАКРОСЫ.
 #define MAX_MSG							512
+#define MAX_PASSW						16
 
 // Утиль.
 #define PObjNaming(name)				o##name // Создаёт имя объекта структуры добавлением 'o' в начале.
@@ -24,6 +25,9 @@
 #define PROTO_C_SEND_PASSW			'H'
 #define PROTO_S_PASSW_OK			'P'
 #define PROTO_S_PASSW_ERR			'p'
+#define PROTO_S_OUT_OF_RANGE		'|'
+#define PROTO_S_UNSECURED			'!'
+#define PROTO_S_UNKNOWN_COMMAND		'?'
 #define PROTO_C_REQUEST_LEAVING		'L'
 #define PROTO_S_ACCEPT_LEAVING		'B'
 #define PROTO_S_SHUTDOWN_INFO		'Q'
@@ -36,6 +40,11 @@
 ProtocolClassInit(
 
 // ====================== ОБЪЯВЛЕНИЯ СТРУКТУР ПАКЕТОВ =========================
+	ProtocolStorageDef
+	(
+		Password, // Имя типа структуры.
+		char m_chPassw[MAX_PASSW]; // Данные.
+	);
 	ProtocolStorageDef
 	(
 		TextMsg, // Имя типа структуры.

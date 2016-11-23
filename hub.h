@@ -35,7 +35,7 @@ struct ConnectionData
 
 //== ФУНКЦИИ.
 /// Отправка пакета адресату.
-void SendToAddress(ConnectionData &oConnectionData, char chCommand, char *p_chBuffer, int iLength);
+void SendToAddress(ConnectionData &oConnectionData, char chCommand, char *p_chBuffer = 0, int iLength = 0);
 													///< \param[in,out] oConnectionData Ссылка на структуру описания соединения.
 													///< \param[in] chCommand Команда, которая будет задана в начале пакета.
 													///< \param[in] p_chBuffer Указатель на буффер с данными.

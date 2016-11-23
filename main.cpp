@@ -29,6 +29,11 @@
 #else
 #define MSleep(val)				Sleep(val)
 #endif
+#define PAWWS_ERROR				"Authentification filed"
+#define PAWWS_ABSENT			"Client is not autherised"
+#define PAWWS_OK				"Connection is secured"
+#define POCKET_OUT_OF_RANGE		"Pocket out of range"
+#define UNKNOWN_COMMAND			"Unknown command"
 //
 
 //== СТРУКТУРЫ.
@@ -45,6 +50,7 @@ struct ConversationThreadData
 #endif
 	pthread_t p_Thread; ///< Указатель на рабочий поток.
 	char m_chData[MAX_DATA]; ///< Принятый от клиента пакет.
+	bool bSecured;
 };
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
@@ -59,6 +65,12 @@ static int iListener; ///< Сокет приёмника.
 static bool bRequestNewConn; ///< Сигнал запроса нового соединения.
 static ConversationThreadData mThreadDadas[MAX_CONN]; ///< Массив структур описания потоков соединений.
 static bool bListenerAlive; ///< Признак жизни приёмника.
+static char *p_chPassword = 0;
+static const char m_chPasswError[] = PAWWS_ERROR;
+static const char m_chPasswAbsent[] = PAWWS_ABSENT;
+static const char m_chPasswOk[] = PAWWS_OK;
+static const char m_chPockenOutOfRange[] = POCKET_OUT_OF_RANGE;
+static const char m_chUnknownCommand[] = UNKNOWN_COMMAND;
 
 //== ФУНКЦИИ.
 /// Очистка позиции данных потока.
@@ -181,7 +193,6 @@ void* ConversationThread(void* p_vNum)
 			m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
 #endif
 	Z_LOG(LOG_CAT_I, "Connected with: " << m_chNameBuffer); // Инфо про входящий IP.
-	SendToAddress(oConnectionData, 'T', (char*)"Welcome!", (int)strlen("Welcome!"));
 	if(oConnectionData.iStatus == -1) // Если не вышло отправить...
 	{
 		pthread_mutex_lock(&ptConnMutex);
@@ -202,7 +213,7 @@ void* ConversationThread(void* p_vNum)
 			Z_LOG(LOG_CAT_I, "Exiting reading: " << m_chNameBuffer);
 			goto ecd;
 		}
-		if (oConnectionData.iStatus <= 0) // Если статус приёмки - отказ (вместо кол-ва принятых байт)...
+		if (oConnectionData.iStatus <= 0) // Если статус приёмки - отказ (вместо кол-ва принятых байт)... strPassword
 		{
 			Z_LOG(LOG_CAT_I, "Reading socket stopped: " << m_chNameBuffer);
 			goto ecd;
@@ -212,27 +223,64 @@ void* ConversationThread(void* p_vNum)
 		{
 			case PROTOPARSER_OK:
 			{
-				switch(p_ProtoParser->oParsedObject.chTypeCode)
+				if(mThreadDadas[iTPos].bSecured == false)
 				{
-					case PROTO_O_TEXT_MSG:
+					if(p_ProtoParser->oParsedObject.chTypeCode == PROTO_C_SEND_PASSW)
 					{
-						Z_LOG(LOG_CAT_I, "Received text message: "
-							  << p_ProtoParser->oParsedObject.oProtocolStorage.oTextMsg.m_chMsg);
-						oConnectionData.iStatus =
-								send(oConnectionData.iSocket, "TMessage received\n", sizeof("TMessage received\n"), 0);
+						for(char chI = 0; chI != MAX_PASSW; chI++) // DEBUG Подстраховка для тестов с NetCat`а.
+						{
+							if(p_ProtoParser->oParsedObject.oProtocolStorage.oPassword.m_chPassw[(int)chI] == 0x0A)
+							{
+								p_ProtoParser->oParsedObject.oProtocolStorage.oPassword.m_chPassw[(int)chI] = 0;
+								break;
+							}
+						}
+						if(!strcmp(p_chPassword, p_ProtoParser->oParsedObject.oProtocolStorage.oPassword.m_chPassw))
+						{
+							SendToAddress(oConnectionData, PROTO_S_PASSW_OK);
+							mThreadDadas[iTPos].bSecured = true;
+							Z_LOG(LOG_CAT_I, m_chPasswOk << ": " << m_chNameBuffer);
+							break;
+						}
+						else
+						{
+							SendToAddress(oConnectionData, PROTO_S_PASSW_ERR);
+							Z_LOG(LOG_CAT_W, m_chPasswError << ": " << m_chNameBuffer);
+							break;
+						}
+					}
+					else
+					{
+						SendToAddress(oConnectionData, PROTO_S_UNSECURED);
+						Z_LOG(LOG_CAT_W, m_chPasswAbsent << ": " << m_chNameBuffer);
 						break;
+					}
+				}
+				else
+				{
+					switch(p_ProtoParser->oParsedObject.chTypeCode)
+					{
+						case PROTO_O_TEXT_MSG:
+						{
+							Z_LOG(LOG_CAT_I, "Received text message: " <<
+								  p_ProtoParser->oParsedObject.oProtocolStorage.oTextMsg.m_chMsg);
+							break;
+						}
 					}
 				}
 				break;
 			}
 			case PROTOPARSER_OUT_OF_RANGE:
 			{
-				Z_LOG(LOG_CAT_E, "Pocket out of range: " << p_ProtoParser->oParsedObject.iDataLength);
+				SendToAddress(oConnectionData, PROTO_S_OUT_OF_RANGE);
+				Z_LOG(LOG_CAT_E, m_chPockenOutOfRange << ": " <<
+					  m_chNameBuffer << " - " << p_ProtoParser->oParsedObject.iDataLength);
 				break;
 			}
 			case PROTOPARSER_UNKNOWN_COMMAND:
 			{
-				Z_LOG(LOG_CAT_E, "Unknown command");
+				SendToAddress(oConnectionData, PROTO_S_UNKNOWN_COMMAND);
+				Z_LOG(LOG_CAT_W, m_chUnknownCommand << ": " << m_chNameBuffer);
 				break;
 			}
 		}
@@ -339,6 +387,17 @@ int main(int argc, char *argv[])
 	else
 	{
 		LOG(LOG_CAT_E, "Configuration file is corrupt! No '(Net)Port' node");
+		RETVAL_SET(RETVAL_ERR);
+		LOG_CTRL_EXIT;
+	}
+	FIND_IN_CHILDLIST(o_lNet.front(), p_ListPassword, "Password",
+					  FCN_ONE_LEVEL, p_NodePassword)
+	{
+		p_chPassword = ((char*)p_NodePassword->FirstChild()->Value());
+	} FIND_IN_CHILDLIST_END(p_ListPassword);
+	if(p_chPassword == 0)
+	{
+		LOG(LOG_CAT_E, "Configuration file is corrupt! No 'Password' node");
 		RETVAL_SET(RETVAL_ERR);
 		LOG_CTRL_EXIT;
 	}
