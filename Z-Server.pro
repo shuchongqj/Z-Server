@@ -13,7 +13,7 @@ win32 {
 LIBS += "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib\x64\User32.Lib" \
     "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib\x64\Shell32.lib" \
     "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib\x64\Ws2_32.lib" \
-    $${PWD}\pthread\lib\pthreadVC2.lib
+    ..\Z-Server\pthread\lib\pthreadVC2.lib
 }
 
 TEMPLATE = app

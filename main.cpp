@@ -1,5 +1,8 @@
 //== ВКЛЮЧЕНИЯ.
 #define _WINSOCKAPI_
+#ifdef WIN32
+#define _TIMESPEC_DEFINED
+#endif
 #include "hub.h"
 #include "protoparser.h"
 #include <signal.h>
