@@ -148,9 +148,10 @@ void* ConversationThread(void* p_vNum)
 	int iTPos;
 	bool bKillListenerAccept;
 	ProtoParser* p_ProtoParser;
-	char chPersingResult;
+	char chParsingResult;
 	ConnectionData oConnectionData;
 	char m_chNameBuffer[INET6_ADDRSTRLEN];
+	char m_chPortBuffer[6];
 	//
 	iTPos = *((int*)p_vNum); // Получили номер в массиве.
 	mThreadDadas[iTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
@@ -190,12 +191,12 @@ void* ConversationThread(void* p_vNum)
 	mThreadDadas[iTPos].ai_addrlen = oConnectionData.ai_addrlen;
 #ifndef WIN32
 	getnameinfo(&mThreadDadas[iTPos].saInet, mThreadDadas[iTPos].ai_addrlen,
-			m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
+			m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
 #else
 	getnameinfo(&mThreadDadas[iTPos].saInet, (socklen_t)mThreadDadas[iTPos].ai_addrlen,
-			m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
+			m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
 #endif
-	Z_LOG(LOG_CAT_I, "Connected with: " << m_chNameBuffer); // Инфо про входящий IP.
+	Z_LOG(LOG_CAT_I, "Connected with: " << m_chNameBuffer << " : " << m_chPortBuffer); // Инфо про входящий IP.
 	if(oConnectionData.iStatus == -1) // Если не вышло отправить...
 	{
 		pthread_mutex_lock(&ptConnMutex);
@@ -221,8 +222,8 @@ void* ConversationThread(void* p_vNum)
 			Z_LOG(LOG_CAT_I, "Reading socket stopped: " << m_chNameBuffer);
 			goto ecd;
 		}
-		chPersingResult = p_ProtoParser->ParsePocket(mThreadDadas[iTPos].m_chData, oConnectionData.iStatus);
-		switch(chPersingResult)
+		chParsingResult = p_ProtoParser->ParsePocket(mThreadDadas[iTPos].m_chData, oConnectionData.iStatus);
+		switch(chParsingResult)
 		{
 			case PROTOPARSER_OK:
 			{
@@ -267,6 +268,8 @@ void* ConversationThread(void* p_vNum)
 						{
 							Z_LOG(LOG_CAT_I, "Received text message: " <<
 								  p_ProtoParser->oParsedObject.oProtocolStorage.oTextMsg.m_chMsg);
+							Z_LOG(LOG_CAT_I, "Sending answer..."); // DEBUG.
+							SendToAddress(oConnectionData, PROTO_O_TEXT_MSG, (char*)"Got text.", 10); // DEBUG.
 							break;
 						}
 					}
