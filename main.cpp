@@ -35,8 +35,6 @@
 #define PAWWS_ERROR				"Authentification filed"
 #define PAWWS_ABSENT			"Client is not autherised"
 #define PAWWS_OK				"Connection is secured"
-#define POCKET_OUT_OF_RANGE		"Pocket out of range"
-#define UNKNOWN_COMMAND			"Unknown command"
 //
 
 //== СТРУКТУРЫ.
@@ -72,7 +70,7 @@ static char *p_chPassword = 0;
 static const char m_chPasswError[] = PAWWS_ERROR;
 static const char m_chPasswAbsent[] = PAWWS_ABSENT;
 static const char m_chPasswOk[] = PAWWS_OK;
-static const char m_chPockenOutOfRange[] = POCKET_OUT_OF_RANGE;
+static const char m_chPocketOutOfRange[] = POCKET_OUT_OF_RANGE;
 static const char m_chUnknownCommand[] = UNKNOWN_COMMAND;
 
 //== ФУНКЦИИ.
@@ -217,9 +215,9 @@ void* ConversationThread(void* p_vNum)
 			Z_LOG(LOG_CAT_I, "Exiting reading: " << m_chNameBuffer);
 			goto ecd;
 		}
-		if (oConnectionData.iStatus <= 0) // Если статус приёмки - отказ (вместо кол-ва принятых байт)... strPassword
+		if (oConnectionData.iStatus <= 0) // Если статус приёмки - отказ (вместо кол-ва принятых байт)...
 		{
-			Z_LOG(LOG_CAT_I, "Reading socket stopped: " << m_chNameBuffer);
+			Z_LOG(LOG_CAT_I, "Reading socket has been stopped: " << m_chNameBuffer);
 			goto ecd;
 		}
 		chParsingResult = p_ProtoParser->ParsePocket(mThreadDadas[iTPos].m_chData, oConnectionData.iStatus);
@@ -279,7 +277,7 @@ void* ConversationThread(void* p_vNum)
 			case PROTOPARSER_OUT_OF_RANGE:
 			{
 				SendToAddress(oConnectionData, PROTO_S_OUT_OF_RANGE);
-				Z_LOG(LOG_CAT_E, m_chPockenOutOfRange << ": " <<
+				Z_LOG(LOG_CAT_E, m_chPocketOutOfRange << ": " <<
 					  m_chNameBuffer << " - " << p_ProtoParser->oParsedObject.iDataLength);
 				break;
 			}
