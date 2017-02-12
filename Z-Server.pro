@@ -4,6 +4,9 @@ CONFIG += c++11
 
 TARGET = Z-Server
 CONFIG += console
+win32 {
+CONFIG += no_batch
+}
 CONFIG -= app_bundle
 
 unix {
