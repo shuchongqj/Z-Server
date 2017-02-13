@@ -32,12 +32,13 @@
 #else
 #define MSleep(val)				Sleep(val)
 #endif
-#define PAWWS_ERROR				"Authentification filed"
-#define PAWWS_ABSENT			"Client is not autherised"
-#define PAWWS_OK				"Connection is secured"
+#define PAWWS_ERROR				"Authentification failed."
+#define PAWWS_ABSENT			"Client is not autherised."
+#define PAWWS_OK				"Connection is secured."
 //
 
 //== СТРУКТУРЫ.
+
 /// Структура описания данных потока соединения.
 struct ConversationThreadData
 {
@@ -50,7 +51,9 @@ struct ConversationThreadData
 	size_t ai_addrlen; ///< Длина адреса.
 #endif
 	pthread_t p_Thread; ///< Указатель на рабочий поток.
-	char m_chData[MAX_DATA]; ///< Принятый от клиента пакет.
+	ReceivedData mReceivedPockets[MAX_STORED_POCKETS]; ///< Массив принятых пакетов.
+	unsigned int uiCurrentPocket;
+	bool bOverflow;
 	bool bSecured;
 };
 
@@ -72,6 +75,7 @@ static const char m_chPasswAbsent[] = PAWWS_ABSENT;
 static const char m_chPasswOk[] = PAWWS_OK;
 static const char m_chPocketOutOfRange[] = POCKET_OUT_OF_RANGE;
 static const char m_chUnknownCommand[] = UNKNOWN_COMMAND;
+static const char m_chBufferOverflow[] = S_BUFFER_OVERFLOW;
 
 //== ФУНКЦИИ.
 /// Очистка позиции данных потока.
@@ -171,13 +175,13 @@ void* ConversationThread(void* p_vNum)
 		else
 		{
 			pthread_mutex_lock(&ptConnMutex);
-			Z_LOG(LOG_CAT_I, "Accepting connections terminated"); // Норм. сообщение.
+			Z_LOG(LOG_CAT_I, "Accepting connections terminated."); // Норм. сообщение.
 			bKillListenerAccept = true; // Заказываем подтверждение закрытия приёмника.
 			goto enc;
 		}
 	}
 	mThreadDadas[iTPos].bInUse = true; // Флаг занятости структуры.
-	Z_LOG(LOG_CAT_I, "New connection accepted");
+	Z_LOG(LOG_CAT_I, "New connection accepted.");
 	mThreadDadas[iTPos].iConnection = oConnectionData.iSocket; // Установка ИД соединения.
 	oConnectionData.ai_addrlen = sizeof(sockaddr);
 #ifndef WIN32
@@ -206,10 +210,28 @@ void* ConversationThread(void* p_vNum)
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
 	{
-		oConnectionData.iStatus =
-				recv(oConnectionData.iSocket, mThreadDadas[iTPos].m_chData,
-					 sizeof(mThreadDadas[iTPos].m_chData), 0); // Принимаем пакет.
+		if(mThreadDadas[iTPos].uiCurrentPocket >= MAX_STORED_POCKETS)
+		{
+			Z_LOG(LOG_CAT_E, m_chBufferOverflow << ": " << m_chNameBuffer);
+			mThreadDadas[iTPos].bOverflow = true;
+			SendToAddress(oConnectionData, PROTO_S_OVERFLOW);
+			mThreadDadas[iTPos].uiCurrentPocket = MAX_STORED_POCKETS - 1;
+		}
+		oConnectionData.iStatus =  // Принимаем пакет в текущую позицию.
+				recv(oConnectionData.iSocket,
+					 mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentPocket].m_chData,
+				sizeof(ReceivedData), 0);
 		pthread_mutex_lock(&ptConnMutex);
+		mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentPocket].bProcessed = false;
+		if(mThreadDadas[iTPos].bOverflow == true) // DEBUG.
+		{
+			Z_LOG(LOG_CAT_I, "Received overflowed pocket.");
+		}
+		else
+		{
+			Z_LOG(LOG_CAT_I, "Received pocket nr." <<
+				(mThreadDadas[iTPos].uiCurrentPocket + 1) << " of " << MAX_STORED_POCKETS);
+		}
 		if (bExitSignal == true) // Если по выходу из приёмки обнаружен общий сигнал на выход...
 		{
 			Z_LOG(LOG_CAT_I, "Exiting reading: " << m_chNameBuffer);
@@ -220,7 +242,9 @@ void* ConversationThread(void* p_vNum)
 			Z_LOG(LOG_CAT_I, "Reading socket has been stopped: " << m_chNameBuffer);
 			goto ecd;
 		}
-		chParsingResult = p_ProtoParser->ParsePocket(mThreadDadas[iTPos].m_chData, oConnectionData.iStatus);
+		chParsingResult = p_ProtoParser->ParsePocket(
+					mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentPocket].m_chData,
+				oConnectionData.iStatus);
 		switch(chParsingResult)
 		{
 			case PROTOPARSER_OK:
@@ -260,15 +284,18 @@ void* ConversationThread(void* p_vNum)
 				}
 				else
 				{
-					switch(p_ProtoParser->oParsedObject.chTypeCode)
+					if(mThreadDadas[iTPos].bOverflow == false)
 					{
-						case PROTO_O_TEXT_MSG:
+						switch(p_ProtoParser->oParsedObject.chTypeCode)
 						{
-							Z_LOG(LOG_CAT_I, "Received text message: " <<
-								  p_ProtoParser->oParsedObject.oProtocolStorage.oTextMsg.m_chMsg);
-							Z_LOG(LOG_CAT_I, "Sending answer..."); // DEBUG.
-							SendToAddress(oConnectionData, PROTO_O_TEXT_MSG, (char*)"Got text.", 10); // DEBUG.
-							break;
+							case PROTO_O_TEXT_MSG:
+							{
+								Z_LOG(LOG_CAT_I, "Received text message: " <<
+									  p_ProtoParser->oParsedObject.oProtocolStorage.oTextMsg.m_chMsg);
+								Z_LOG(LOG_CAT_I, "Sending answer..."); // DEBUG.
+								SendToAddress(oConnectionData, PROTO_O_TEXT_MSG, (char*)"Got text.", 10); // DEBUG.
+								break;
+							}
 						}
 					}
 				}
@@ -287,7 +314,13 @@ void* ConversationThread(void* p_vNum)
 				Z_LOG(LOG_CAT_W, m_chUnknownCommand << ": " << m_chNameBuffer);
 				break;
 			}
+			case PROTOPARSER_C_BUFFER_OVERFLOW:
+			{
+				Z_LOG(LOG_CAT_W, m_chBufferOverflow << ": " << m_chNameBuffer);
+				break;
+			}
 		}
+		if(mThreadDadas[iTPos].bOverflow == false) mThreadDadas[iTPos].uiCurrentPocket++;
 		pthread_mutex_unlock(&ptConnMutex);
 	}
 	pthread_mutex_lock(&ptConnMutex);
@@ -342,7 +375,7 @@ int main(int argc, char *argv[])
 	WSADATA wsadata = WSADATA();
 #endif
 	//
-	LOG(LOG_CAT_I, "Starting server");
+	LOG(LOG_CAT_I, "Starting server.");
 	//
 	memset(&mThreadDadas, 0, sizeof mThreadDadas);
 	// Работа с файлом конфигурации.
@@ -355,12 +388,12 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
-		LOG(LOG_CAT_I, "Configuration loaded");
+		LOG(LOG_CAT_I, "Configuration loaded.");
 	}
 	if(!FindChildNodes(xmlDocSConf.LastChild(), o_lNet,
 					   "Net", FCN_ONE_LEVEL, FCN_FIRST_ONLY))
 	{
-		LOG(LOG_CAT_E, "Configuration file is corrupt! No 'Net' node");
+		LOG(LOG_CAT_E, "Configuration file is corrupt! No 'Net' node.");
 		RETVAL_SET(RETVAL_ERR);
 		LOG_CTRL_EXIT;
 	}
@@ -375,7 +408,7 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
-		LOG(LOG_CAT_E, "Configuration file is corrupt! No '(Net)IP' node");
+		LOG(LOG_CAT_E, "Configuration file is corrupt! No '(Net)IP' node.");
 		RETVAL_SET(RETVAL_ERR);
 		LOG_CTRL_EXIT;
 	}
@@ -390,7 +423,7 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
-		LOG(LOG_CAT_E, "Configuration file is corrupt! No '(Net)Port' node");
+		LOG(LOG_CAT_E, "Configuration file is corrupt! No '(Net)Port' node.");
 		RETVAL_SET(RETVAL_ERR);
 		LOG_CTRL_EXIT;
 	}
@@ -401,7 +434,7 @@ int main(int argc, char *argv[])
 	} FIND_IN_CHILDLIST_END(p_ListPassword);
 	if(p_chPassword == 0)
 	{
-		LOG(LOG_CAT_E, "Configuration file is corrupt! No 'Password' node");
+		LOG(LOG_CAT_E, "Configuration file is corrupt! No 'Password' node.");
 		RETVAL_SET(RETVAL_ERR);
 		LOG_CTRL_EXIT;
 	}
@@ -450,7 +483,7 @@ int main(int argc, char *argv[])
 #ifndef WIN32
 	pthread_create(&KeyThr, NULL, WaitingThread, NULL); // Запуск потока ожидания ввода (только для линукса).
 #endif
-	Z_LOG(LOG_CAT_I, "Accepting connections, press 'Esc' for exit");
+	Z_LOG(LOG_CAT_I, "Accepting connections, press 'Esc' for exit.");
 	bListenerAlive = true;
 	// Цикл ожидания входа клиентов.
 nc:	bRequestNewConn = false; // Вход в звено цикла ожидания клиентов - сброс флага запроса.
@@ -483,7 +516,7 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 	{
 		MSleep(USER_RESPONSE_MS);
 	}
-	Z_LOG(LOG_CAT_I, "Listener has been closed");
+	Z_LOG(LOG_CAT_I, "Listener has been closed.");
 	// Закрытие сокетов клиентов.
 	Z_LOG(LOG_CAT_I, "Disconnecting clients...");
 	pthread_mutex_lock(&ptConnMutex);
@@ -519,12 +552,12 @@ stc:iCurrPos = 0;
 			goto stc;
 		}
 	}
-	Z_LOG(LOG_CAT_I, "Clients has been disconnected");
+	Z_LOG(LOG_CAT_I, "Clients has been disconnected.");
 ex:
 #ifdef WIN32
 		WSACleanup();
 #endif
-	Z_LOG(LOG_CAT_I, "Exiting program");
+	Z_LOG(LOG_CAT_I, "Exiting program.");
 	LOGCLOSE;
 	return _uiRetval;
 }

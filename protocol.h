@@ -31,6 +31,8 @@
 #define PROTO_C_REQUEST_LEAVING		'L'
 #define PROTO_S_ACCEPT_LEAVING		'B'
 #define PROTO_S_SHUTDOWN_INFO		'Q'
+#define PROTO_S_OVERFLOW			'^'
+#define PROTO_C_OVERFLOW			'~'
 // ============================================================================
 
 // ============================ КОДЫ ПАКЕТОВ ==================================

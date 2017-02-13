@@ -5,11 +5,13 @@
 #include "protocol.h"
 
 //== МАКРОСЫ.
-#define PROTOPARSER_OK				0x00
-#define PROTOPARSER_OUT_OF_RANGE	0x01
-#define PROTOPARSER_UNKNOWN_COMMAND	0x02
-#define POCKET_OUT_OF_RANGE		"Pocket out of range"
-#define UNKNOWN_COMMAND			"Unknown command"
+#define PROTOPARSER_OK					0x00
+#define PROTOPARSER_OUT_OF_RANGE		0x01
+#define PROTOPARSER_S_BUFFER_OVERFLOW	0x02
+#define PROTOPARSER_C_BUFFER_OVERFLOW	0x03
+#define PROTOPARSER_UNKNOWN_COMMAND		0x04
+#define POCKET_OUT_OF_RANGE				"Pocket out of range."
+#define UNKNOWN_COMMAND					"Unknown command."
 
 //== КЛАССЫ.
 /// Класс парсера протокола.

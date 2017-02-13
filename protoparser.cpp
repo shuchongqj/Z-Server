@@ -62,6 +62,16 @@ char ProtoParser::ParsePocket(char* p_chData, int iLength)
 			chRetVal = PROTOPARSER_OK;
 			break;
 		}
+		case PROTO_S_OVERFLOW:
+		{
+			chRetVal = PROTOPARSER_S_BUFFER_OVERFLOW;
+			break;
+		}
+		case PROTO_C_OVERFLOW:
+		{
+			chRetVal = PROTOPARSER_C_BUFFER_OVERFLOW;
+			break;
+		}
 		// ОБРАБОТКА ПАКЕТОВ.
 		// ProcessToStorage(имя структуры в протоколе)
 		// - копирует объект в хранилище, проверяя совпадение размера и доверяя любому содержимому (именование по шаблону).
