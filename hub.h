@@ -12,16 +12,18 @@
 #endif
 #include "logger.h"
 #include "parserext.h"
+#include "protoparser.h"
 
 //== МАКРОСЫ.
 #define S_CONF_PATH				"./settings/server.ini"
 #define C_CONF_PATH				"./settings/client.ini"
-#define MAX_STORED_POCKETS		16
+#define S_MAX_STORED_POCKETS	32
+#define C_MAX_STORED_POCKETS	16
 #define MAX_DATA				1024
-#define S_BUFFER_OVERFLOW		"Buffer overflow for"
-#define C_BUFFER_OVERFLOW		"Buffer overflow on server."
 #define OWNER_RESPONSE_MS		100
 #define SOCKET_ERROR_TOO_BIG	65535
+#define S_BUFFER_READY			"Buffer is ready on server."
+#define C_BUFFER_READY			"Buffer is ready on client."
 
 //== СТРУКТУРЫ.
 /// Сруктура для данных по соединению.
@@ -40,7 +42,7 @@ struct ConnectionData
 struct ReceivedData
 {
 	bool bProcessed;
-	char m_chData[MAX_DATA]; ///< Принятый пакет.
+	ProtoParser::ParsedObject oParsedObject; ///< Принятый пакет.
 };
 
 //== ФУНКЦИИ.

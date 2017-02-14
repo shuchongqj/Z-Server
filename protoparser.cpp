@@ -19,7 +19,7 @@
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс парсера протокола.
 // Парсинг пакета в соответствующий член хранилища класса парсера.
-char ProtoParser::ParsePocket(char* p_chData, int iLength)
+char ProtoParser::ParsePocket(char* p_chData, int iLength, ParsedObject& oParsedObject)
 {
 	char* p_chCurrPos;
 	char chRetVal = PROTOPARSER_UNKNOWN_COMMAND;
@@ -62,14 +62,24 @@ char ProtoParser::ParsePocket(char* p_chData, int iLength)
 			chRetVal = PROTOPARSER_OK;
 			break;
 		}
-		case PROTO_S_OVERFLOW:
+		case PROTO_S_BUFFER_OVERFLOW:
 		{
-			chRetVal = PROTOPARSER_S_BUFFER_OVERFLOW;
+			chRetVal = PROTOPARSER_OK;
 			break;
 		}
-		case PROTO_C_OVERFLOW:
+		case PROTO_C_BUFFER_OVERFLOW:
 		{
-			chRetVal = PROTOPARSER_C_BUFFER_OVERFLOW;
+			chRetVal = PROTOPARSER_OK;
+			break;
+		}
+		case PROTO_S_BUFFER_READY:
+		{
+			chRetVal = PROTOPARSER_OK;
+			break;
+		}
+		case PROTO_C_BUFFER_READY:
+		{
+			chRetVal = PROTOPARSER_OK;
 			break;
 		}
 		// ОБРАБОТКА ПАКЕТОВ.

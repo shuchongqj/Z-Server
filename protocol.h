@@ -31,8 +31,10 @@
 #define PROTO_C_REQUEST_LEAVING		'L'
 #define PROTO_S_ACCEPT_LEAVING		'B'
 #define PROTO_S_SHUTDOWN_INFO		'Q'
-#define PROTO_S_OVERFLOW			'^'
-#define PROTO_C_OVERFLOW			'~'
+#define PROTO_S_BUFFER_OVERFLOW		'^'
+#define PROTO_C_BUFFER_OVERFLOW		'~'
+#define PROTO_S_BUFFER_READY		'+'
+#define PROTO_C_BUFFER_READY		'*'
 // ============================================================================
 
 // ============================ КОДЫ ПАКЕТОВ ==================================

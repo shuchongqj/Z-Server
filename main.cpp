@@ -24,17 +24,19 @@
 #define LOG_NAME				"Z-Server"
 #define MAX_CONN				128
 #define USER_RESPONSE_MS		100
-#define Z_LOG(Category,Text)	pthread_mutex_lock(&ptLogMutex);															\
-								LOG(Category,Text);																			\
-								pthread_mutex_unlock(&ptLogMutex);
+#define Z_LOG(Category,Text)	pthread_mutex_lock(&ptLogMutex);								\
+	LOG(Category,Text);																			\
+	pthread_mutex_unlock(&ptLogMutex);
 #ifndef WIN32
 #define MSleep(val)				usleep(val)
 #else
 #define MSleep(val)				Sleep(val)
 #endif
-#define PAWWS_ERROR				"Authentification failed."
-#define PAWWS_ABSENT			"Client is not autherised."
-#define PAWWS_OK				"Connection is secured."
+#define PASSW_ERROR				"Authentification failed."
+#define PASSW_ABSENT			"Client is not autherised."
+#define PASSW_OK				"Connection is secured."
+#define S_BUFFER_OVERFLOW		"Buffer overflow for"
+#define C_BUFFER_OVERFLOW		"Buffer overflow on"
 //
 
 //== СТРУКТУРЫ.
@@ -51,9 +53,11 @@ struct ConversationThreadData
 	size_t ai_addrlen; ///< Длина адреса.
 #endif
 	pthread_t p_Thread; ///< Указатель на рабочий поток.
-	ReceivedData mReceivedPockets[MAX_STORED_POCKETS]; ///< Массив принятых пакетов.
+	ReceivedData mReceivedPockets[S_MAX_STORED_POCKETS]; ///< Массив принятых пакетов.
+	char m_chData[MAX_DATA]; ///< Принятый пакет.
 	unsigned int uiCurrentPocket;
-	bool bOverflow;
+	bool bOverflowOnServer;
+	bool bOverflowOnClient;
 	bool bSecured;
 };
 
@@ -70,14 +74,21 @@ static bool bRequestNewConn; ///< Сигнал запроса нового со�
 static ConversationThreadData mThreadDadas[MAX_CONN]; ///< Массив структур описания потоков соединений.
 static bool bListenerAlive; ///< Признак жизни приёмника.
 static char *p_chPassword = 0;
-static const char m_chPasswError[] = PAWWS_ERROR;
-static const char m_chPasswAbsent[] = PAWWS_ABSENT;
-static const char m_chPasswOk[] = PAWWS_OK;
-static const char m_chPocketOutOfRange[] = POCKET_OUT_OF_RANGE;
-static const char m_chUnknownCommand[] = UNKNOWN_COMMAND;
-static const char m_chBufferOverflow[] = S_BUFFER_OVERFLOW;
 
 //== ФУНКЦИИ.
+/// Функция отправки на сервер.
+void SendToClient(bool bOverflowFlag, ConnectionData &oConnectionData, char chCommand, char *p_chBuffer = 0, int iLength = 0)
+{
+	if(bOverflowFlag == false)
+	{
+		SendToAddress(oConnectionData, chCommand, p_chBuffer, iLength);
+	}
+	else
+	{
+		Z_LOG(LOG_CAT_E, "Client buffer is overflowed.");
+	}
+}
+
 /// Очистка позиции данных потока.
 void CleanThrDadaPos(int iPos)
 {
@@ -86,7 +97,7 @@ void CleanThrDadaPos(int iPos)
 
 /// Поиск свободной позиции данных потока.
 int FindFreeThrDadaPos()
-							///< \return Возвращает номер свободной позиции, иначе - RETVAL_ERR.
+///< \return Возвращает номер свободной позиции, иначе - RETVAL_ERR.
 {
 	int iPos = 0;
 	//
@@ -106,7 +117,7 @@ int FindFreeThrDadaPos()
 /// Импортированная функция получения символа от пользователя в терминал (только для линукса).
 #ifndef WIN32
 char GetChar()
-							///< \return Возвращает код символа от пользователя.
+///< \return Возвращает код символа от пользователя.
 {
 	char buf = 0;
 	termios old;
@@ -131,8 +142,8 @@ char GetChar()
 
 /// Поток ожидания ввода символа от пользователя в терминал (только для линукса).
 void* WaitingThread(void *p_vPlug)
-							///< \param[in] p_vPlug Заглушка.
-							///< \return Заглушка.
+///< \param[in] p_vPlug Заглушка.
+///< \return Заглушка.
 {
 	p_vPlug = p_vPlug;
 	while(GetChar() != 0x1b);
@@ -145,8 +156,8 @@ void* WaitingThread(void *p_vPlug)
 /// Поток соединения.
 void* ConversationThread(void* p_vNum)
 {
-							///< \param[in] p_vNum Ук. на переменную типа int с номером предоставленной структуры в mThreadDadas.
-							///< \return Заглушка.
+	///< \param[in] p_vNum Ук. на переменную типа int с номером предоставленной структуры в mThreadDadas.
+	///< \return Заглушка.
 	int iTPos;
 	bool bKillListenerAccept;
 	ProtoParser* p_ProtoParser;
@@ -154,6 +165,7 @@ void* ConversationThread(void* p_vNum)
 	ConnectionData oConnectionData;
 	char m_chNameBuffer[INET6_ADDRSTRLEN];
 	char m_chPortBuffer[6];
+	ProtoParser::ParsedObject* pParsedObject;
 	//
 	iTPos = *((int*)p_vNum); // Получили номер в массиве.
 	mThreadDadas[iTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
@@ -193,10 +205,10 @@ void* ConversationThread(void* p_vNum)
 	mThreadDadas[iTPos].ai_addrlen = oConnectionData.ai_addrlen;
 #ifndef WIN32
 	getnameinfo(&mThreadDadas[iTPos].saInet, mThreadDadas[iTPos].ai_addrlen,
-			m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
+				m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
 #else
 	getnameinfo(&mThreadDadas[iTPos].saInet, (socklen_t)mThreadDadas[iTPos].ai_addrlen,
-			m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
+				m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
 #endif
 	Z_LOG(LOG_CAT_I, "Connected with: " << m_chNameBuffer << " : " << m_chPortBuffer); // Инфо про входящий IP.
 	if(oConnectionData.iStatus == -1) // Если не вышло отправить...
@@ -210,27 +222,26 @@ void* ConversationThread(void* p_vNum)
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
 	{
-		if(mThreadDadas[iTPos].uiCurrentPocket >= MAX_STORED_POCKETS)
+		if(mThreadDadas[iTPos].uiCurrentPocket >= S_MAX_STORED_POCKETS)
 		{
-			Z_LOG(LOG_CAT_E, m_chBufferOverflow << ": " << m_chNameBuffer);
-			mThreadDadas[iTPos].bOverflow = true;
-			SendToAddress(oConnectionData, PROTO_S_OVERFLOW);
-			mThreadDadas[iTPos].uiCurrentPocket = MAX_STORED_POCKETS - 1;
+			Z_LOG(LOG_CAT_E, (char*)S_BUFFER_OVERFLOW << ": " << m_chNameBuffer);
+			mThreadDadas[iTPos].bOverflowOnServer = true;
+			SendToAddress(oConnectionData, PROTO_S_BUFFER_OVERFLOW);
+			mThreadDadas[iTPos].uiCurrentPocket = S_MAX_STORED_POCKETS - 1;
 		}
 		oConnectionData.iStatus =  // Принимаем пакет в текущую позицию.
 				recv(oConnectionData.iSocket,
-					 mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentPocket].m_chData,
-				sizeof(ReceivedData), 0);
+					 mThreadDadas[iTPos].m_chData,
+				sizeof(mThreadDadas[iTPos].m_chData), 0);
 		pthread_mutex_lock(&ptConnMutex);
-		mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentPocket].bProcessed = false;
-		if(mThreadDadas[iTPos].bOverflow == true) // DEBUG.
+		if(mThreadDadas[iTPos].bOverflowOnServer == true) // DEBUG.
 		{
-			Z_LOG(LOG_CAT_I, "Received overflowed pocket.");
+			Z_LOG(LOG_CAT_W, "Received overflowed pocket.");
 		}
 		else
 		{
 			Z_LOG(LOG_CAT_I, "Received pocket nr." <<
-				(mThreadDadas[iTPos].uiCurrentPocket + 1) << " of " << MAX_STORED_POCKETS);
+				  (mThreadDadas[iTPos].uiCurrentPocket + 1) << " of " << S_MAX_STORED_POCKETS);
 		}
 		if (bExitSignal == true) // Если по выходу из приёмки обнаружен общий сигнал на выход...
 		{
@@ -243,84 +254,99 @@ void* ConversationThread(void* p_vNum)
 			goto ecd;
 		}
 		chParsingResult = p_ProtoParser->ParsePocket(
-					mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentPocket].m_chData,
-				oConnectionData.iStatus);
+					mThreadDadas[iTPos].m_chData,
+				oConnectionData.iStatus, mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentPocket].oParsedObject);
+		pParsedObject = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentPocket].oParsedObject;
 		switch(chParsingResult)
 		{
 			case PROTOPARSER_OK:
 			{
 				if(mThreadDadas[iTPos].bSecured == false)
 				{
-					if(p_ProtoParser->oParsedObject.chTypeCode == PROTO_C_SEND_PASSW)
+					if(pParsedObject->chTypeCode == PROTO_C_SEND_PASSW)
 					{
 						for(char chI = 0; chI != MAX_PASSW; chI++) // DEBUG Подстраховка для тестов с NetCat`а.
 						{
-							if(p_ProtoParser->oParsedObject.oProtocolStorage.oPassword.m_chPassw[(int)chI] == 0x0A)
+							if(pParsedObject->oProtocolStorage.oPassword.m_chPassw[(int)chI] == 0x0A)
 							{
-								p_ProtoParser->oParsedObject.oProtocolStorage.oPassword.m_chPassw[(int)chI] = 0;
+								pParsedObject->oProtocolStorage.oPassword.m_chPassw[(int)chI] = 0;
 								break;
 							}
 						}
-						if(!strcmp(p_chPassword, p_ProtoParser->oParsedObject.oProtocolStorage.oPassword.m_chPassw))
+						if(!strcmp(p_chPassword, pParsedObject->oProtocolStorage.oPassword.m_chPassw))
 						{
 							SendToAddress(oConnectionData, PROTO_S_PASSW_OK);
 							mThreadDadas[iTPos].bSecured = true;
-							Z_LOG(LOG_CAT_I, m_chPasswOk << ": " << m_chNameBuffer);
+							Z_LOG(LOG_CAT_I, (char*)PASSW_OK << ": " << m_chNameBuffer);
 							break;
 						}
 						else
 						{
 							SendToAddress(oConnectionData, PROTO_S_PASSW_ERR);
-							Z_LOG(LOG_CAT_W, m_chPasswError << ": " << m_chNameBuffer);
+							Z_LOG(LOG_CAT_W, (char*)PASSW_ERROR << ": " << m_chNameBuffer);
 							break;
 						}
 					}
 					else
 					{
 						SendToAddress(oConnectionData, PROTO_S_UNSECURED);
-						Z_LOG(LOG_CAT_W, m_chPasswAbsent << ": " << m_chNameBuffer);
+						Z_LOG(LOG_CAT_W, (char*)PASSW_ABSENT << ": " << m_chNameBuffer);
 						break;
 					}
 				}
 				else
 				{
-					if(mThreadDadas[iTPos].bOverflow == false)
+					// Блок взаимодействия.
+					switch(pParsedObject->chTypeCode)
 					{
-						switch(p_ProtoParser->oParsedObject.chTypeCode)
+						case PROTO_C_BUFFER_OVERFLOW:
+						{
+							Z_LOG(LOG_CAT_E, (char*)C_BUFFER_OVERFLOW << ": " << m_chNameBuffer);
+							mThreadDadas[iTPos].bOverflowOnClient = true;
+							goto gI;
+						}
+						case PROTO_C_BUFFER_READY:
+						{
+							Z_LOG(LOG_CAT_I, (char*)C_BUFFER_READY);
+							mThreadDadas[iTPos].bOverflowOnClient = false;
+							goto gI;
+						}
+					}
+					// Блок объектов.
+					if(mThreadDadas[iTPos].bOverflowOnServer == false)
+					{
+						switch(pParsedObject->chTypeCode)
 						{
 							case PROTO_O_TEXT_MSG:
 							{
+
 								Z_LOG(LOG_CAT_I, "Received text message: " <<
-									  p_ProtoParser->oParsedObject.oProtocolStorage.oTextMsg.m_chMsg);
+									  pParsedObject->oProtocolStorage.oTextMsg.m_chMsg);
 								Z_LOG(LOG_CAT_I, "Sending answer..."); // DEBUG.
-								SendToAddress(oConnectionData, PROTO_O_TEXT_MSG, (char*)"Got text.", 10); // DEBUG.
+								SendToClient(mThreadDadas[iTPos].bOverflowOnClient, oConnectionData,
+											 PROTO_O_TEXT_MSG, (char*)"Got text.", 10); // DEBUG.
 								break;
 							}
 						}
 					}
 				}
-				break;
+gI:				break;
 			}
 			case PROTOPARSER_OUT_OF_RANGE:
 			{
 				SendToAddress(oConnectionData, PROTO_S_OUT_OF_RANGE);
-				Z_LOG(LOG_CAT_E, m_chPocketOutOfRange << ": " <<
-					  m_chNameBuffer << " - " << p_ProtoParser->oParsedObject.iDataLength);
+				Z_LOG(LOG_CAT_E, (char*)POCKET_OUT_OF_RANGE << ": " <<
+					  m_chNameBuffer << " - " << pParsedObject->iDataLength);
 				break;
 			}
 			case PROTOPARSER_UNKNOWN_COMMAND:
 			{
 				SendToAddress(oConnectionData, PROTO_S_UNKNOWN_COMMAND);
-				Z_LOG(LOG_CAT_W, m_chUnknownCommand << ": " << m_chNameBuffer);
-				break;
-			}
-			case PROTOPARSER_C_BUFFER_OVERFLOW:
-			{
-				Z_LOG(LOG_CAT_W, m_chBufferOverflow << ": " << m_chNameBuffer);
+				Z_LOG(LOG_CAT_W, (char*)UNKNOWN_COMMAND << ": " << m_chNameBuffer);
 				break;
 			}
 		}
-		if(mThreadDadas[iTPos].bOverflow == false) mThreadDadas[iTPos].uiCurrentPocket++;
+		if(mThreadDadas[iTPos].bOverflowOnServer == false) mThreadDadas[iTPos].uiCurrentPocket++;
 		pthread_mutex_unlock(&ptConnMutex);
 	}
 	pthread_mutex_lock(&ptConnMutex);
@@ -351,9 +377,9 @@ enc:
 
 /// Точка входа в приложение.
 int main(int argc, char *argv[])
-							///< \param[in] argc Заглушка.
-							///< \param[in] argv Заглушка.
-							///< \return Общий результат работы.
+///< \param[in] argc Заглушка.
+///< \param[in] argv Заглушка.
+///< \return Общий результат работы.
 {
 	argc = argc; // Заглушка.
 	argv = argv; // Заглушка.
@@ -532,10 +558,10 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 #endif
 #ifndef WIN32
 			getnameinfo(&mThreadDadas[iCurrPos].saInet, mThreadDadas[iCurrPos].ai_addrlen,
-					m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
+						m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
 #else
 			getnameinfo(&mThreadDadas[iCurrPos].saInet, (socklen_t)mThreadDadas[iCurrPos].ai_addrlen,
-					m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
+						m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
 #endif
 			Z_LOG(LOG_CAT_I, "Socket closed internally: " << m_chNameBuffer);
 		}
@@ -555,7 +581,7 @@ stc:iCurrPos = 0;
 	Z_LOG(LOG_CAT_I, "Clients has been disconnected.");
 ex:
 #ifdef WIN32
-		WSACleanup();
+	WSACleanup();
 #endif
 	Z_LOG(LOG_CAT_I, "Exiting program.");
 	LOGCLOSE;
