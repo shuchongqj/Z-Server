@@ -8,21 +8,27 @@
 #define _PPControlSize(name)			if((int)sizeof(_ParsedPSName(PObjNaming(name))) < oParsedObject.iDataLength)			\
 										{																						\
 											oParsedObject.iDataLength = (int)sizeof(_ParsedPSName(PObjNaming(name)));			\
-											chRetVal = PROTOPARSER_OUT_OF_RANGE;												\
+											oParseResult.chRes = PROTOPARSER_OUT_OF_RANGE;										\
 											break;																				\
 										}																						\
-										else chRetVal = PROTOPARSER_OK
+										else oParseResult.chRes = PROTOPARSER_OK;
 #define _CopyDataToStructure(name)		_ParsedPSName(PObjNaming(name)) = *(ProtocolStorage::name*)p_chCurrPos
 #define ProcessToStorage(name)			_PPControlSize(name);																	\
-										_CopyDataToStructure(name)
+										if(!bDoNotStore)																		\
+										{																						\
+											oParseResult.bStored = true;														\
+											_CopyDataToStructure(name);															\
+										}
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс парсера протокола.
 // Парсинг пакета в соответствующий член хранилища класса парсера.
-char ProtoParser::ParsePocket(char* p_chData, int iLength, ParsedObject& oParsedObject)
+ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength, ParsedObject& oParsedObject, bool bDoNotStore)
 {
 	char* p_chCurrPos;
-	char chRetVal = PROTOPARSER_UNKNOWN_COMMAND;
+	ParseResult oParseResult;
+	oParseResult.chRes = PROTOPARSER_UNKNOWN_COMMAND;
+	oParseResult.bStored = false;
 	//
 	p_chCurrPos = p_chData;
 	oParsedObject.chTypeCode = *p_chCurrPos;
@@ -34,52 +40,51 @@ char ProtoParser::ParsePocket(char* p_chData, int iLength, ParsedObject& oParsed
 		case PROTO_C_SEND_PASSW:
 		{
 			ProcessToStorage(Password);
-			chRetVal = PROTOPARSER_OK;
 			break;
 		}
 		case PROTO_S_PASSW_OK:
 		{
-			chRetVal = PROTOPARSER_OK;
+			oParseResult.chRes = PROTOPARSER_OK;
 			break;
 		}
 		case PROTO_S_PASSW_ERR:
 		{
-			chRetVal = PROTOPARSER_OK;
+			oParseResult.chRes = PROTOPARSER_OK;
 			break;
 		}
 		case PROTO_C_REQUEST_LEAVING:
 		{
-			chRetVal = PROTOPARSER_OK;
+			oParseResult.chRes = PROTOPARSER_OK;
 			break;
 		}
 		case PROTO_S_ACCEPT_LEAVING:
 		{
-			chRetVal = PROTOPARSER_OK;
+			oParseResult.chRes = PROTOPARSER_OK;
 			break;
 		}
 		case PROTO_S_SHUTDOWN_INFO:
 		{
-			chRetVal = PROTOPARSER_OK;
+			oParseResult.chRes = PROTOPARSER_OK;
 			break;
 		}
 		case PROTO_S_BUFFER_OVERFLOW:
 		{
-			chRetVal = PROTOPARSER_OK;
+			oParseResult.chRes = PROTOPARSER_OK;
 			break;
 		}
 		case PROTO_C_BUFFER_OVERFLOW:
 		{
-			chRetVal = PROTOPARSER_OK;
+			oParseResult.chRes = PROTOPARSER_OK;
 			break;
 		}
 		case PROTO_S_BUFFER_READY:
 		{
-			chRetVal = PROTOPARSER_OK;
+			oParseResult.chRes = PROTOPARSER_OK;
 			break;
 		}
 		case PROTO_C_BUFFER_READY:
 		{
-			chRetVal = PROTOPARSER_OK;
+			oParseResult.chRes = PROTOPARSER_OK;
 			break;
 		}
 		// ОБРАБОТКА ПАКЕТОВ.
@@ -90,9 +95,8 @@ char ProtoParser::ParsePocket(char* p_chData, int iLength, ParsedObject& oParsed
 			ProcessToStorage(TextMsg);
 			oParsedObject.oProtocolStorage.oTextMsg.m_chMsg[oParsedObject.iDataLength - 1] = 0; // DEBUG.
 			oParsedObject.oProtocolStorage.oTextMsg.m_chMsg[oParsedObject.iDataLength] = 0;
-			chRetVal = PROTOPARSER_OK;
 			break;
 		}
 	}
-	return chRetVal;
+	return oParseResult;
 }

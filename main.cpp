@@ -161,7 +161,7 @@ void* ConversationThread(void* p_vNum)
 	int iTPos;
 	bool bKillListenerAccept;
 	ProtoParser* p_ProtoParser;
-	char chParsingResult;
+	ProtoParser::ParseResult oParsingResult;
 	ConnectionData oConnectionData;
 	char m_chNameBuffer[INET6_ADDRSTRLEN];
 	char m_chPortBuffer[6];
@@ -238,11 +238,6 @@ void* ConversationThread(void* p_vNum)
 		{
 			Z_LOG(LOG_CAT_W, "Received overflowed pocket.");
 		}
-		else
-		{
-			Z_LOG(LOG_CAT_I, "Received pocket nr." <<
-				  (mThreadDadas[iTPos].uiCurrentPocket + 1) << " of " << S_MAX_STORED_POCKETS);
-		}
 		if (bExitSignal == true) // Если по выходу из приёмки обнаружен общий сигнал на выход...
 		{
 			Z_LOG(LOG_CAT_I, "Exiting reading: " << m_chNameBuffer);
@@ -253,14 +248,20 @@ void* ConversationThread(void* p_vNum)
 			Z_LOG(LOG_CAT_I, "Reading socket has been stopped: " << m_chNameBuffer);
 			goto ecd;
 		}
-		chParsingResult = p_ProtoParser->ParsePocket(
+		oParsingResult = p_ProtoParser->ParsePocket(
 					mThreadDadas[iTPos].m_chData,
-				oConnectionData.iStatus, mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentPocket].oParsedObject);
+				oConnectionData.iStatus, mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentPocket].oParsedObject,
+				mThreadDadas[iTPos].bOverflowOnServer);
 		pParsedObject = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentPocket].oParsedObject;
-		switch(chParsingResult)
+		switch(oParsingResult.chRes)
 		{
 			case PROTOPARSER_OK:
 			{
+				if(oParsingResult.bStored)
+				{
+					Z_LOG(LOG_CAT_I, "Received pocket nr." <<
+						(mThreadDadas[iTPos].uiCurrentPocket + 1) << " of " << S_MAX_STORED_POCKETS);
+				}
 				if(mThreadDadas[iTPos].bSecured == false)
 				{
 					if(pParsedObject->chTypeCode == PROTO_C_SEND_PASSW)
@@ -319,7 +320,6 @@ void* ConversationThread(void* p_vNum)
 						{
 							case PROTO_O_TEXT_MSG:
 							{
-
 								Z_LOG(LOG_CAT_I, "Received text message: " <<
 									  pParsedObject->oProtocolStorage.oTextMsg.m_chMsg);
 								Z_LOG(LOG_CAT_I, "Sending answer..."); // DEBUG.
@@ -346,7 +346,7 @@ gI:				break;
 				break;
 			}
 		}
-		if(mThreadDadas[iTPos].bOverflowOnServer == false) mThreadDadas[iTPos].uiCurrentPocket++;
+		if((mThreadDadas[iTPos].bOverflowOnServer == false) && oParsingResult.bStored) mThreadDadas[iTPos].uiCurrentPocket++;
 		pthread_mutex_unlock(&ptConnMutex);
 	}
 	pthread_mutex_lock(&ptConnMutex);

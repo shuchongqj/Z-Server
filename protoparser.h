@@ -23,12 +23,18 @@ public:
 		int iDataLength; ///< Длина пакета в байтах.
 		ProtocolStorage oProtocolStorage; ///< Составной объект хранилища, определяемый в протоколе.
 	};
+	struct ParseResult
+	{
+		bool bStored;
+		char chRes;
+	};
 public:
 	/// Парсинг пакета в соответствующий член хранилища.
-	char ParsePocket(char* p_chData, int iLength, ParsedObject& oParsedObject);
+	ParseResult ParsePocket(char* p_chData, int iLength, ParsedObject& oParsedObject, bool bDoNotStore = false);
 											///< \param[in] p_chData Указатель на пакет.
 											///< \param[in] iLength Длина пакета в байтах.
 											///< \param[in] oParsedObject Ссылка на объект структуры описания и хранилище.
+											///< \param[in] bDoNotStore Флаг необходимости игнорировать заполнение хранилища.
 											///< \return Результат парсинга.
 };
 
