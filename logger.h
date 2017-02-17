@@ -3,10 +3,19 @@
 
 //=== ЛОГГЕР ===
 
-// LOGDECL              - вставить в заголовок или исходник (для глобальной видимости).
-// LOGOPEN(Filename)    - вставить для инициализации.
-// LOGCLOSE             - вставить для завершения.
-// LOG(Category,Text)   - отправка сообщения.
+// #define LOGNAME	"Name"			- добавить в макросы для определения имени лога.
+// LOGDECL							- вставить в переменные заголовока (или исходника, если не используется внутри класса).
+// LOGDECL_PTHRD_INCLASS_ADD		- вставить в переменные заголовока класса для поддержки потокобезопасности с pthread.
+// LOGDECL_INIT_INCLASS(ClassName)	- вставить в исходник класса.
+// LOGDECL_INIT_PTHRD_ADD			- вставить в функцию для поддержки потокобезопасности с pthread без использования класса.
+// LOGDECL_INIT_PTHRD_INCLASS_EXT_ADD(ClassName) - вставить в исходник класса для работы с внешним мьютексом pthread.
+// LOGDECL_INIT_PTHRD_INCLASS_OWN_ADD(ClassName) - вставить в исходник класса для работы с собственным мьютексом pthread.
+// LOG_CTRL_BIND_EXT_MUTEX(Mutex)	- вставить в функцию класса для привязки внешнего мьютекса pthread.
+// LOG_CTRL_INIT					- вставить в функцию класса или основного исходника.
+// LOG(Category,Text)				- отправка сообщения.
+// LOG_P(Category,Text)				- потокобезопасная отправка сообщения.
+// RETVAL_SET(value)				- установка возвращаемого значения для выхода с макросом.
+// LOGCLOSE							- вставить для завершения работы с логом.
 
 //== ВКЛЮЧЕНИЯ.
 #include <fstream>
@@ -28,6 +37,7 @@
 #define LOGMsFormat         "%06ld"
 #endif
 #define LOGSpc              " "
+#define LOGRETVAL			_uiRetval
 #ifndef WIN32
 #define LOGDECL             static std::fstream LOGVarname; static char _m_chLogBuf[80]; static char _m_chLogMSBuf[8];      \
 							static time_t _LogTimeNow; static timeval _LogTimeval; static unsigned int _uiRetval;
@@ -40,11 +50,12 @@
                                 tp->tv_usec = (long)(system_time.wMilliseconds); tzp = tzp; return 0;}
 #endif
 #define LOGDECL_PTHRD_INCLASS_ADD		static pthread_mutex_t _ptLogMutex;
-#define LOGDECL_INIT_INCLASS(ClassName)	std::fstream ClassName::LOGVarname; char ClassName::_m_chLogBuf[80];						\
-										char ClassName::_m_chLogMSBuf[8]; time_t ClassName::_LogTimeNow;							\
+#define LOGDECL_INIT_INCLASS(ClassName)	std::fstream ClassName::LOGVarname; char ClassName::_m_chLogBuf[80];				\
+										char ClassName::_m_chLogMSBuf[8]; time_t ClassName::_LogTimeNow;					\
 										timeval ClassName::_LogTimeval; unsigned int ClassName::_uiRetval;
-#define LOGDECL_INIT_PTHRD_INCLASS_ADD(ClassName)	pthread_mutex_t ClassName::_ptLogMutex = PTHREAD_MUTEX_INITIALIZER;
-#define LOGDECL_INIT_PTHRD_ADD						pthread_mutex_t _ptLogMutex = PTHREAD_MUTEX_INITIALIZER;
+#define LOGDECL_INIT_PTHRD_INCLASS_EXT_ADD(ClassName)	pthread_mutex_t ClassName::_ptLogMutex;
+#define LOGDECL_INIT_PTHRD_INCLASS_OWN_ADD(ClassName)	pthread_mutex_t ClassName::_ptLogMutex = PTHREAD_MUTEX_INITIALIZER;
+#define LOGDECL_INIT_PTHRD_ADD							pthread_mutex_t _ptLogMutex = PTHREAD_MUTEX_INITIALIZER;
 #define LOGOPEN(Filename)   LOGVarname.open(Filename, std::ios_base::in|std::ios_base::out|std::ios_base::trunc)
 #define LOGCLOSE            LOGVarname.close()
 #define LOG(Category,Text)  _LogTimeNow = time(0);                                                                          \
@@ -66,12 +77,8 @@
 #define RETVAL_OK           0
 #define RETVAL_ERR          -1
 #define LOG_CTRL_INIT		_lci(LOG_PATH)
+#define LOG_CTRL_BIND_EXT_MUTEX(Mutex)	_ptLogMutex = Mutex
 #define RETVAL_SET(value)	_uiRetval = value
-#define LOG_CTRL_EXIT_APP   LOGCLOSE;																						\
-							return _uiRetval
-#define LOG_CTRL_EXIT_PTHRD LOGCLOSE;																						\
-							pthread_exit(&_uiRetval);																		\
-							return (void*)&_uiRetval
 #define _lci(path)			_uiRetval = RETVAL_OK;																			\
 							LOGOPEN(path)
 #endif // LOGGER_H

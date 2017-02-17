@@ -404,7 +404,8 @@ int main(int argc, char *argv[])
 	{
 		LOG(LOG_CAT_E, "Can`t open configuration file:" << S_CONF_PATH);
 		RETVAL_SET(RETVAL_ERR);
-		LOG_CTRL_EXIT_APP;
+		LOGCLOSE;
+		return LOGRETVAL;
 	}
 	else
 	{
@@ -415,7 +416,8 @@ int main(int argc, char *argv[])
 	{
 		LOG(LOG_CAT_E, "Configuration file is corrupt! No 'Net' node.");
 		RETVAL_SET(RETVAL_ERR);
-		LOG_CTRL_EXIT_APP;
+		LOGCLOSE;
+		return LOGRETVAL;
 	}
 	FIND_IN_CHILDLIST(o_lNet.front(), p_ListServerIP, "IP",
 					  FCN_ONE_LEVEL, p_NodeServerIP)
@@ -430,7 +432,8 @@ int main(int argc, char *argv[])
 	{
 		LOG(LOG_CAT_E, "Configuration file is corrupt! No '(Net)IP' node.");
 		RETVAL_SET(RETVAL_ERR);
-		LOG_CTRL_EXIT_APP;
+		LOGCLOSE;
+		return LOGRETVAL;
 	}
 	FIND_IN_CHILDLIST(o_lNet.front(), p_ListPort, "Port",
 					  FCN_ONE_LEVEL, p_NodePort)
@@ -445,7 +448,8 @@ int main(int argc, char *argv[])
 	{
 		LOG(LOG_CAT_E, "Configuration file is corrupt! No '(Net)Port' node.");
 		RETVAL_SET(RETVAL_ERR);
-		LOG_CTRL_EXIT_APP;
+		LOGCLOSE;
+		return LOGRETVAL;
 	}
 	FIND_IN_CHILDLIST(o_lNet.front(), p_ListPassword, "Password",
 					  FCN_ONE_LEVEL, p_NodePassword)
@@ -456,7 +460,8 @@ int main(int argc, char *argv[])
 	{
 		LOG(LOG_CAT_E, "Configuration file is corrupt! No 'Password' node.");
 		RETVAL_SET(RETVAL_ERR);
-		LOG_CTRL_EXIT_APP;
+		LOGCLOSE;
+		return LOGRETVAL;
 	}
 	// Подготовка соединения сервера.
 #ifdef WIN32
@@ -578,5 +583,6 @@ ex:
 	WSACleanup();
 #endif
 	LOG_P(LOG_CAT_I, "Exiting program.");
-	LOG_CTRL_EXIT_APP;
+	LOGCLOSE;
+	return LOGRETVAL;
 }
