@@ -24,9 +24,6 @@
 #define LOG_NAME				"Z-Server"
 #define MAX_CONN				128
 #define USER_RESPONSE_MS		100
-#define Z_LOG(Category,Text)	pthread_mutex_lock(&ptLogMutex);								\
-	LOG(Category,Text);																			\
-	pthread_mutex_unlock(&ptLogMutex);
 #ifndef WIN32
 #define MSleep(val)				usleep(val)
 #else
@@ -63,9 +60,9 @@ struct ConversationThreadData
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL
+LOGDECL_INIT_PTHRD_ADD
 static bool bExitSignal = false; ///< Сигнал на общее завершение.
 static pthread_mutex_t ptConnMutex = PTHREAD_MUTEX_INITIALIZER; ///< Инициализатор мьютекса соединений.
-static pthread_mutex_t ptLogMutex = PTHREAD_MUTEX_INITIALIZER; ///< Инициализатор мьютекса лога.
 static int iListener; ///< Сокет приёмника.
 static bool bRequestNewConn; ///< Сигнал запроса нового соединения.
 static ConversationThreadData mThreadDadas[MAX_CONN]; ///< Массив структур описания потоков соединений.
@@ -82,7 +79,7 @@ void SendToClient(bool bOverflowFlag, ConnectionData &oConnectionData, char chCo
 	}
 	else
 	{
-		Z_LOG(LOG_CAT_E, "Client buffer is overflowed.");
+		LOG_P(LOG_CAT_E, "Client buffer is overflowed.");
 	}
 }
 
@@ -167,9 +164,9 @@ void* ConversationThread(void* p_vNum)
 	iTPos = *((int*)p_vNum); // Получили номер в массиве.
 	mThreadDadas[iTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
 #ifndef WIN32
-	Z_LOG(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread);
+	LOG_P(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread);
 #else
-	Z_LOG(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread.p);
+	LOG_P(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread.p);
 #endif
 	bKillListenerAccept = false;
 	oConnectionData.iSocket = (int)accept(iListener, NULL, NULL); // Ждём входящих.
@@ -178,19 +175,19 @@ void* ConversationThread(void* p_vNum)
 		if(!bExitSignal) // Если не было сигнала на выход от основного потока...
 		{
 			pthread_mutex_lock(&ptConnMutex);
-			Z_LOG(LOG_CAT_E, "'accept': " << gai_strerror(oConnectionData.iSocket)); // Про ошибку.
+			LOG_P(LOG_CAT_E, "'accept': " << gai_strerror(oConnectionData.iSocket)); // Про ошибку.
 			goto enc;
 		}
 		else
 		{
 			pthread_mutex_lock(&ptConnMutex);
-			Z_LOG(LOG_CAT_I, "Accepting connections terminated."); // Норм. сообщение.
+			LOG_P(LOG_CAT_I, "Accepting connections terminated."); // Норм. сообщение.
 			bKillListenerAccept = true; // Заказываем подтверждение закрытия приёмника.
 			goto enc;
 		}
 	}
 	mThreadDadas[iTPos].bInUse = true; // Флаг занятости структуры.
-	Z_LOG(LOG_CAT_I, "New connection accepted.");
+	LOG_P(LOG_CAT_I, "New connection accepted.");
 	mThreadDadas[iTPos].iConnection = oConnectionData.iSocket; // Установка ИД соединения.
 	oConnectionData.ai_addrlen = sizeof(sockaddr);
 #ifndef WIN32
@@ -207,11 +204,11 @@ void* ConversationThread(void* p_vNum)
 	getnameinfo(&mThreadDadas[iTPos].saInet, (socklen_t)mThreadDadas[iTPos].ai_addrlen,
 				m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
 #endif
-	Z_LOG(LOG_CAT_I, "Connected with: " << m_chNameBuffer << " : " << m_chPortBuffer); // Инфо про входящий IP.
+	LOG_P(LOG_CAT_I, "Connected with: " << m_chNameBuffer << " : " << m_chPortBuffer); // Инфо про входящий IP.
 	if(oConnectionData.iStatus == -1) // Если не вышло отправить...
 	{
 		pthread_mutex_lock(&ptConnMutex);
-		Z_LOG(LOG_CAT_E, "'send': " << gai_strerror(oConnectionData.iStatus));
+		LOG_P(LOG_CAT_E, "'send': " << gai_strerror(oConnectionData.iStatus));
 		goto ec;
 	}
 	//
@@ -221,7 +218,7 @@ void* ConversationThread(void* p_vNum)
 	{
 		if(mThreadDadas[iTPos].uiCurrentPocket >= S_MAX_STORED_POCKETS)
 		{
-			Z_LOG(LOG_CAT_E, (char*)S_BUFFER_OVERFLOW << ": " << m_chNameBuffer);
+			LOG_P(LOG_CAT_E, (char*)S_BUFFER_OVERFLOW << ": " << m_chNameBuffer);
 			mThreadDadas[iTPos].bOverflowOnServer = true;
 			SendToAddress(oConnectionData, PROTO_S_BUFFER_OVERFLOW);
 			mThreadDadas[iTPos].uiCurrentPocket = S_MAX_STORED_POCKETS - 1;
@@ -233,16 +230,16 @@ void* ConversationThread(void* p_vNum)
 		pthread_mutex_lock(&ptConnMutex);
 		if(mThreadDadas[iTPos].bOverflowOnServer == true) // DEBUG.
 		{
-			Z_LOG(LOG_CAT_W, "Received overflowed pocket.");
+			LOG_P(LOG_CAT_W, "Received overflowed pocket.");
 		}
 		if (bExitSignal == true) // Если по выходу из приёмки обнаружен общий сигнал на выход...
 		{
-			Z_LOG(LOG_CAT_I, "Exiting reading: " << m_chNameBuffer);
+			LOG_P(LOG_CAT_I, "Exiting reading: " << m_chNameBuffer);
 			goto ecd;
 		}
 		if (oConnectionData.iStatus <= 0) // Если статус приёмки - отказ (вместо кол-ва принятых байт)...
 		{
-			Z_LOG(LOG_CAT_I, "Reading socket has been stopped: " << m_chNameBuffer);
+			LOG_P(LOG_CAT_I, "Reading socket has been stopped: " << m_chNameBuffer);
 			goto ecd;
 		}
 		oParsingResult = p_ProtoParser->ParsePocket(
@@ -256,7 +253,7 @@ void* ConversationThread(void* p_vNum)
 			{
 				if(oParsingResult.bStored)
 				{
-					Z_LOG(LOG_CAT_I, "Received pocket nr." <<
+					LOG_P(LOG_CAT_I, "Received pocket nr." <<
 						(mThreadDadas[iTPos].uiCurrentPocket + 1) << " of " << S_MAX_STORED_POCKETS);
 				}
 				if(mThreadDadas[iTPos].bSecured == false)
@@ -275,20 +272,20 @@ void* ConversationThread(void* p_vNum)
 						{
 							SendToAddress(oConnectionData, PROTO_S_PASSW_OK);
 							mThreadDadas[iTPos].bSecured = true;
-							Z_LOG(LOG_CAT_I, (char*)PASSW_OK << ": " << m_chNameBuffer);
+							LOG_P(LOG_CAT_I, (char*)PASSW_OK << ": " << m_chNameBuffer);
 							break;
 						}
 						else
 						{
 							SendToAddress(oConnectionData, PROTO_S_PASSW_ERR);
-							Z_LOG(LOG_CAT_W, (char*)PASSW_ERROR << ": " << m_chNameBuffer);
+							LOG_P(LOG_CAT_W, (char*)PASSW_ERROR << ": " << m_chNameBuffer);
 							break;
 						}
 					}
 					else
 					{
 						SendToAddress(oConnectionData, PROTO_S_UNSECURED);
-						Z_LOG(LOG_CAT_W, (char*)PASSW_ABSENT << ": " << m_chNameBuffer);
+						LOG_P(LOG_CAT_W, (char*)PASSW_ABSENT << ": " << m_chNameBuffer);
 						break;
 					}
 				}
@@ -299,13 +296,13 @@ void* ConversationThread(void* p_vNum)
 					{
 						case PROTO_C_BUFFER_OVERFLOW:
 						{
-							Z_LOG(LOG_CAT_E, (char*)C_BUFFER_OVERFLOW << ": " << m_chNameBuffer);
+							LOG_P(LOG_CAT_E, (char*)C_BUFFER_OVERFLOW << ": " << m_chNameBuffer);
 							mThreadDadas[iTPos].bOverflowOnClient = true;
 							goto gI;
 						}
 						case PROTO_C_BUFFER_READY:
 						{
-							Z_LOG(LOG_CAT_I, (char*)C_BUFFER_READY);
+							LOG_P(LOG_CAT_I, (char*)C_BUFFER_READY);
 							mThreadDadas[iTPos].bOverflowOnClient = false;
 							goto gI;
 						}
@@ -317,9 +314,9 @@ void* ConversationThread(void* p_vNum)
 						{
 							case PROTO_O_TEXT_MSG:
 							{
-								Z_LOG(LOG_CAT_I, "Received text message: " <<
+								LOG_P(LOG_CAT_I, "Received text message: " <<
 									  pParsedObject->oProtocolStorage.oTextMsg.m_chMsg);
-								Z_LOG(LOG_CAT_I, "Sending answer..."); // DEBUG.
+								LOG_P(LOG_CAT_I, "Sending answer..."); // DEBUG.
 								SendToClient(mThreadDadas[iTPos].bOverflowOnClient, oConnectionData,
 											 PROTO_O_TEXT_MSG, (char*)"Got text.", 10); // DEBUG.
 								break;
@@ -332,14 +329,14 @@ gI:				break;
 			case PROTOPARSER_OUT_OF_RANGE:
 			{
 				SendToAddress(oConnectionData, PROTO_S_OUT_OF_RANGE);
-				Z_LOG(LOG_CAT_E, (char*)POCKET_OUT_OF_RANGE << ": " <<
+				LOG_P(LOG_CAT_E, (char*)POCKET_OUT_OF_RANGE << ": " <<
 					  m_chNameBuffer << " - " << pParsedObject->iDataLength);
 				break;
 			}
 			case PROTOPARSER_UNKNOWN_COMMAND:
 			{
 				SendToAddress(oConnectionData, PROTO_S_UNKNOWN_COMMAND);
-				Z_LOG(LOG_CAT_W, (char*)UNKNOWN_COMMAND << ": " << m_chNameBuffer);
+				LOG_P(LOG_CAT_W, (char*)UNKNOWN_COMMAND << ": " << m_chNameBuffer);
 				break;
 			}
 		}
@@ -357,13 +354,13 @@ ec: if(bExitSignal == false)
 #else
 		closesocket(oConnectionData.iSocket);
 #endif
-		Z_LOG(LOG_CAT_I, "Socket closed by client absence: " << m_chNameBuffer);
+		LOG_P(LOG_CAT_I, "Socket closed by client absence: " << m_chNameBuffer);
 	}
 enc:
 #ifndef WIN32
-	Z_LOG(LOG_CAT_I, "Exiting thread: " << mThreadDadas[iTPos].p_Thread);
+	LOG_P(LOG_CAT_I, "Exiting thread: " << mThreadDadas[iTPos].p_Thread);
 #else
-	Z_LOG(LOG_CAT_I, "Exiting thread: " << mThreadDadas[iTPos].p_Thread.p);
+	LOG_P(LOG_CAT_I, "Exiting thread: " << mThreadDadas[iTPos].p_Thread.p);
 #endif
 	CleanThrDadaPos(iTPos);
 	pthread_mutex_unlock(&ptConnMutex);
@@ -506,7 +503,7 @@ int main(int argc, char *argv[])
 #ifndef WIN32
 	pthread_create(&KeyThr, NULL, WaitingThread, NULL); // Запуск потока ожидания ввода (только для линукса).
 #endif
-	Z_LOG(LOG_CAT_I, "Accepting connections, press 'Esc' for exit.");
+	LOG_P(LOG_CAT_I, "Accepting connections, press 'Esc' for exit.");
 	bListenerAlive = true;
 	// Цикл ожидания входа клиентов.
 nc:	bRequestNewConn = false; // Вход в звено цикла ожидания клиентов - сброс флага запроса.
@@ -526,9 +523,9 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 		MSleep(USER_RESPONSE_MS);
 	}
 	printf("\b\b");
-	Z_LOG(LOG_CAT_I, "Terminated by user.");
+	LOG_P(LOG_CAT_I, "Terminated by user.");
 	// Закрытие приёмника.
-	Z_LOG(LOG_CAT_I, "Closing listener...");
+	LOG_P(LOG_CAT_I, "Closing listener...");
 #ifndef WIN32
 	shutdown(iListener, SHUT_RDWR);
 	close(iListener);
@@ -539,9 +536,9 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 	{
 		MSleep(USER_RESPONSE_MS);
 	}
-	Z_LOG(LOG_CAT_I, "Listener has been closed.");
+	LOG_P(LOG_CAT_I, "Listener has been closed.");
 	// Закрытие сокетов клиентов.
-	Z_LOG(LOG_CAT_I, "Disconnecting clients...");
+	LOG_P(LOG_CAT_I, "Disconnecting clients...");
 	pthread_mutex_lock(&ptConnMutex);
 	for(iCurrPos = 0; iCurrPos != MAX_CONN; iCurrPos++) // Закрываем все клиентские сокеты.
 	{
@@ -560,7 +557,7 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 			getnameinfo(&mThreadDadas[iCurrPos].saInet, (socklen_t)mThreadDadas[iCurrPos].ai_addrlen,
 						m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
 #endif
-			Z_LOG(LOG_CAT_I, "Socket closed internally: " << m_chNameBuffer);
+			LOG_P(LOG_CAT_I, "Socket closed internally: " << m_chNameBuffer);
 		}
 	}
 	pthread_mutex_unlock(&ptConnMutex);
@@ -575,12 +572,11 @@ stc:iCurrPos = 0;
 			goto stc;
 		}
 	}
-	Z_LOG(LOG_CAT_I, "Clients has been disconnected.");
+	LOG_P(LOG_CAT_I, "Clients has been disconnected.");
 ex:
 #ifdef WIN32
 	WSACleanup();
 #endif
-	Z_LOG(LOG_CAT_I, "Exiting program.");
-	LOGCLOSE;
-	return _uiRetval;
+	LOG_P(LOG_CAT_I, "Exiting program.");
+	LOG_CTRL_EXIT_APP;
 }
