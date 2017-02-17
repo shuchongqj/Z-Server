@@ -23,10 +23,11 @@ public:
 		int iDataLength; ///< Длина пакета в байтах.
 		ProtocolStorage oProtocolStorage; ///< Составной объект хранилища, определяемый в протоколе.
 	};
+	/// Структура возвратных результатов парсинга.
 	struct ParseResult
 	{
-		bool bStored;
-		char chRes;
+		bool bStored; ///< Был ли использован буфер сохранения.
+		char chRes; ///< Код результата.
 	};
 public:
 	/// Парсинг пакета в соответствующий член хранилища.

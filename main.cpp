@@ -63,9 +63,6 @@ struct ConversationThreadData
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL
-#ifndef WIN32
-; // Баг в QtCreator`е на Windows, на Linux ';' нужна.
-#endif
 static bool bExitSignal = false; ///< Сигнал на общее завершение.
 static pthread_mutex_t ptConnMutex = PTHREAD_MUTEX_INITIALIZER; ///< Инициализатор мьютекса соединений.
 static pthread_mutex_t ptLogMutex = PTHREAD_MUTEX_INITIALIZER; ///< Инициализатор мьютекса лога.
@@ -377,9 +374,9 @@ enc:
 
 /// Точка входа в приложение.
 int main(int argc, char *argv[])
-///< \param[in] argc Заглушка.
-///< \param[in] argv Заглушка.
-///< \return Общий результат работы.
+						///< \param[in] argc Заглушка.
+						///< \param[in] argv Заглушка.
+						///< \return Общий результат работы.
 {
 	argc = argc; // Заглушка.
 	argv = argv; // Заглушка.
@@ -410,7 +407,7 @@ int main(int argc, char *argv[])
 	{
 		LOG(LOG_CAT_E, "Can`t open configuration file:" << S_CONF_PATH);
 		RETVAL_SET(RETVAL_ERR);
-		LOG_CTRL_EXIT;
+		LOG_CTRL_EXIT_APP;
 	}
 	else
 	{
@@ -421,7 +418,7 @@ int main(int argc, char *argv[])
 	{
 		LOG(LOG_CAT_E, "Configuration file is corrupt! No 'Net' node.");
 		RETVAL_SET(RETVAL_ERR);
-		LOG_CTRL_EXIT;
+		LOG_CTRL_EXIT_APP;
 	}
 	FIND_IN_CHILDLIST(o_lNet.front(), p_ListServerIP, "IP",
 					  FCN_ONE_LEVEL, p_NodeServerIP)
@@ -436,7 +433,7 @@ int main(int argc, char *argv[])
 	{
 		LOG(LOG_CAT_E, "Configuration file is corrupt! No '(Net)IP' node.");
 		RETVAL_SET(RETVAL_ERR);
-		LOG_CTRL_EXIT;
+		LOG_CTRL_EXIT_APP;
 	}
 	FIND_IN_CHILDLIST(o_lNet.front(), p_ListPort, "Port",
 					  FCN_ONE_LEVEL, p_NodePort)
@@ -451,7 +448,7 @@ int main(int argc, char *argv[])
 	{
 		LOG(LOG_CAT_E, "Configuration file is corrupt! No '(Net)Port' node.");
 		RETVAL_SET(RETVAL_ERR);
-		LOG_CTRL_EXIT;
+		LOG_CTRL_EXIT_APP;
 	}
 	FIND_IN_CHILDLIST(o_lNet.front(), p_ListPassword, "Password",
 					  FCN_ONE_LEVEL, p_NodePassword)
@@ -462,7 +459,7 @@ int main(int argc, char *argv[])
 	{
 		LOG(LOG_CAT_E, "Configuration file is corrupt! No 'Password' node.");
 		RETVAL_SET(RETVAL_ERR);
-		LOG_CTRL_EXIT;
+		LOG_CTRL_EXIT_APP;
 	}
 	// Подготовка соединения сервера.
 #ifdef WIN32

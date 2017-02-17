@@ -29,11 +29,11 @@
 #endif
 #define LOGSpc              " "
 #ifndef WIN32
-#define LOGDECL             std::fstream LOGVarname; char m_chLogBuf[80]; char m_chLogMSBuf[8];                             \
-                            time_t LogTimeNow; timeval LogTimeval
+#define LOGDECL             std::fstream LOGVarname; char _m_chLogBuf[80]; char _m_chLogMSBuf[8];                           \
+							time_t _LogTimeNow; timeval _LogTimeval; unsigned int _uiRetval;
 #else
-#define LOGDECL             std::fstream LOGVarname; char m_chLogBuf[80]; char m_chLogMSBuf[8];                             \
-                            time_t LogTimeNow; timeval LogTimeval;                                                          \
+#define LOGDECL             std::fstream LOGVarname; char _m_chLogBuf[80]; char _m_chLogMSBuf[8];                           \
+							time_t _LogTimeNow; timeval _LogTimeval; unsigned int _uiRetval;                                \
                             int gettimeofday(timeval * tp, struct timezone * tzp){                                          \
                                 SYSTEMTIME system_time; FILETIME file_time; GetSystemTime(&system_time);                    \
                                 SystemTimeToFileTime(&system_time, &file_time);                                             \
@@ -41,26 +41,28 @@
 #endif
 #define LOGOPEN(Filename)   LOGVarname.open(Filename, std::ios_base::in|std::ios_base::out|std::ios_base::trunc)
 #define LOGCLOSE            LOGVarname.close()
-#define LOG(Category,Text)  LogTimeNow = time(0);                                                                           \
-                            gettimeofday(&LogTimeval, NULL);                                                                \
-                            strftime(m_chLogBuf, sizeof(m_chLogBuf), LOGTimeFormat, localtime(&LogTimeNow));                \
-                            sprintf(m_chLogMSBuf, LOGMsFormat, LogTimeval.tv_usec);                                         \
-                            LOGVarname << m_chLogBuf << LOGSpc << m_chLogMSBuf << LOGSpc << Category << Text << std::endl;  \
-                            LOGVarname.flush(); std::cout << m_chLogBuf << LOGSpc <<                                        \
-                            m_chLogMSBuf << LOGSpc << Category << Text << std::endl
+#define LOG(Category,Text)  _LogTimeNow = time(0);                                                                          \
+							gettimeofday(&_LogTimeval, NULL);                                                               \
+							strftime(_m_chLogBuf, sizeof(_m_chLogBuf), LOGTimeFormat, localtime(&_LogTimeNow));             \
+							sprintf(_m_chLogMSBuf, LOGMsFormat, _LogTimeval.tv_usec);                                       \
+							LOGVarname << _m_chLogBuf << LOGSpc << _m_chLogMSBuf << LOGSpc << Category << Text << std::endl;\
+							LOGVarname.flush(); std::cout << _m_chLogBuf << LOGSpc <<                                       \
+							_m_chLogMSBuf << LOGSpc << Category << Text << std::endl
 //
 #define LOG_CAT_I           LOG_NAME": <I> "
 #define LOG_CAT_W           LOG_NAME": <W> "
 #define LOG_CAT_E           LOG_NAME": <E> "
 #define LOG_PATH			"./logs/" LOG_NAME"_Log.txt"
 //"
-#define RETVAL_OK               0
-#define RETVAL_ERR              -1
-#define LOG_CTRL_INIT			_lci(LOG_PATH)
-#define RETVAL_SET(value)		_uiRetval = value
-#define LOG_CTRL_EXIT           LOGCLOSE;							\
-								return _uiRetval
-#define _lci(path)				unsigned int _uiRetval = RETVAL_OK;	\
-								LOGOPEN(path)
+#define RETVAL_OK           0
+#define RETVAL_ERR          -1
+#define LOG_CTRL_INIT		_lci(LOG_PATH)
+#define RETVAL_SET(value)	_uiRetval = value
+#define LOG_CTRL_EXIT_APP   LOGCLOSE;																						\
+							return _uiRetval
+#define LOG_CTRL_EXIT_THRD  LOGCLOSE;																						\
+							return (void*)&_uiRetval
+#define _lci(path)			_uiRetval = RETVAL_OK;																			\
+							LOGOPEN(path)
 #endif // LOGGER_H
 
