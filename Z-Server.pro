@@ -26,7 +26,8 @@ SOURCES += main.cpp \
     parserext.cpp \
     dlfcn-win32/dlfcn.c \
     protoparser.cpp \
-    hub.cpp
+    hub.cpp \
+    server.cpp
 
 HEADERS += \
     hub.h \
@@ -39,7 +40,8 @@ HEADERS += \
     pthread/include/sched.h \
     pthread/include/semaphore.h \
     protoparser.h \
-    protocol.h
+    protocol.h \
+    server.h
 
 DISTFILES += \
     pthread/lib/pthreadVC2.lib \

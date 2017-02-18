@@ -15,8 +15,6 @@
 #include "protoparser.h"
 
 //== МАКРОСЫ.
-#define S_CONF_PATH				"./settings/server.ini"
-#define C_CONF_PATH				"./settings/client.ini"
 #define S_MAX_STORED_POCKETS	32
 #define C_MAX_STORED_POCKETS	16
 #define MAX_DATA				1024
@@ -24,6 +22,8 @@
 #define SOCKET_ERROR_TOO_BIG	65535
 #define S_BUFFER_READY			"Buffer is ready on server."
 #define C_BUFFER_READY			"Buffer is ready on client."
+#define RETURN_THREAD			pthread_exit(0);																		\
+								return 0;
 
 //== СТРУКТУРЫ.
 /// Сруктура для данных по соединению.
