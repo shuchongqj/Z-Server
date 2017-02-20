@@ -4,11 +4,6 @@
 
 //== МАКРОСЫ.
 #define LOG_NAME				"Z-Server"
-#define PASSW_ERROR				"Authentification failed."
-#define PASSW_ABSENT			"Client is not autherised."
-#define PASSW_OK				"Connection is secured."
-#define S_BUFFER_OVERFLOW		"Buffer overflow for"
-#define C_BUFFER_OVERFLOW		"Buffer overflow on"
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL_INIT_INCLASS(Server)
@@ -68,7 +63,8 @@ bool Server::CheckReady()
 }
 
 // Функция отправки клиенту.
-bool Server::SendToClient(ConnectionData &oConnectionData, char chCommand, bool bOverflowFlag, char *p_chBuffer, int iLength)
+bool Server::SendToClient(ConnectionData &oConnectionData, char chCommand,
+						  bool bOverflowFlag, char *p_chBuffer, int iLength)
 {
 	bool bRes = false;
 	if(bOverflowFlag == false)
@@ -233,7 +229,7 @@ void* Server::ConversationThread(void* p_vNum)
 		pthread_mutex_lock(&ptConnMutex);
 		if(mThreadDadas[uiTPos].uiCurrentFreePocket >= S_MAX_STORED_POCKETS)
 		{
-			LOG_P(LOG_CAT_W, (char*)S_BUFFER_OVERFLOW << ": " << m_chNameBuffer);
+			LOG_P(LOG_CAT_W, "Buffer overflow for ID: " << uiTPos);
 			mThreadDadas[uiTPos].bOverflowOnServer = true;
 			SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_BUFFER_OVERFLOW);
 			mThreadDadas[uiTPos].uiCurrentFreePocket = S_MAX_STORED_POCKETS - 1;
@@ -246,16 +242,16 @@ void* Server::ConversationThread(void* p_vNum)
 		pthread_mutex_lock(&ptConnMutex);
 		if(mThreadDadas[uiTPos].bOverflowOnServer == true) // DEBUG.
 		{
-			LOG_P(LOG_CAT_W, "Received overflowed pocket.");
+			LOG_P(LOG_CAT_W, "Received overflowed pocket from ID: " << uiTPos);
 		}
 		if (bExitSignal == true) // Если по выходу из приёмки обнаружен общий сигнал на выход...
 		{
-			LOG_P(LOG_CAT_I, "Exiting reading: " << m_chNameBuffer);
+			LOG_P(LOG_CAT_I, "Exiting reading from ID: " << uiTPos);
 			goto ecd;
 		}
 		if (mThreadDadas[uiTPos].oConnectionData.iStatus <= 0) // Если статус приёмки - отказ (вместо принятых байт)...
 		{
-			LOG_P(LOG_CAT_I, "Reading socket has been stopped: " << m_chNameBuffer);
+			LOG_P(LOG_CAT_I, "Reading socket has been stopped for ID: " << uiTPos);
 			goto ecd;
 		}
 		oParsingResult = p_ProtoParser->ParsePocket(
@@ -290,20 +286,20 @@ void* Server::ConversationThread(void* p_vNum)
 						{
 							SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_PASSW_OK);
 							mThreadDadas[uiTPos].bSecured = true;
-							LOG_P(LOG_CAT_I, (char*)PASSW_OK << ": " << m_chNameBuffer);
+							LOG_P(LOG_CAT_I, "Connection is secured fot ID: " << uiTPos);
 							break;
 						}
 						else
 						{
 							SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_PASSW_ERR);
-							LOG_P(LOG_CAT_W, (char*)PASSW_ERROR << ": " << m_chNameBuffer);
+							LOG_P(LOG_CAT_W, "Authentification failed for ID: " << uiTPos);
 							break;
 						}
 					}
 					else
 					{
 						SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_UNSECURED);
-						LOG_P(LOG_CAT_W, (char*)PASSW_ABSENT << ": " << m_chNameBuffer);
+						LOG_P(LOG_CAT_W, "Client is not autherised, ID: " << uiTPos);
 						break;
 					}
 				}
@@ -314,23 +310,23 @@ void* Server::ConversationThread(void* p_vNum)
 					{
 						case PROTO_C_BUFFER_OVERFLOW:
 						{
-							LOG_P(LOG_CAT_E, (char*)C_BUFFER_OVERFLOW << ": " << m_chNameBuffer);
+							LOG_P(LOG_CAT_E, "Buffer overflow on ID: " << uiTPos);
 							mThreadDadas[uiTPos].bOverflowOnClient = true;
 							goto gI;
 						}
 						case PROTO_C_BUFFER_READY:
 						{
-							LOG_P(LOG_CAT_I, (char*)C_BUFFER_READY);
+							LOG_P(LOG_CAT_I, "Buffer is ready on ID: " << uiTPos);
 							mThreadDadas[uiTPos].bOverflowOnClient = false;
 							goto gI;
 						}
 						case PROTO_C_REQUEST_LEAVING:
 						{
-							LOG_P(LOG_CAT_I, m_chNameBuffer << " : request leaving.");
+							LOG_P(LOG_CAT_I, "ID: " << uiTPos << " request leaving.");
 							// МЕСТО ДЛЯ ВСТАВКИ КОДА ОБРАБОТКИ ВЫХОДА КЛИЕНТОВ.
 							//
 							SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_ACCEPT_LEAVING);
-							LOG_P(LOG_CAT_I, m_chNameBuffer << " : leaving accepted.");
+							LOG_P(LOG_CAT_I, "ID: " << uiTPos << " leaving accepted.");
 							MSleep(WAITING_FOR_CLIENT_DSC);
 							bLocalExitSignal = true;
 							goto ecd;
@@ -343,7 +339,7 @@ void* Server::ConversationThread(void* p_vNum)
 						{
 							case PROTO_O_TEXT_MSG:
 							{
-								LOG_P(LOG_CAT_I, "Received text message: " <<
+								LOG_P(LOG_CAT_I, "Received text message from ID: " << uiTPos << " : " <<
 									  pParsedObject->oProtocolStorage.oTextMsg.m_chMsg);
 								break;
 							}
@@ -355,14 +351,14 @@ gI:				break;
 			case PROTOPARSER_OUT_OF_RANGE:
 			{
 				SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_OUT_OF_RANGE);
-				LOG_P(LOG_CAT_E, (char*)POCKET_OUT_OF_RANGE << ": " <<
-					  m_chNameBuffer << " - " << pParsedObject->iDataLength);
+				LOG_P(LOG_CAT_E, (char*)POCKET_OUT_OF_RANGE << " from ID: " <<
+					  uiTPos << " - " << pParsedObject->iDataLength);
 				break;
 			}
 			case PROTOPARSER_UNKNOWN_COMMAND:
 			{
 				SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_UNKNOWN_COMMAND);
-				LOG_P(LOG_CAT_W, (char*)UNKNOWN_COMMAND << ": " << m_chNameBuffer);
+				LOG_P(LOG_CAT_W, (char*)UNKNOWN_COMMAND << " from ID: " << uiTPos);
 				break;
 			}
 		}
