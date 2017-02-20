@@ -94,8 +94,8 @@ bool Server::SendToUser(char* p_chIP, char chCommand, char* p_chBuffer, int iLen
 						mThreadDadas[uiPos].oConnectionData.ai_addrlen,
 						m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
 #else
-			getnameinfo(&mThreadDadas[uiTPos].oConnectionData.ai_addr,
-						(socklen_t)mThreadDadas[uiTPos].oConnectionData.ai_addrlen,
+			getnameinfo(&mThreadDadas[uiPos].oConnectionData.ai_addr,
+						(socklen_t)mThreadDadas[uiPos].oConnectionData.ai_addrlen,
 						m_chNameBuffer, sizeof(m_chNameBuffer), NULL, NULL, NI_NUMERICHOST);
 #endif
 			if(!strcmp(m_chNameBuffer, p_chIP))

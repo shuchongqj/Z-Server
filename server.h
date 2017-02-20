@@ -24,8 +24,8 @@
 #endif
 
 //== МАКРОСЫ.
-#define USER_RESPONSE_MS		100000
-#define WAITING_FOR_CLIENT_DSC	1000000
+#define USER_RESPONSE_MS		100
+#define WAITING_FOR_CLIENT_DSC	1000
 #define MAX_CONN				16
 
 //== КЛАССЫ.

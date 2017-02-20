@@ -24,9 +24,9 @@
 #define RETURN_THREAD			pthread_exit(0);																		\
 								return 0;
 #ifndef WIN32
-#define MSleep(val)				usleep(val)
+#define MSleep(val)				usleep(val * 1000)
 #else
-#define MSleep(val)				Sleep(val * 1000)
+#define MSleep(val)				Sleep(val)
 #endif
 
 //== СТРУКТУРЫ.

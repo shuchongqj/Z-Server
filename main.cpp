@@ -4,6 +4,9 @@
 //== МАКРОСЫ.
 #define LOG_NAME				"Z-Admin"
 #define S_CONF_PATH				"./settings/server.ini"
+#ifdef WIN32
+#include <string>
+#endif
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL
@@ -23,13 +26,13 @@ int main(int argc, char *argv[])
 	string strAdminCommand;
 	//
 	oServer.Start();
-gAg:getline(cin, strAdminCommand);
+gAg:cin >> strAdminCommand;
 	if(strAdminCommand.find("exit") == std::string::npos)
 	{
 		bool bRes;
 		//
 		bRes = oServer.SendToUser(
-				(char*)"192.168.0.4", PROTO_O_TEXT_MSG, (char*)strAdminCommand.c_str(), strAdminCommand.length()+1);
+				(char*)"192.168.0.4", PROTO_O_TEXT_MSG, (char*)strAdminCommand.c_str(), (int)(strAdminCommand.length() + 1));
 		if(!bRes)
 		{
 			LOG_P(LOG_CAT_E, "Sending failed.");
