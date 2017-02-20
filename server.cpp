@@ -20,7 +20,7 @@ bool Server::bRequestNewConn = false;
 Server::ConversationThreadData Server::mThreadDadas[MAX_CONN];
 bool Server::bListenerAlive = false;
 char* Server::p_chPassword = 0;
-pthread_t Server::ServerThr = 0;
+pthread_t Server::ServerThr;
 char* Server::p_chSettingsPath = 0;
 int Server::iSelectedConnection = -1;
 CBConnectionChanged Server::pf_CBConnectionChanged;
