@@ -9,7 +9,7 @@
 #define PROTOPARSER_OUT_OF_RANGE		0x01
 #define PROTOPARSER_UNKNOWN_COMMAND		0x02
 #define POCKET_OUT_OF_RANGE				"Pocket out of range."
-#define UNKNOWN_COMMAND					"Unknown command."
+#define UNKNOWN_COMMAND					"Unknown command"
 
 //== КЛАССЫ.
 /// Класс парсера протокола.

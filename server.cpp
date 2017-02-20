@@ -21,14 +21,16 @@ Server::ConversationThreadData Server::mThreadDadas[MAX_CONN];
 bool Server::bListenerAlive;
 char* Server::p_chPassword = 0;
 pthread_t Server::ServerThr;
+char* Server::p_chSettingsPath;
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс сервера.
 // Конструктор.
-Server::Server(pthread_mutex_t ptLogMutex)
+Server::Server(const char* cp_chSettingsPath, pthread_mutex_t ptLogMutex)
 {
 	LOG_CTRL_BIND_EXT_MUTEX(ptLogMutex);
 	LOG_CTRL_INIT;
+	p_chSettingsPath = (char*)cp_chSettingsPath;
 }
 
 // Деструктор.
@@ -76,24 +78,57 @@ void Server::SendToClient(bool bOverflowFlag, ConnectionData &oConnectionData, c
 	}
 }
 
-// Очистка позиции данных потока.
-void Server::CleanThrDadaPos(int iPos)
+// Отправка пакета пользователю.
+bool Server::SendToUser(char* p_chIP, char chCommand, char* p_chBuffer, int iLength)
 {
-	memset(&mThreadDadas[iPos], 0, sizeof(ConversationThreadData));
+	unsigned int uiPos = 0;
+	char m_chNameBuffer[INET6_ADDRSTRLEN];
+	//
+	pthread_mutex_lock(&ptConnMutex);
+	for(; uiPos != MAX_CONN; uiPos++)
+	{
+		if((mThreadDadas[uiPos].bOverflowOnClient == false) & (mThreadDadas[uiPos].bInUse))
+		{
+#ifndef WIN32
+			getnameinfo(&mThreadDadas[uiPos].oConnectionData.ai_addr,
+						mThreadDadas[uiPos].oConnectionData.ai_addrlen,
+						m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
+#else
+			getnameinfo(&mThreadDadas[uiTPos].oConnectionData.ai_addr,
+						(socklen_t)mThreadDadas[uiTPos].oConnectionData.ai_addrlen,
+						m_chNameBuffer, sizeof(m_chNameBuffer), NULL, NULL, NI_NUMERICHOST);
+#endif
+			if(!strcmp(m_chNameBuffer, p_chIP))
+			{
+				SendToAddress(mThreadDadas[uiPos].oConnectionData,
+							  chCommand, p_chBuffer, iLength);
+				pthread_mutex_unlock(&ptConnMutex);
+				return true;
+			}
+		}
+	}
+	pthread_mutex_unlock(&ptConnMutex);
+	return false;
+}
+
+// Очистка позиции данных потока.
+void Server::CleanThrDadaPos(unsigned int uiPos)
+{
+	memset(&mThreadDadas[uiPos], 0, sizeof(ConversationThreadData));
 }
 
 // Поиск свободной позиции данных потока.
-int Server::FindFreeThrDadaPos()
+unsigned int Server::FindFreeThrDadaPos()
 {
-	int iPos = 0;
+	unsigned int uiPos = 0;
 	//
 	pthread_mutex_lock(&ptConnMutex);
-	for(; iPos != MAX_CONN; iPos++)
+	for(; uiPos != MAX_CONN; uiPos++)
 	{
-		if(mThreadDadas[iPos].bInUse == false) // Если не стоит флаг занятости - годен.
+		if(mThreadDadas[uiPos].bInUse == false) // Если не стоит флаг занятости - годен.
 		{
 			pthread_mutex_unlock(&ptConnMutex);
-			return iPos;
+			return uiPos;
 		}
 	}
 	pthread_mutex_unlock(&ptConnMutex);
@@ -105,30 +140,31 @@ void* Server::ConversationThread(void* p_vNum)
 {
 	///< \param[in] p_vNum Ук. на переменную типа int с номером предоставленной структуры в mThreadDadas.
 	///< \return Заглушка.
-	int iTPos;
+	unsigned int uiTPos;
 	bool bKillListenerAccept;
 	ProtoParser* p_ProtoParser;
 	ProtoParser::ParseResult oParsingResult;
-	ConnectionData oConnectionData;
 	char m_chNameBuffer[INET6_ADDRSTRLEN];
 	char m_chPortBuffer[6];
 	ProtoParser::ParsedObject* pParsedObject;
+	bool bLocalExitSignal;
 	//
-	iTPos = *((int*)p_vNum); // Получили номер в массиве.
-	mThreadDadas[iTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
+	bLocalExitSignal = false;
+	uiTPos = *((unsigned int*)p_vNum); // Получили номер в массиве.
+	mThreadDadas[uiTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
 #ifndef WIN32
-	LOG_P(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread);
+	LOG_P(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[uiTPos].p_Thread);
 #else
-	LOG_P(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread.p);
+	LOG_P(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[uiTPos].p_Thread.p);
 #endif
 	bKillListenerAccept = false;
-	oConnectionData.iSocket = (int)accept(iListener, NULL, NULL); // Ждём входящих.
-	if((oConnectionData.iSocket < 0)) // При ошибке после выхода из ожидания входящих...
+	mThreadDadas[uiTPos].oConnectionData.iSocket = (int)accept(iListener, NULL, NULL); // Ждём входящих.
+	if((mThreadDadas[uiTPos].oConnectionData.iSocket < 0)) // При ошибке после выхода из ожидания входящих...
 	{
 		if(!bExitSignal) // Если не было сигнала на выход от основного потока...
 		{
 			pthread_mutex_lock(&ptConnMutex);
-			LOG_P(LOG_CAT_E, "'accept': " << gai_strerror(oConnectionData.iSocket)); // Про ошибку.
+			LOG_P(LOG_CAT_E, "'accept': " << gai_strerror(mThreadDadas[uiTPos].oConnectionData.iSocket)); // Про ошибку.
 			goto enc;
 		}
 		else
@@ -139,29 +175,31 @@ void* Server::ConversationThread(void* p_vNum)
 			goto enc;
 		}
 	}
-	mThreadDadas[iTPos].bInUse = true; // Флаг занятости структуры.
+	mThreadDadas[uiTPos].bInUse = true; // Флаг занятости структуры.
 	LOG_P(LOG_CAT_I, "New connection accepted.");
-	mThreadDadas[iTPos].iConnection = oConnectionData.iSocket; // Установка ИД соединения.
-	oConnectionData.ai_addrlen = sizeof(sockaddr);
+	mThreadDadas[uiTPos].iConnection = mThreadDadas[uiTPos].oConnectionData.iSocket; // Установка ИД соединения.
+	mThreadDadas[uiTPos].oConnectionData.ai_addrlen = sizeof(sockaddr);
 #ifndef WIN32
-	getpeername(oConnectionData.iSocket, &oConnectionData.ai_addr, &oConnectionData.ai_addrlen);
+	getpeername(mThreadDadas[uiTPos].oConnectionData.iSocket, &mThreadDadas[uiTPos].oConnectionData.ai_addr,
+				&mThreadDadas[uiTPos].oConnectionData.ai_addrlen);
 #else
-	getpeername(oConnectionData.iSocket, &oConnectionData.ai_addr, (int*)&oConnectionData.ai_addrlen);
+	getpeername(mThreadDadas[uiTPos].oConnectionData.iSocket, &mThreadDadas[uiTPos].oConnectionData.ai_addr,
+				(int*)&mThreadDadas[uiTPos].oConnectionData.ai_addrlen);
 #endif
-	mThreadDadas[iTPos].saInet = oConnectionData.ai_addr;
-	mThreadDadas[iTPos].ai_addrlen = oConnectionData.ai_addrlen;
 #ifndef WIN32
-	getnameinfo(&mThreadDadas[iTPos].saInet, mThreadDadas[iTPos].ai_addrlen,
+	getnameinfo(&mThreadDadas[uiTPos].oConnectionData.ai_addr,
+				mThreadDadas[uiTPos].oConnectionData.ai_addrlen,
 				m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
 #else
-	getnameinfo(&mThreadDadas[iTPos].saInet, (socklen_t)mThreadDadas[iTPos].ai_addrlen,
+	getnameinfo(&mThreadDadas[uiTPos].oConnectionData.ai_addr,
+				(socklen_t)mThreadDadas[uiTPos].oConnectionData.ai_addrlen,
 				m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
 #endif
 	LOG_P(LOG_CAT_I, "Connected with: " << m_chNameBuffer << " : " << m_chPortBuffer); // Инфо про входящий IP.
-	if(oConnectionData.iStatus == -1) // Если не вышло отправить...
+	if(mThreadDadas[uiTPos].oConnectionData.iStatus == -1) // Если не вышло отправить...
 	{
 		pthread_mutex_lock(&ptConnMutex);
-		LOG_P(LOG_CAT_E, "'send': " << gai_strerror(oConnectionData.iStatus));
+		LOG_P(LOG_CAT_E, "'send': " << gai_strerror(mThreadDadas[uiTPos].oConnectionData.iStatus));
 		goto ec;
 	}
 	//
@@ -169,19 +207,21 @@ void* Server::ConversationThread(void* p_vNum)
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
 	{
-		if(mThreadDadas[iTPos].uiCurrentPocket >= S_MAX_STORED_POCKETS)
+		pthread_mutex_lock(&ptConnMutex);
+		if(mThreadDadas[uiTPos].uiCurrentFreePocket >= S_MAX_STORED_POCKETS)
 		{
 			LOG_P(LOG_CAT_E, (char*)S_BUFFER_OVERFLOW << ": " << m_chNameBuffer);
-			mThreadDadas[iTPos].bOverflowOnServer = true;
-			SendToAddress(oConnectionData, PROTO_S_BUFFER_OVERFLOW);
-			mThreadDadas[iTPos].uiCurrentPocket = S_MAX_STORED_POCKETS - 1;
+			mThreadDadas[uiTPos].bOverflowOnServer = true;
+			SendToAddress(mThreadDadas[uiTPos].oConnectionData, PROTO_S_BUFFER_OVERFLOW);
+			mThreadDadas[uiTPos].uiCurrentFreePocket = S_MAX_STORED_POCKETS - 1;
 		}
-		oConnectionData.iStatus =  // Принимаем пакет в текущую позицию.
-				recv(oConnectionData.iSocket,
-					 mThreadDadas[iTPos].m_chData,
-				sizeof(mThreadDadas[iTPos].m_chData), 0);
+		pthread_mutex_unlock(&ptConnMutex);
+		mThreadDadas[uiTPos].oConnectionData.iStatus =  // Принимаем пакет в текущую позицию.
+				recv(mThreadDadas[uiTPos].oConnectionData.iSocket,
+					 mThreadDadas[uiTPos].m_chData,
+				sizeof(mThreadDadas[uiTPos].m_chData), 0);
 		pthread_mutex_lock(&ptConnMutex);
-		if(mThreadDadas[iTPos].bOverflowOnServer == true) // DEBUG.
+		if(mThreadDadas[uiTPos].bOverflowOnServer == true) // DEBUG.
 		{
 			LOG_P(LOG_CAT_W, "Received overflowed pocket.");
 		}
@@ -190,16 +230,17 @@ void* Server::ConversationThread(void* p_vNum)
 			LOG_P(LOG_CAT_I, "Exiting reading: " << m_chNameBuffer);
 			goto ecd;
 		}
-		if (oConnectionData.iStatus <= 0) // Если статус приёмки - отказ (вместо кол-ва принятых байт)...
+		if (mThreadDadas[uiTPos].oConnectionData.iStatus <= 0) // Если статус приёмки - отказ (вместо принятых байт)...
 		{
 			LOG_P(LOG_CAT_I, "Reading socket has been stopped: " << m_chNameBuffer);
 			goto ecd;
 		}
 		oParsingResult = p_ProtoParser->ParsePocket(
-					mThreadDadas[iTPos].m_chData,
-				oConnectionData.iStatus, mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentPocket].oParsedObject,
-				mThreadDadas[iTPos].bOverflowOnServer);
-		pParsedObject = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentPocket].oParsedObject;
+					mThreadDadas[uiTPos].m_chData,
+					mThreadDadas[uiTPos].oConnectionData.iStatus,
+					mThreadDadas[uiTPos].mReceivedPockets[mThreadDadas[uiTPos].uiCurrentFreePocket].oParsedObject,
+					mThreadDadas[uiTPos].bOverflowOnServer);
+		pParsedObject = &mThreadDadas[uiTPos].mReceivedPockets[mThreadDadas[uiTPos].uiCurrentFreePocket].oParsedObject;
 		switch(oParsingResult.chRes)
 		{
 			case PROTOPARSER_OK:
@@ -207,9 +248,10 @@ void* Server::ConversationThread(void* p_vNum)
 				if(oParsingResult.bStored)
 				{
 					LOG_P(LOG_CAT_I, "Received pocket nr." <<
-						(mThreadDadas[iTPos].uiCurrentPocket + 1) << " of " << S_MAX_STORED_POCKETS);
+						(mThreadDadas[uiTPos].uiCurrentFreePocket + 1) << " of " << S_MAX_STORED_POCKETS);
+					mThreadDadas[uiTPos].mReceivedPockets[mThreadDadas[uiTPos].uiCurrentFreePocket].bProcessed = false;
 				}
-				if(mThreadDadas[iTPos].bSecured == false)
+				if(mThreadDadas[uiTPos].bSecured == false)
 				{
 					if(pParsedObject->chTypeCode == PROTO_C_SEND_PASSW)
 					{
@@ -223,21 +265,21 @@ void* Server::ConversationThread(void* p_vNum)
 						}
 						if(!strcmp(p_chPassword, pParsedObject->oProtocolStorage.oPassword.m_chPassw))
 						{
-							SendToAddress(oConnectionData, PROTO_S_PASSW_OK);
-							mThreadDadas[iTPos].bSecured = true;
+							SendToAddress(mThreadDadas[uiTPos].oConnectionData, PROTO_S_PASSW_OK);
+							mThreadDadas[uiTPos].bSecured = true;
 							LOG_P(LOG_CAT_I, (char*)PASSW_OK << ": " << m_chNameBuffer);
 							break;
 						}
 						else
 						{
-							SendToAddress(oConnectionData, PROTO_S_PASSW_ERR);
+							SendToAddress(mThreadDadas[uiTPos].oConnectionData, PROTO_S_PASSW_ERR);
 							LOG_P(LOG_CAT_W, (char*)PASSW_ERROR << ": " << m_chNameBuffer);
 							break;
 						}
 					}
 					else
 					{
-						SendToAddress(oConnectionData, PROTO_S_UNSECURED);
+						SendToAddress(mThreadDadas[uiTPos].oConnectionData, PROTO_S_UNSECURED);
 						LOG_P(LOG_CAT_W, (char*)PASSW_ABSENT << ": " << m_chNameBuffer);
 						break;
 					}
@@ -250,18 +292,30 @@ void* Server::ConversationThread(void* p_vNum)
 						case PROTO_C_BUFFER_OVERFLOW:
 						{
 							LOG_P(LOG_CAT_E, (char*)C_BUFFER_OVERFLOW << ": " << m_chNameBuffer);
-							mThreadDadas[iTPos].bOverflowOnClient = true;
+							mThreadDadas[uiTPos].bOverflowOnClient = true;
 							goto gI;
 						}
 						case PROTO_C_BUFFER_READY:
 						{
 							LOG_P(LOG_CAT_I, (char*)C_BUFFER_READY);
-							mThreadDadas[iTPos].bOverflowOnClient = false;
+							mThreadDadas[uiTPos].bOverflowOnClient = false;
 							goto gI;
+						}
+						case PROTO_C_REQUEST_LEAVING:
+						{
+							LOG_P(LOG_CAT_I, m_chNameBuffer << " : request leaving.");
+							// МЕСТО ДЛЯ ВСТАВКИ КОДА ОБРАБОТКИ ВЫХОДА КЛИЕНТОВ.
+							//
+							SendToAddress(mThreadDadas[uiTPos].oConnectionData, PROTO_S_ACCEPT_LEAVING);
+
+							LOG_P(LOG_CAT_I, m_chNameBuffer << " : leaving accepted.");
+							MSleep(WAITING_FOR_CLIENT_DSC);
+							bLocalExitSignal = true;
+							goto ecd;
 						}
 					}
 					// Блок объектов.
-					if(mThreadDadas[iTPos].bOverflowOnServer == false)
+					if(mThreadDadas[uiTPos].bOverflowOnServer == false)
 					{
 						switch(pParsedObject->chTypeCode)
 						{
@@ -269,9 +323,6 @@ void* Server::ConversationThread(void* p_vNum)
 							{
 								LOG_P(LOG_CAT_I, "Received text message: " <<
 									  pParsedObject->oProtocolStorage.oTextMsg.m_chMsg);
-								LOG_P(LOG_CAT_I, "Sending answer..."); // DEBUG.
-								SendToClient(mThreadDadas[iTPos].bOverflowOnClient, oConnectionData,
-											 PROTO_O_TEXT_MSG, (char*)"Got text.", 10); // DEBUG.
 								break;
 							}
 						}
@@ -281,41 +332,47 @@ gI:				break;
 			}
 			case PROTOPARSER_OUT_OF_RANGE:
 			{
-				SendToAddress(oConnectionData, PROTO_S_OUT_OF_RANGE);
+				SendToAddress(mThreadDadas[uiTPos].oConnectionData, PROTO_S_OUT_OF_RANGE);
 				LOG_P(LOG_CAT_E, (char*)POCKET_OUT_OF_RANGE << ": " <<
 					  m_chNameBuffer << " - " << pParsedObject->iDataLength);
 				break;
 			}
 			case PROTOPARSER_UNKNOWN_COMMAND:
 			{
-				SendToAddress(oConnectionData, PROTO_S_UNKNOWN_COMMAND);
+				SendToAddress(mThreadDadas[uiTPos].oConnectionData, PROTO_S_UNKNOWN_COMMAND);
 				LOG_P(LOG_CAT_W, (char*)UNKNOWN_COMMAND << ": " << m_chNameBuffer);
 				break;
 			}
 		}
-		if((mThreadDadas[iTPos].bOverflowOnServer == false) && oParsingResult.bStored) mThreadDadas[iTPos].uiCurrentPocket++;
+		if((mThreadDadas[uiTPos].bOverflowOnServer == false) &&
+		   oParsingResult.bStored) mThreadDadas[uiTPos].uiCurrentFreePocket++;
 		pthread_mutex_unlock(&ptConnMutex);
 	}
 	pthread_mutex_lock(&ptConnMutex);
 ecd:delete p_ProtoParser;
 	//
-ec: if(bExitSignal == false)
+ec: if((bLocalExitSignal || bExitSignal) == false)
 	{
 #ifndef WIN32
-		shutdown(oConnectionData.iSocket, SHUT_RDWR);
-		close(oConnectionData.iSocket);
+		shutdown(mThreadDadas[uiTPos].oConnectionData.iSocket, SHUT_RDWR);
+		close(mThreadDadas[uiTPos].oConnectionData.iSocket);
 #else
-		closesocket(oConnectionData.iSocket);
+		closesocket(mThreadDadas[uiTPos].oConnectionData.iSocket);
 #endif
-		LOG_P(LOG_CAT_I, "Socket closed by client absence: " << m_chNameBuffer);
+		LOG_P(LOG_CAT_W, "Socket closed by client absence: " << m_chNameBuffer);
+	}
+	else
+	{
+		LOG_P(LOG_CAT_I, "Socket closed ordinary: " << m_chNameBuffer);
 	}
 enc:
 #ifndef WIN32
-	LOG_P(LOG_CAT_I, "Exiting thread: " << mThreadDadas[iTPos].p_Thread);
+	LOG_P(LOG_CAT_I, "Exiting thread: " << mThreadDadas[uiTPos].p_Thread);
 #else
-	LOG_P(LOG_CAT_I, "Exiting thread: " << mThreadDadas[iTPos].p_Thread.p);
+	LOG_P(LOG_CAT_I, "Exiting thread: " << mThreadDadas[uiTPos].p_Thread.p);
 #endif
-	CleanThrDadaPos(iTPos);
+	CleanThrDadaPos(uiTPos);
+	mThreadDadas[uiTPos].bInUse = false;
 	pthread_mutex_unlock(&ptConnMutex);
 	if(bKillListenerAccept) bListenerAlive = false;
 	RETURN_THREAD;
@@ -334,7 +391,7 @@ void* Server::ServerThread(void *p_vPlug)
 	char* p_chServerIP = 0;
 	char* p_chPort = 0;
 	addrinfo* p_Res;
-	int iCurrPos = 0;
+	unsigned int uiCurrPos = 0;
 	char m_chNameBuffer[INET6_ADDRSTRLEN];
 #ifdef WIN32
 	WSADATA wsadata = WSADATA();
@@ -344,10 +401,10 @@ void* Server::ServerThread(void *p_vPlug)
 	//
 	memset(&mThreadDadas, 0, sizeof mThreadDadas);
 	// Работа с файлом конфигурации.
-	eResult = xmlDocSConf.LoadFile(S_CONF_PATH);
+	eResult = xmlDocSConf.LoadFile(p_chSettingsPath);
 	if (eResult != XML_SUCCESS)
 	{
-		LOG_P(LOG_CAT_E, "Can`t open configuration file:" << S_CONF_PATH);
+		LOG_P(LOG_CAT_E, "Can`t open configuration file:" << p_chSettingsPath);
 		RETVAL_SET(RETVAL_ERR);
 		RETURN_THREAD;
 	}
@@ -449,8 +506,9 @@ void* Server::ServerThread(void *p_vPlug)
 	bListenerAlive = true;
 	// Цикл ожидания входа клиентов.
 nc:	bRequestNewConn = false; // Вход в звено цикла ожидания клиентов - сброс флага запроса.
-	iCurrPos = FindFreeThrDadaPos();
-	pthread_create(&mThreadDadas[iCurrPos].p_Thread, NULL, ConversationThread, &iCurrPos); // Создание нового потока приёмки.
+	uiCurrPos = FindFreeThrDadaPos();
+	pthread_create(&mThreadDadas[uiCurrPos].p_Thread, NULL,
+				   ConversationThread, &uiCurrPos); // Создание нового потока приёмки.
 	while(!bExitSignal)
 	{
 #ifndef WIN32
@@ -481,22 +539,32 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 	LOG_P(LOG_CAT_I, "Listener has been closed.");
 	// Закрытие сокетов клиентов.
 	LOG_P(LOG_CAT_I, "Disconnecting clients...");
-	pthread_mutex_lock(&ptConnMutex);
-	for(iCurrPos = 0; iCurrPos != MAX_CONN; iCurrPos++) // Закрываем все клиентские сокеты.
+	for(uiCurrPos = 0; uiCurrPos != MAX_CONN; uiCurrPos++) // Закрываем все клиентские сокеты.
 	{
-		if(mThreadDadas[iCurrPos].bInUse == true)
+		if(mThreadDadas[uiCurrPos].bInUse == true)
+		{
+			SendToAddress(mThreadDadas[uiCurrPos].oConnectionData, PROTO_S_SHUTDOWN_INFO);
+		}
+	}
+	MSleep(WAITING_FOR_CLIENT_DSC * 2);
+	pthread_mutex_lock(&ptConnMutex);
+	for(uiCurrPos = 0; uiCurrPos != MAX_CONN; uiCurrPos++) // Закрываем все клиентские сокеты.
+	{
+		if(mThreadDadas[uiCurrPos].bInUse == true)
 		{
 #ifndef WIN32
-			shutdown(mThreadDadas[iCurrPos].iConnection, SHUT_RDWR);
-			close(mThreadDadas[iCurrPos].iConnection);
+			shutdown(mThreadDadas[uiCurrPos].iConnection, SHUT_RDWR);
+			close(mThreadDadas[uiCurrPos].iConnection);
 #else
-			closesocket(mThreadDadas[iCurrPos].iConnection);
+			closesocket(mThreadDadas[uiCurrPos].iConnection);
 #endif
 #ifndef WIN32
-			getnameinfo(&mThreadDadas[iCurrPos].saInet, mThreadDadas[iCurrPos].ai_addrlen,
+			getnameinfo(&mThreadDadas[uiCurrPos].oConnectionData.ai_addr,
+						mThreadDadas[uiCurrPos].oConnectionData.ai_addrlen,
 						m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
 #else
-			getnameinfo(&mThreadDadas[iCurrPos].saInet, (socklen_t)mThreadDadas[iCurrPos].ai_addrlen,
+			getnameinfo(&mThreadDadas[uiCurrPos].oConnectionData.ai_addr,
+						(socklen_t)mThreadDadas[uiCurrPos].oConnectionData.ai_addrlen,
 						m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
 #endif
 			LOG_P(LOG_CAT_I, "Socket closed internally: " << m_chNameBuffer);
@@ -504,11 +572,11 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 	}
 	pthread_mutex_unlock(&ptConnMutex);
 	// Ждём, пока дойдёт до всех потоков соединений с клиентами.
-stc:iCurrPos = 0;
-	for(; iCurrPos != MAX_CONN; iCurrPos++)
+stc:uiCurrPos = 0;
+	for(; uiCurrPos != MAX_CONN; uiCurrPos++)
 	{
 		// Если занят - на начало.
-		if(mThreadDadas[iCurrPos].bInUse == true)
+		if(mThreadDadas[uiCurrPos].bInUse == true)
 		{
 			MSleep(USER_RESPONSE_MS);
 			goto stc;
@@ -519,7 +587,7 @@ ex:
 #ifdef WIN32
 	WSACleanup();
 #endif
-	LOG_P(LOG_CAT_I, "Exiting program.");
+	LOG_P(LOG_CAT_I, "Exiting server thread.");
 	bExitSignal = false;
 	RETURN_THREAD;
 }

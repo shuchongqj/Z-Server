@@ -75,7 +75,7 @@
 #define LOG_PATH			"./logs/" LOG_NAME"_Log.txt"
 //"
 #define RETVAL_OK           0
-#define RETVAL_ERR          -1
+#define RETVAL_ERR          1
 #define LOG_CTRL_INIT		_lci(LOG_PATH)
 #define LOG_CTRL_BIND_EXT_MUTEX(Mutex)	_ptLogMutex = Mutex
 #define RETVAL_SET(value)	_uiRetval = value

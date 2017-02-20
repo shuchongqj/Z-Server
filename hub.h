@@ -15,15 +15,19 @@
 #include "protoparser.h"
 
 //== МАКРОСЫ.
-#define S_MAX_STORED_POCKETS	32
-#define C_MAX_STORED_POCKETS	16
+#define S_MAX_STORED_POCKETS	6
+#define C_MAX_STORED_POCKETS	4
 #define MAX_DATA				1024
-#define OWNER_RESPONSE_MS		100
 #define SOCKET_ERROR_TOO_BIG	65535
 #define S_BUFFER_READY			"Buffer is ready on server."
 #define C_BUFFER_READY			"Buffer is ready on client."
 #define RETURN_THREAD			pthread_exit(0);																		\
 								return 0;
+#ifndef WIN32
+#define MSleep(val)				usleep(val)
+#else
+#define MSleep(val)				Sleep(val * 1000)
+#endif
 
 //== СТРУКТУРЫ.
 /// Сруктура для данных по соединению.
@@ -48,7 +52,7 @@ struct ReceivedData
 //== ФУНКЦИИ.
 /// Отправка пакета адресату.
 void SendToAddress(ConnectionData &oConnectionData, char chCommand, char *p_chBuffer = 0, int iLength = 0);
-													///< \param[in,out] oConnectionData Ссылка на структуру описания соединения.
+													///< \param[in,out] oConnectionData Ссылка на стр. описания соединения.
 													///< \param[in] chCommand Команда, которая будет задана в начале пакета.
 													///< \param[in] p_chBuffer Указатель на буффер с данными.
 													///< \param[in] iLength Длина пакета в байтах.

@@ -24,15 +24,9 @@
 #endif
 
 //== МАКРОСЫ.
-#define S_CONF_PATH				"./settings/server.ini"
-#define USER_RESPONSE_MS		100
+#define USER_RESPONSE_MS		100000
+#define WAITING_FOR_CLIENT_DSC	1000000
 #define MAX_CONN				16
-#ifndef WIN32
-#define MSleep(val)				usleep(val)
-#else
-#define MSleep(val)				Sleep(val)
-#endif
-//
 
 //== КЛАССЫ.
 /// Класс сервера.
@@ -44,19 +38,14 @@ public:
 	{
 		bool bInUse; ///< Флаг использования в соотв. потоке.
 		int iConnection; ///< ИД соединения.
-		sockaddr saInet; ///< Адрес клиента.
-#ifndef WIN32
-		socklen_t ai_addrlen; ///< Длина адреса.
-#else
-		size_t ai_addrlen; ///< Длина адреса.
-#endif
 		pthread_t p_Thread; ///< Указатель на рабочий поток.
 		ReceivedData mReceivedPockets[S_MAX_STORED_POCKETS]; ///< Массив принятых пакетов.
+		ConnectionData oConnectionData; ///< Данные по соединению.
 		char m_chData[MAX_DATA]; ///< Принятый пакет.
-		unsigned int uiCurrentPocket;
-		bool bOverflowOnServer;
-		bool bOverflowOnClient;
-		bool bSecured;
+		unsigned int uiCurrentFreePocket; ///< Текущий свободный пакет в массиве.
+		bool bOverflowOnServer; ///< Флаг переполнения буфера на сервере.
+		bool bOverflowOnClient; ///< Флаг переполнения буфера на клиенте.
+		bool bSecured; ///< Флаг защищённого соединения.
 	};
 private:
 	static bool bExitSignal; ///< Сигнал на общее завершение.
@@ -67,11 +56,14 @@ private:
 	static bool bListenerAlive; ///< Признак жизни приёмника.
 	static char *p_chPassword; ///< Указатель на строку с паролем.
 	static pthread_t ServerThr; ///< Идентификатор потока сервера.
+	static char* p_chSettingsPath; ///< Ссылка на строку с путём к установкам сервера.
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD
 public:
 	/// Конструктор.
-	Server(pthread_mutex_t ptLogMutex);
+	Server(const char* cp_chSettingsPath, pthread_mutex_t ptLogMutex);
+								///< \param[in] p_chSettingsPath Ссылка на строку с путём к установкам сервера.
+								///< \param[in] ptLogMutex Инициализатор мбютекса лога.
 	/// Деструктор.
 	~Server();
 	/// Запрос запуска сервера.
@@ -84,20 +76,26 @@ public:
 	/// Запрос готовности.
 	bool CheckReady();
 				///< \return true - готов.
+	/// Отправка пакета пользователю.
+	bool SendToUser(char* p_chIP, char chCommand, char* p_chBuffer, int iLength);
+								///< \param[in] p_chIP Адрес клиента.
+								///< \param[in] chCommand Код команды протокола.
+								///< \param[in] p_chBuffer Указатель на буфер с данными для отправки.
+								///< \param[in] iLength Длина буфера в байтах.
 private:
 	/// Функция отправки пакета клиенту.
 	static void SendToClient(bool bOverflowFlag, ConnectionData &oConnectionData,
-							 char chCommand, char *p_chBuffer = 0, int iLength = 0);
+							 char chCommand, char* p_chBuffer = 0, int iLength = 0);
 								///< \param[in] bOverflowFlag Признак переполнения на сервере для фиктивной попытки отправки.
 								///< \param[in] oConnectionData Ссылка структуру принятых данных и описания соединения.
 								///< \param[in] chCommand Код команды протокола.
 								///< \param[in] p_chBuffer Указатель на буфер с данными для отправки.
 								///< \param[in] iLength Длина буфера в байтах.
 	/// Очистка позиции данных потока.
-	static void CleanThrDadaPos(int iPos);
+	static void CleanThrDadaPos(unsigned int uiPos);
 								///< \param[in] iPos Позиция в массиве.
 	/// Поиск свободной позиции данных потока.
-	static int FindFreeThrDadaPos();
+	static unsigned int FindFreeThrDadaPos();
 								///< \return Возвращает номер свободной позиции, иначе - RETVAL_ERR.
 	/// Поток соединения.
 	static void* ConversationThread(void* p_vNum);
