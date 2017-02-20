@@ -27,12 +27,13 @@
 #define USER_RESPONSE_MS		100
 #define WAITING_FOR_CLIENT_DSC	1000
 #define MAX_CONN				16
+#define CONNECTION_SEL_ERROR	-1
 
 //== КЛАССЫ.
 /// Класс сервера.
 class Server
 {
-public:
+private:
 	/// Структура описания данных потока соединения.
 	struct ConversationThreadData
 	{
@@ -57,6 +58,8 @@ private:
 	static char *p_chPassword; ///< Указатель на строку с паролем.
 	static pthread_t ServerThr; ///< Идентификатор потока сервера.
 	static char* p_chSettingsPath; ///< Ссылка на строку с путём к установкам сервера.
+	static int iSelectedConnection; ///< Индекс соединения для исходящих или CONNECTION_SEL_ERROR.
+	static CBConnectionChanged pf_CBConnectionChanged; ///< Ук. на кэлбэк изменения статуса подкл.
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD
 public:
@@ -76,21 +79,29 @@ public:
 	/// Запрос готовности.
 	bool CheckReady();
 				///< \return true - готов.
-	/// Отправка пакета пользователю.
-	bool SendToUser(char* p_chIP, char chCommand, char* p_chBuffer, int iLength);
-								///< \param[in] p_chIP Адрес клиента.
+	/// Отправка пакета пользователю на текущее выбранное соединение.
+	bool SendToUser(char chCommand, char* p_chBuffer, int iLength);
 								///< \param[in] chCommand Код команды протокола.
 								///< \param[in] p_chBuffer Указатель на буфер с данными для отправки.
 								///< \param[in] iLength Длина буфера в байтах.
+								///< \return true, при удаче.
+	/// Установка текущего индекса соединения для исходящих.
+	bool SetCurrentConnectoin(unsigned int uiIndex);
+								///< \param[in] uiIndex Индекс соединения.
+								///< \return true, если соединение действительно.
+	/// Установка указателя кэлбэка изменения статуса подкл.
+	void SetConnectionChangedCB(CBConnectionChanged pf_CBConnectionChangedIn);
+								///< \param[in] pf_CBConnectionChangedIn Указатель на пользовательскую функцию.
 private:
 	/// Функция отправки пакета клиенту.
-	static void SendToClient(bool bOverflowFlag, ConnectionData &oConnectionData,
-							 char chCommand, char* p_chBuffer = 0, int iLength = 0);
-								///< \param[in] bOverflowFlag Признак переполнения на сервере для фиктивной попытки отправки.
+	static bool SendToClient(ConnectionData &oConnectionData,
+							 char chCommand, bool bOverflowFlag = false, char* p_chBuffer = 0, int iLength = 0);
 								///< \param[in] oConnectionData Ссылка структуру принятых данных и описания соединения.
 								///< \param[in] chCommand Код команды протокола.
+								///< \param[in] bOverflowFlag Признак переполнения на сервере для фиктивной попытки отправки.
 								///< \param[in] p_chBuffer Указатель на буфер с данными для отправки.
 								///< \param[in] iLength Длина буфера в байтах.
+								///< \return true, при удаче.
 	/// Очистка позиции данных потока.
 	static void CleanThrDadaPos(unsigned int uiPos);
 								///< \param[in] iPos Позиция в массиве.

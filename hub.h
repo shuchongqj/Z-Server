@@ -29,6 +29,9 @@
 #define MSleep(val)				Sleep(val)
 #endif
 
+//== ОПРЕДЕЛЕНИЯ ТИПОВ.
+typedef void (*CBConnectionChanged)(unsigned int uiIndex, bool bConnected);
+
 //== СТРУКТУРЫ.
 /// Сруктура для данных по соединению.
 struct ConnectionData
@@ -51,9 +54,10 @@ struct ReceivedData
 
 //== ФУНКЦИИ.
 /// Отправка пакета адресату.
-void SendToAddress(ConnectionData &oConnectionData, char chCommand, char *p_chBuffer = 0, int iLength = 0);
+bool SendToAddress(ConnectionData &oConnectionData, char chCommand, char *p_chBuffer = 0, int iLength = 0);
 													///< \param[in,out] oConnectionData Ссылка на стр. описания соединения.
 													///< \param[in] chCommand Команда, которая будет задана в начале пакета.
 													///< \param[in] p_chBuffer Указатель на буффер с данными.
 													///< \param[in] iLength Длина пакета в байтах.
+													///< \return true, при удаче.
 #endif // HUB_H

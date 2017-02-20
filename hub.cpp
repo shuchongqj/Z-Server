@@ -3,14 +3,14 @@
 
 //== ФУНКЦИИ.
 // Отправка пакета адресату.
-void SendToAddress(ConnectionData &oConnectionData, char chCommand, char *p_chBuffer, int iLength)
+bool SendToAddress(ConnectionData &oConnectionData, char chCommand, char *p_chBuffer, int iLength)
 {
 	char m_chData[MAX_DATA];
 	//
 	if(iLength > (MAX_DATA - 1))
 	{
 		oConnectionData.iStatus = SOCKET_ERROR_TOO_BIG;
-		return;
+		return false;
 	}
 	m_chData[0] = chCommand;
 	if(iLength > 0)
@@ -20,4 +20,8 @@ void SendToAddress(ConnectionData &oConnectionData, char chCommand, char *p_chBu
 #else
 	oConnectionData.iStatus = send(oConnectionData.iSocket, (void*)m_chData, iLength + 1, 0);
 #endif
+	if(oConnectionData.iStatus == -1)
+		return false;
+	else
+		return true;
 }

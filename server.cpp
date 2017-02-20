@@ -15,13 +15,15 @@ LOGDECL_INIT_INCLASS(Server)
 LOGDECL_INIT_PTHRD_INCLASS_EXT_ADD(Server)
 bool Server::bExitSignal = false;
 pthread_mutex_t Server::ptConnMutex = PTHREAD_MUTEX_INITIALIZER;
-int Server::iListener;
-bool Server::bRequestNewConn;
+int Server::iListener = 0;
+bool Server::bRequestNewConn = false;
 Server::ConversationThreadData Server::mThreadDadas[MAX_CONN];
-bool Server::bListenerAlive;
+bool Server::bListenerAlive = false;
 char* Server::p_chPassword = 0;
-pthread_t Server::ServerThr;
-char* Server::p_chSettingsPath;
+pthread_t Server::ServerThr = 0;
+char* Server::p_chSettingsPath = 0;
+int Server::iSelectedConnection = -1;
+CBConnectionChanged Server::pf_CBConnectionChanged;
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс сервера.
@@ -66,49 +68,69 @@ bool Server::CheckReady()
 }
 
 // Функция отправки клиенту.
-void Server::SendToClient(bool bOverflowFlag, ConnectionData &oConnectionData, char chCommand, char *p_chBuffer, int iLength)
+bool Server::SendToClient(ConnectionData &oConnectionData, char chCommand, bool bOverflowFlag, char *p_chBuffer, int iLength)
 {
+	bool bRes = false;
 	if(bOverflowFlag == false)
 	{
-		SendToAddress(oConnectionData, chCommand, p_chBuffer, iLength);
+		if(SendToAddress(oConnectionData, chCommand, p_chBuffer, iLength) == false)
+		{
+			LOG_P(LOG_CAT_E, "Socket error on sending data.");
+		}
+		else
+		{
+			bRes = true;
+		}
 	}
 	else
 	{
 		LOG_P(LOG_CAT_E, "Client buffer is overflowed.");
 	}
+	return bRes;
 }
 
 // Отправка пакета пользователю.
-bool Server::SendToUser(char* p_chIP, char chCommand, char* p_chBuffer, int iLength)
+bool Server::SendToUser(char chCommand, char* p_chBuffer, int iLength)
 {
-	unsigned int uiPos = 0;
-	char m_chNameBuffer[INET6_ADDRSTRLEN];
+	bool bRes = false;
+	pthread_mutex_lock(&ptConnMutex);
+	if(iSelectedConnection == CONNECTION_SEL_ERROR) goto gUE;
+	if((mThreadDadas[iSelectedConnection].bOverflowOnClient == false))
+	{
+		if(SendToClient(mThreadDadas[iSelectedConnection].oConnectionData,
+					  chCommand, false, p_chBuffer, iLength) == true)
+			bRes = true;
+	}
+gUE:pthread_mutex_unlock(&ptConnMutex);
+	return bRes;
+}
+
+// Установка указателя кэлбэка изменения статуса подкл.
+void Server::SetConnectionChangedCB(CBConnectionChanged pf_CBConnectionChangedIn)
+{
+	pthread_mutex_lock(&ptConnMutex);
+	pf_CBConnectionChanged = pf_CBConnectionChangedIn;
+	pthread_mutex_unlock(&ptConnMutex);
+}
+
+// Установка текущего индекса осоединения для исходящих.
+bool Server::SetCurrentConnectoin(unsigned int uiIndex)
+{
+	bool bRes = false;
 	//
 	pthread_mutex_lock(&ptConnMutex);
-	for(; uiPos != MAX_CONN; uiPos++)
+	if(mThreadDadas[uiIndex].bInUse == true)
 	{
-		if((mThreadDadas[uiPos].bOverflowOnClient == false) & (mThreadDadas[uiPos].bInUse))
-		{
-#ifndef WIN32
-			getnameinfo(&mThreadDadas[uiPos].oConnectionData.ai_addr,
-						mThreadDadas[uiPos].oConnectionData.ai_addrlen,
-						m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
-#else
-			getnameinfo(&mThreadDadas[uiPos].oConnectionData.ai_addr,
-						(socklen_t)mThreadDadas[uiPos].oConnectionData.ai_addrlen,
-						m_chNameBuffer, sizeof(m_chNameBuffer), NULL, NULL, NI_NUMERICHOST);
-#endif
-			if(!strcmp(m_chNameBuffer, p_chIP))
-			{
-				SendToAddress(mThreadDadas[uiPos].oConnectionData,
-							  chCommand, p_chBuffer, iLength);
-				pthread_mutex_unlock(&ptConnMutex);
-				return true;
-			}
-		}
+		iSelectedConnection = uiIndex;
+		LOG_P(LOG_CAT_I, "Selected ID: " << uiIndex);
+	}
+	else
+	{
+		iSelectedConnection = CONNECTION_SEL_ERROR;
+		LOG_P(LOG_CAT_E, "Selected ID is unused: " << uiIndex);
 	}
 	pthread_mutex_unlock(&ptConnMutex);
-	return false;
+	return bRes;
 }
 
 // Очистка позиции данных потока.
@@ -195,7 +217,7 @@ void* Server::ConversationThread(void* p_vNum)
 				(socklen_t)mThreadDadas[uiTPos].oConnectionData.ai_addrlen,
 				m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
 #endif
-	LOG_P(LOG_CAT_I, "Connected with: " << m_chNameBuffer << " : " << m_chPortBuffer); // Инфо про входящий IP.
+	LOG_P(LOG_CAT_I, "Connected with: " << m_chNameBuffer << " ID: " << uiTPos);
 	if(mThreadDadas[uiTPos].oConnectionData.iStatus == -1) // Если не вышло отправить...
 	{
 		pthread_mutex_lock(&ptConnMutex);
@@ -204,15 +226,16 @@ void* Server::ConversationThread(void* p_vNum)
 	}
 	//
 	bRequestNewConn = true; // Соединение готово - установка флага для главного потока на запрос нового.
+	if(pf_CBConnectionChanged != 0) pf_CBConnectionChanged(uiTPos, true); // Вызов кэлбэка смены статуса.
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
 	{
 		pthread_mutex_lock(&ptConnMutex);
 		if(mThreadDadas[uiTPos].uiCurrentFreePocket >= S_MAX_STORED_POCKETS)
 		{
-			LOG_P(LOG_CAT_E, (char*)S_BUFFER_OVERFLOW << ": " << m_chNameBuffer);
+			LOG_P(LOG_CAT_W, (char*)S_BUFFER_OVERFLOW << ": " << m_chNameBuffer);
 			mThreadDadas[uiTPos].bOverflowOnServer = true;
-			SendToAddress(mThreadDadas[uiTPos].oConnectionData, PROTO_S_BUFFER_OVERFLOW);
+			SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_BUFFER_OVERFLOW);
 			mThreadDadas[uiTPos].uiCurrentFreePocket = S_MAX_STORED_POCKETS - 1;
 		}
 		pthread_mutex_unlock(&ptConnMutex);
@@ -265,21 +288,21 @@ void* Server::ConversationThread(void* p_vNum)
 						}
 						if(!strcmp(p_chPassword, pParsedObject->oProtocolStorage.oPassword.m_chPassw))
 						{
-							SendToAddress(mThreadDadas[uiTPos].oConnectionData, PROTO_S_PASSW_OK);
+							SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_PASSW_OK);
 							mThreadDadas[uiTPos].bSecured = true;
 							LOG_P(LOG_CAT_I, (char*)PASSW_OK << ": " << m_chNameBuffer);
 							break;
 						}
 						else
 						{
-							SendToAddress(mThreadDadas[uiTPos].oConnectionData, PROTO_S_PASSW_ERR);
+							SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_PASSW_ERR);
 							LOG_P(LOG_CAT_W, (char*)PASSW_ERROR << ": " << m_chNameBuffer);
 							break;
 						}
 					}
 					else
 					{
-						SendToAddress(mThreadDadas[uiTPos].oConnectionData, PROTO_S_UNSECURED);
+						SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_UNSECURED);
 						LOG_P(LOG_CAT_W, (char*)PASSW_ABSENT << ": " << m_chNameBuffer);
 						break;
 					}
@@ -306,8 +329,7 @@ void* Server::ConversationThread(void* p_vNum)
 							LOG_P(LOG_CAT_I, m_chNameBuffer << " : request leaving.");
 							// МЕСТО ДЛЯ ВСТАВКИ КОДА ОБРАБОТКИ ВЫХОДА КЛИЕНТОВ.
 							//
-							SendToAddress(mThreadDadas[uiTPos].oConnectionData, PROTO_S_ACCEPT_LEAVING);
-
+							SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_ACCEPT_LEAVING);
 							LOG_P(LOG_CAT_I, m_chNameBuffer << " : leaving accepted.");
 							MSleep(WAITING_FOR_CLIENT_DSC);
 							bLocalExitSignal = true;
@@ -332,14 +354,14 @@ gI:				break;
 			}
 			case PROTOPARSER_OUT_OF_RANGE:
 			{
-				SendToAddress(mThreadDadas[uiTPos].oConnectionData, PROTO_S_OUT_OF_RANGE);
+				SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_OUT_OF_RANGE);
 				LOG_P(LOG_CAT_E, (char*)POCKET_OUT_OF_RANGE << ": " <<
 					  m_chNameBuffer << " - " << pParsedObject->iDataLength);
 				break;
 			}
 			case PROTOPARSER_UNKNOWN_COMMAND:
 			{
-				SendToAddress(mThreadDadas[uiTPos].oConnectionData, PROTO_S_UNKNOWN_COMMAND);
+				SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_UNKNOWN_COMMAND);
 				LOG_P(LOG_CAT_W, (char*)UNKNOWN_COMMAND << ": " << m_chNameBuffer);
 				break;
 			}
@@ -359,11 +381,11 @@ ec: if((bLocalExitSignal || bExitSignal) == false)
 #else
 		closesocket(mThreadDadas[uiTPos].oConnectionData.iSocket);
 #endif
-		LOG_P(LOG_CAT_W, "Socket closed by client absence: " << m_chNameBuffer);
+		LOG_P(LOG_CAT_W, "Closed by client absence: " << m_chNameBuffer << " ID: " << uiTPos);
 	}
 	else
 	{
-		LOG_P(LOG_CAT_I, "Socket closed ordinary: " << m_chNameBuffer);
+		LOG_P(LOG_CAT_I, "Closed ordinary: " << m_chNameBuffer << " ID: " << uiTPos);
 	}
 enc:
 #ifndef WIN32
@@ -373,6 +395,8 @@ enc:
 #endif
 	CleanThrDadaPos(uiTPos);
 	mThreadDadas[uiTPos].bInUse = false;
+	if(iSelectedConnection == (int)uiTPos) iSelectedConnection = CONNECTION_SEL_ERROR;
+	if(pf_CBConnectionChanged != 0) pf_CBConnectionChanged(uiTPos, false); // Вызов кэлбэка смены статуса.
 	pthread_mutex_unlock(&ptConnMutex);
 	if(bKillListenerAccept) bListenerAlive = false;
 	RETURN_THREAD;
@@ -543,7 +567,7 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 	{
 		if(mThreadDadas[uiCurrPos].bInUse == true)
 		{
-			SendToAddress(mThreadDadas[uiCurrPos].oConnectionData, PROTO_S_SHUTDOWN_INFO);
+			SendToClient(mThreadDadas[uiCurrPos].oConnectionData, PROTO_S_SHUTDOWN_INFO);
 		}
 	}
 	MSleep(WAITING_FOR_CLIENT_DSC * 2);

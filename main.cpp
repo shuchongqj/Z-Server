@@ -24,22 +24,41 @@ int main(int argc, char *argv[])
 	LOG_P(LOG_CAT_I, "Starting application, server initialization.");
 	Server oServer(S_CONF_PATH, _ptLogMutex);
 	string strAdminCommand;
+	string strArgument;
+	unsigned int uiConnNr = 0;
+	size_t szPos;
 	//
 	oServer.Start();
 gAg:cin >> strAdminCommand;
 	if(strAdminCommand.find("exit") == std::string::npos)
 	{
-		bool bRes;
-		//
-		bRes = oServer.SendToUser(
-				(char*)"192.168.0.2", PROTO_O_TEXT_MSG, (char*)strAdminCommand.c_str(), (int)(strAdminCommand.length() + 1));
-		if(!bRes)
+		szPos = strAdminCommand.find("select:");
+		if(szPos == std::string::npos)
 		{
-			LOG_P(LOG_CAT_E, "Sending failed.");
+			bool bRes;
+			//
+			bRes = oServer.SendToUser(PROTO_O_TEXT_MSG, (char*)strAdminCommand.c_str(), (int)(strAdminCommand.length() + 1));
+			if(!bRes)
+			{
+				LOG_P(LOG_CAT_E, "Sending failed.");
+			}
+			else
+			{
+				LOG_P(LOG_CAT_I, "Message has been sent.");
+			}
 		}
 		else
 		{
-			LOG_P(LOG_CAT_I, "Message has been sent.");
+			strArgument = strAdminCommand.substr(szPos + 7);
+			uiConnNr = (unsigned int)stoi(strArgument);
+			if(uiConnNr > (MAX_CONN - 1))
+			{
+				LOG_P(LOG_CAT_E, "Index is out of range.");
+			}
+			else
+			{
+				oServer.SetCurrentConnectoin(uiConnNr);
+			}
 		}
 		goto gAg;
 	}
