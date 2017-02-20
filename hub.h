@@ -45,7 +45,7 @@ struct ConnectionData
 /// Структура принятого пакета.
 struct ReceivedData
 {
-	bool bProcessed;
+	bool bFresh; ///< Свежее сообщение.
 	ProtoParser::ParsedObject oParsedObject; ///< Принятый пакет.
 };
 

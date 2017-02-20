@@ -32,7 +32,7 @@ gAg:cin >> strAdminCommand;
 		bool bRes;
 		//
 		bRes = oServer.SendToUser(
-				(char*)"192.168.0.4", PROTO_O_TEXT_MSG, (char*)strAdminCommand.c_str(), (int)(strAdminCommand.length() + 1));
+				(char*)"192.168.0.2", PROTO_O_TEXT_MSG, (char*)strAdminCommand.c_str(), (int)(strAdminCommand.length() + 1));
 		if(!bRes)
 		{
 			LOG_P(LOG_CAT_E, "Sending failed.");

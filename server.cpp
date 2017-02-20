@@ -249,7 +249,7 @@ void* Server::ConversationThread(void* p_vNum)
 				{
 					LOG_P(LOG_CAT_I, "Received pocket nr." <<
 						(mThreadDadas[uiTPos].uiCurrentFreePocket + 1) << " of " << S_MAX_STORED_POCKETS);
-					mThreadDadas[uiTPos].mReceivedPockets[mThreadDadas[uiTPos].uiCurrentFreePocket].bProcessed = false;
+					mThreadDadas[uiTPos].mReceivedPockets[mThreadDadas[uiTPos].uiCurrentFreePocket].bFresh = true;
 				}
 				if(mThreadDadas[uiTPos].bSecured == false)
 				{
