@@ -8,14 +8,17 @@
 // Утиль.
 #define PObjNaming(name)				o##name // Создаёт имя объекта структуры добавлением 'o' в начале.
 #define PObjDecl(name)					name PObjNaming(name) // Унифицированная декларация объектов.
+#define PObjPointerNaming(name)			p_##name // Создаёт имя объекта структуры добавлением 'p_' в начале.
+#define PObjPointerDecl(name)			name* PObjPointerNaming(name) // / Унифицированная декларация ук. на объекты.
 // Определение структуры члена протокола с именем структуры, определением данных и авто-добавлением объекта с предикатом 'o'.
 #define ProtocolStorageDef(name, code)	struct name															\
 										{																	\
 											code															\
 										};																	\
-										PObjDecl(name)
+										PObjDecl(name);														\
+										PObjPointerDecl(name);
 // Определение класса протокола с перечислением структур типа 'ProtocolStorageDef'.
-#define ProtocolClassInit(defs)			class ProtocolStorage												\
+#define ProtocolStorageClassInit(defs)	class ProtocolStorage												\
 										{																	\
 										public:																\
 											defs															\
@@ -41,8 +44,8 @@
 #define PROTO_O_TEXT_MSG			'T'
 // ============================================================================
 
-ProtocolClassInit(
-
+ProtocolStorageClassInit
+(
 // ====================== ОБЪЯВЛЕНИЯ СТРУКТУР ПАКЕТОВ =========================
 	ProtocolStorageDef
 	(
@@ -55,6 +58,5 @@ ProtocolClassInit(
 		char m_chMsg[MAX_MSG]; // Данные.
 	);
 // ============================================================================
-
 );
 #endif // PROTOCOL_H

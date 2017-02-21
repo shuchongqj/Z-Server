@@ -29,6 +29,7 @@ ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength, P
 	ParseResult oParseResult;
 	oParseResult.chRes = PROTOPARSER_UNKNOWN_COMMAND;
 	oParseResult.bStored = false;
+	bDoNotStore = bDoNotStore; // Заглушка от #define.
 	//
 	p_chCurrPos = p_chData;
 	oParsedObject.chTypeCode = *p_chCurrPos;
