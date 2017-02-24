@@ -18,7 +18,7 @@ char* Server::p_chPassword = 0;
 pthread_t Server::ServerThr;
 char* Server::p_chSettingsPath = 0;
 int Server::iSelectedConnection = -1;
-CBConnectionChanged Server::pf_CBConnectionChanged;
+CBClientStateChanged Server::pf_CBClientStateChanged;
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс сервера.
@@ -105,11 +105,11 @@ gUE:pthread_mutex_unlock(&ptConnMutex);
 	return bRes;
 }
 
-// Установка указателя кэлбэка изменения статуса подкл.
-void Server::SetConnectionChangedCB(CBConnectionChanged pf_CBConnectionChangedIn)
+// Установка указателя кэлбэка изменения статуса подключения клиента.
+void Server::SetClientStateChangedCB(CBClientStateChanged pf_CBClientStateChangedIn)
 {
 	pthread_mutex_lock(&ptConnMutex);
-	pf_CBConnectionChanged = pf_CBConnectionChangedIn;
+	pf_CBClientStateChanged = pf_CBClientStateChangedIn;
 	pthread_mutex_unlock(&ptConnMutex);
 }
 
@@ -314,7 +314,7 @@ void* Server::ConversationThread(void* p_vNum)
 	}
 	//
 	bRequestNewConn = true; // Соединение готово - установка флага для главного потока на запрос нового.
-	if(pf_CBConnectionChanged != 0) pf_CBConnectionChanged(uiTPos, true); // Вызов кэлбэка смены статуса.
+	if(pf_CBClientStateChanged != 0) pf_CBClientStateChanged(uiTPos, true); // Вызов кэлбэка смены статуса.
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
 	{
@@ -479,7 +479,7 @@ enc:
 	LOG_P(LOG_CAT_I, "Exiting thread: " << mThreadDadas[uiTPos].p_Thread.p);
 #endif
 	if(mThreadDadas[uiTPos].bInUse == true)
-		if(pf_CBConnectionChanged != 0) pf_CBConnectionChanged(uiTPos, false); // Вызов кэлбэка смены статуса.
+		if(pf_CBClientStateChanged != 0) pf_CBClientStateChanged(uiTPos, false); // Вызов кэлбэка смены статуса.
 	CleanThrDadaPos(uiTPos);
 	if(iSelectedConnection == (int)uiTPos) iSelectedConnection = CONNECTION_SEL_ERROR;
 	if(bKillListenerAccept) bListenerAlive = false;

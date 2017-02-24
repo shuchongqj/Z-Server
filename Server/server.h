@@ -23,6 +23,9 @@
 #include <WS2tcpip.h>
 #endif
 
+//== ОПРЕДЕЛЕНИЯ ТИПОВ.
+typedef void (*CBClientStateChanged)(unsigned int uiIndex, bool bConnected);
+
 //== МАКРОСЫ.
 #define USER_RESPONSE_MS		100
 #define WAITING_FOR_CLIENT_DSC	1000
@@ -59,7 +62,7 @@ private:
 	static pthread_t ServerThr; ///< Идентификатор потока сервера.
 	static char* p_chSettingsPath; ///< Ссылка на строку с путём к установкам сервера.
 	static int iSelectedConnection; ///< Индекс соединения для исходящих или CONNECTION_SEL_ERROR.
-	static CBConnectionChanged pf_CBConnectionChanged; ///< Ук. на кэлбэк изменения статуса подкл.
+	static CBClientStateChanged pf_CBClientStateChanged; ///< Ук. на кэлбэк изменения статуса клиента.
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD
 public:
@@ -89,9 +92,9 @@ public:
 	bool SetCurrentConnection(unsigned int uiIndex);
 								///< \param[in] uiIndex Индекс соединения.
 								///< \return true, если соединение действительно.
-	/// Установка указателя кэлбэка изменения статуса подкл.
-	void SetConnectionChangedCB(CBConnectionChanged pf_CBConnectionChangedIn);
-								///< \param[in] pf_CBConnectionChangedIn Указатель на пользовательскую функцию.
+	/// Установка указателя кэлбэка изменения статуса подключения клиента.
+	void SetClientStateChangedCB(CBClientStateChanged pf_CBClientStateChangedIn);
+								///< \param[in] pf_CBClientStateChangedIn Указатель на пользовательскую функцию.
 	/// Доступ к крайнему элементу из массива принятых пакетов.
 	char AccessCurrentData(void** pp_vDataBuffer);
 								///< \param[in,out] p_vDataBuffer Указатель на указатель на буфер с данными.

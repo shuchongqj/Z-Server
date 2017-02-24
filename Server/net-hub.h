@@ -28,9 +28,6 @@
 #define	DATA_ACCESS_ERROR		1
 #define	BUFFER_IS_EMPTY			2
 
-//== ОПРЕДЕЛЕНИЯ ТИПОВ.
-typedef void (*CBConnectionChanged)(unsigned int uiIndex, bool bConnected);
-
 //== СТРУКТУРЫ.
 /// Сруктура для данных по соединению.
 struct ConnectionData
