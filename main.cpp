@@ -1,5 +1,5 @@
 //== ВКЛЮЧЕНИЯ.
-#include "server.h"
+#include "Server/server.h"
 
 //== МАКРОСЫ.
 #define LOG_NAME				"Z-Admin"

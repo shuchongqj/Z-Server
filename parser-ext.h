@@ -8,8 +8,6 @@
 #include <algorithm>
 #endif
 
-//=== В ПОМОЩЬ ПАРСЕРУ ===
-
 //== ПРОСТРАНСТВА.
 using namespace tinyxml2;
 using namespace std;
@@ -39,8 +37,6 @@ using namespace std;
         FName = List->front();
 #define FIND_IN_CHILDLIST_END(List) PARSE_CHILDLIST_END(List)
 
-#endif // PARSEREXT
-
 //== ФУНКЦИИ.
 /// Поиск наследующих разъёмов.
 bool FindChildNodes(XMLNode* p_NodeExt, list <XMLNode*> &a_lFoundedElements, const char* p_chTarget,
@@ -51,3 +47,6 @@ bool FindChildNodes(XMLNode* p_NodeExt, list <XMLNode*> &a_lFoundedElements, con
 												///< \param[in] bOneLevel Флаг прохода по одному уровню.
 												///< \param[in] bFirstOnly Флаг единовременного срабатывания.
 												///< \return true, если удачно.
+
+
+#endif // PARSEREXT

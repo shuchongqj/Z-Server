@@ -1,5 +1,5 @@
 //== ВКЛЮЧЕНИЯ.
-#include "parserext.h"
+#include "parser-ext.h"
 
 //== ФУНКЦИИ.
 // Поиск наследующих разъёмов.

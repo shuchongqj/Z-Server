@@ -37,13 +37,13 @@
 #define LOGMsFormat         "%06ld"
 #endif
 #define LOGSpc              " "
-#define LOGRETVAL			_uiRetval
+#define LOGRETVAL			_iRetval
 #ifndef WIN32
 #define LOGDECL             static std::fstream LOGVarname; static char _m_chLogBuf[80]; static char _m_chLogMSBuf[8];      \
-							static time_t _LogTimeNow; static timeval _LogTimeval; static unsigned int _uiRetval;
+							static time_t _LogTimeNow; static timeval _LogTimeval; static int _iRetval;
 #else
 #define LOGDECL             static std::fstream LOGVarname; static char _m_chLogBuf[80]; static char _m_chLogMSBuf[8];      \
-							static time_t _LogTimeNow; static timeval _LogTimeval; static unsigned int _uiRetval;           \
+							static time_t _LogTimeNow; static timeval _LogTimeval; static unsigned int _iRetval;           \
 							static int gettimeofday(timeval * tp, struct timezone * tzp){                                   \
                                 SYSTEMTIME system_time; FILETIME file_time; GetSystemTime(&system_time);                    \
                                 SystemTimeToFileTime(&system_time, &file_time);                                             \
@@ -52,7 +52,7 @@
 #define LOGDECL_PTHRD_INCLASS_ADD		static pthread_mutex_t _ptLogMutex;
 #define LOGDECL_INIT_INCLASS(ClassName)	std::fstream ClassName::LOGVarname; char ClassName::_m_chLogBuf[80];				\
 										char ClassName::_m_chLogMSBuf[8]; time_t ClassName::_LogTimeNow;					\
-										timeval ClassName::_LogTimeval; unsigned int ClassName::_uiRetval;
+										timeval ClassName::_LogTimeval; int ClassName::_iRetval;
 #define LOGDECL_INIT_PTHRD_INCLASS_EXT_ADD(ClassName)	pthread_mutex_t ClassName::_ptLogMutex;
 #define LOGDECL_INIT_PTHRD_INCLASS_OWN_ADD(ClassName)	pthread_mutex_t ClassName::_ptLogMutex = PTHREAD_MUTEX_INITIALIZER;
 #define LOGDECL_INIT_PTHRD_ADD							pthread_mutex_t _ptLogMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -75,11 +75,11 @@
 #define LOG_PATH			"./logs/" LOG_NAME"_Log.txt"
 //"
 #define RETVAL_OK           0
-#define RETVAL_ERR          1
+#define RETVAL_ERR          -1
 #define LOG_CTRL_INIT		_lci(LOG_PATH)
 #define LOG_CTRL_BIND_EXT_MUTEX(Mutex)	_ptLogMutex = Mutex
-#define RETVAL_SET(value)	_uiRetval = value
-#define _lci(path)			_uiRetval = RETVAL_OK;																			\
+#define RETVAL_SET(value)	_iRetval = value
+#define _lci(path)			_iRetval = RETVAL_OK;																			\
 							LOGOPEN(path)
 #endif // LOGGER_H
 

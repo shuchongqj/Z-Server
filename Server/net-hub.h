@@ -2,7 +2,7 @@
 #define HUB_H
 
 //== ВКЛЮЧЕНИЯ.
-#include "TinyXML2/tinyxml2.h"
+#include "../TinyXML2/tinyxml2.h"
 #ifdef WIN32
 #include "dlfcn-win32/dlfcn.h"
 #include <WinSock2.h>
@@ -10,17 +10,16 @@
 #include <dlfcn.h>
 #include <sys/socket.h>
 #endif
-#include "logger.h"
-#include "parserext.h"
-#include "protoparser.h"
+#include "../logger.h"
+#include "../parser-ext.h"
+#include "proto-parser.h"
 
 //== МАКРОСЫ.
 #define S_MAX_STORED_POCKETS	6
 #define C_MAX_STORED_POCKETS	4
 #define MAX_DATA				1024
 #define SOCKET_ERROR_TOO_BIG	65535
-#define RETURN_THREAD			pthread_exit(0);																		\
-								return 0;
+#define RETURN_THREAD			pthread_exit(0); return 0;
 #ifndef WIN32
 #define MSleep(val)				usleep(val * 1000)
 #else

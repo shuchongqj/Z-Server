@@ -1,5 +1,5 @@
 //== ВКЛЮЧЕНИЯ.
-#include "protoparser.h"
+#include "proto-parser.h"
 #include "string.h"
 
 //== МАКРОСЫ.
@@ -69,12 +69,12 @@ ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength,
 			oParseResult.chRes = PROTOPARSER_OK;
 			break;
 		}
-		case PROTO_S_BUFFER_OVERFLOW:
+		case PROTO_S_BUFFER_FULL:
 		{
 			oParseResult.chRes = PROTOPARSER_OK;
 			break;
 		}
-		case PROTO_C_BUFFER_OVERFLOW:
+		case PROTO_C_BUFFER_FULL:
 		{
 			oParseResult.chRes = PROTOPARSER_OK;
 			break;

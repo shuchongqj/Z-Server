@@ -6,8 +6,8 @@
 #ifdef WIN32
 #define _TIMESPEC_DEFINED
 #endif
-#include "hub.h"
-#include "protoparser.h"
+#include "net-hub.h"
+#include "proto-parser.h"
 #include <signal.h>
 #ifndef WIN32
 #include <sys/types.h>
@@ -44,8 +44,8 @@ private:
 		ConnectionData oConnectionData; ///< Данные по соединению.
 		char m_chData[MAX_DATA]; ///< Принятый пакет.
 		unsigned int uiCurrentFreePocket; ///< Текущий свободный пакет в массиве.
-		bool bOverflowOnServer; ///< Флаг переполнения буфера на сервере.
-		bool bOverflowOnClient; ///< Флаг переполнения буфера на клиенте.
+		bool bFullOnServer; ///< Флаг переполнения буфера на сервере.
+		bool bFullOnClient; ///< Флаг переполнения буфера на клиенте.
 		bool bSecured; ///< Флаг защищённого соединения.
 	};
 private:
@@ -74,7 +74,7 @@ public:
 	/// Запрос остановки сервера.
 	void Stop();
 	/// Запрос статуса лога.
-	unsigned int GetLogStatus();
+	int GetLogStatus();
 				///< \return Статус лога по макросам логгера.
 	/// Запрос готовности.
 	bool CheckReady();
@@ -102,10 +102,10 @@ public:
 private:
 	/// Функция отправки пакета клиенту.
 	static bool SendToClient(ConnectionData &oConnectionData,
-							 char chCommand, bool bOverflowFlag = false, char* p_chBuffer = 0, int iLength = 0);
+							 char chCommand, bool bFullFlag = false, char* p_chBuffer = 0, int iLength = 0);
 								///< \param[in] oConnectionData Ссылка структуру принятых данных и описания соединения.
 								///< \param[in] chCommand Код команды протокола.
-								///< \param[in] bOverflowFlag Признак переполнения на сервере для фиктивной попытки отправки.
+								///< \param[in] bFullFlag Признак переполнения на сервере для фиктивной попытки отправки.
 								///< \param[in] p_chBuffer Указатель на буфер с данными для отправки.
 								///< \param[in] iLength Длина буфера в байтах.
 								///< \return true, при удаче.
@@ -113,7 +113,7 @@ private:
 	static void CleanThrDadaPos(unsigned int uiPos);
 								///< \param[in] iPos Позиция в массиве.
 	/// Поиск свободной позиции данных потока.
-	static unsigned int FindFreeThrDadaPos();
+	static int FindFreeThrDadaPos();
 								///< \return Возвращает номер свободной позиции, иначе - RETVAL_ERR.
 	/// Поток соединения.
 	static void* ConversationThread(void* p_vNum);

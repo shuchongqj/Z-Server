@@ -1,6 +1,6 @@
 //== ВКЛЮЧЕНИЯ.
 
-#include <server.h>
+#include <Server/server.h>
 
 //== МАКРОСЫ.
 #define LOG_NAME				"Z-Server"
@@ -51,7 +51,7 @@ void Server::Stop()
 }
 
 // Запрос статуса лога.
-unsigned int Server::GetLogStatus()
+int Server::GetLogStatus()
 {
 	return LOGRETVAL;
 }
@@ -64,10 +64,10 @@ bool Server::CheckReady()
 
 // Функция отправки клиенту.
 bool Server::SendToClient(ConnectionData &oConnectionData, char chCommand,
-						  bool bOverflowFlag, char *p_chBuffer, int iLength)
+						  bool bFullFlag, char *p_chBuffer, int iLength)
 {
 	bool bRes = false;
-	if(bOverflowFlag == false)
+	if(bFullFlag == false)
 	{
 		if(SendToAddress(oConnectionData, chCommand, p_chBuffer, iLength) == false)
 		{
@@ -80,7 +80,7 @@ bool Server::SendToClient(ConnectionData &oConnectionData, char chCommand,
 	}
 	else
 	{
-		LOG_P(LOG_CAT_E, "Client buffer is overflowed.");
+		LOG_P(LOG_CAT_E, "Client buffer is full.");
 	}
 	return bRes;
 }
@@ -91,7 +91,7 @@ bool Server::SendToUser(char chCommand, char* p_chBuffer, int iLength)
 	bool bRes = false;
 	pthread_mutex_lock(&ptConnMutex);
 	if(iSelectedConnection == CONNECTION_SEL_ERROR) goto gUE;
-	if((mThreadDadas[iSelectedConnection].bOverflowOnClient == false))
+	if((mThreadDadas[iSelectedConnection].bFullOnClient == false))
 	{
 		if(SendToClient(mThreadDadas[iSelectedConnection].oConnectionData,
 					  chCommand, false, p_chBuffer, iLength) == true)
@@ -149,13 +149,13 @@ char Server::ReleaseCurrentData()
 	{
 		if(mThreadDadas[iSelectedConnection].uiCurrentFreePocket > 0)
 		{
-			if(mThreadDadas[iSelectedConnection].bOverflowOnServer == false)
+			if(mThreadDadas[iSelectedConnection].bFullOnServer == false)
 			{
 				mThreadDadas[iSelectedConnection].uiCurrentFreePocket--;
 			}
 			else
 			{
-				mThreadDadas[iSelectedConnection].bOverflowOnServer = false;
+				mThreadDadas[iSelectedConnection].bFullOnServer = false;
 				SendToClient(mThreadDadas[iSelectedConnection].oConnectionData, PROTO_A_BUFFER_READY);
 			}
 			if(mThreadDadas[iSelectedConnection].
@@ -195,7 +195,7 @@ char Server::AccessCurrentData(void** pp_vDataBuffer)
 		uiPos = mThreadDadas[iSelectedConnection].uiCurrentFreePocket;
 		if(mThreadDadas[iSelectedConnection].uiCurrentFreePocket > 0)
 		{
-			if(mThreadDadas[iSelectedConnection].bOverflowOnServer == false) uiPos--;
+			if(mThreadDadas[iSelectedConnection].bFullOnServer == false) uiPos--;
 			if(mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].bFresh == true)
 			{
 				*pp_vDataBuffer = mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].oProtocolStorage.GetPointer();
@@ -219,11 +219,15 @@ char Server::AccessCurrentData(void** pp_vDataBuffer)
 // Очистка позиции данных потока.
 void Server::CleanThrDadaPos(unsigned int uiPos)
 {
+	for(unsigned int uiC = 0; uiC < S_MAX_STORED_POCKETS; uiC++)
+	{
+		mThreadDadas[uiPos].mReceivedPockets[uiC].oProtocolStorage.CleanPointers();
+	}
 	memset(&mThreadDadas[uiPos], 0, sizeof(ConversationThreadData));
 }
 
 // Поиск свободной позиции данных потока.
-unsigned int Server::FindFreeThrDadaPos()
+int Server::FindFreeThrDadaPos()
 {
 	unsigned int uiPos = 0;
 	//
@@ -317,9 +321,9 @@ void* Server::ConversationThread(void* p_vNum)
 		pthread_mutex_lock(&ptConnMutex);
 		if(mThreadDadas[uiTPos].uiCurrentFreePocket >= S_MAX_STORED_POCKETS)
 		{
-			LOG_P(LOG_CAT_W, "Buffer overflow for ID: " << uiTPos);
-			mThreadDadas[uiTPos].bOverflowOnServer = true;
-			SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_BUFFER_OVERFLOW);
+			LOG_P(LOG_CAT_W, "Buffer is full for ID: " << uiTPos);
+			mThreadDadas[uiTPos].bFullOnServer = true;
+			SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_BUFFER_FULL);
 			mThreadDadas[uiTPos].uiCurrentFreePocket = S_MAX_STORED_POCKETS - 1;
 		}
 		pthread_mutex_unlock(&ptConnMutex);
@@ -343,10 +347,10 @@ void* Server::ConversationThread(void* p_vNum)
 					mThreadDadas[uiTPos].m_chData,
 					mThreadDadas[uiTPos].oConnectionData.iStatus,
 					p_CurrentData->oProtocolStorage,
-					mThreadDadas[uiTPos].bOverflowOnServer);
-		if((mThreadDadas[uiTPos].bOverflowOnServer == true) && (oParsingResult.bStored == true)) // DEBUG.
+					mThreadDadas[uiTPos].bFullOnServer);
+		if((mThreadDadas[uiTPos].bFullOnServer == true) && (oParsingResult.bStored == true)) // DEBUG.
 		{
-			LOG_P(LOG_CAT_W, "Received overflowed pocket from ID: " << uiTPos);
+			LOG_P(LOG_CAT_W, "Receive owerflowed pocket from ID: " << uiTPos);
 		}
 		switch(oParsingResult.chRes)
 		{
@@ -393,16 +397,16 @@ void* Server::ConversationThread(void* p_vNum)
 					// Блок взаимодействия.
 					switch(oParsingResult.chTypeCode)
 					{
-						case PROTO_C_BUFFER_OVERFLOW:
+						case PROTO_C_BUFFER_FULL:
 						{
-							LOG_P(LOG_CAT_W, "Buffer overflow on ID: " << uiTPos);
-							mThreadDadas[uiTPos].bOverflowOnClient = true;
+							LOG_P(LOG_CAT_W, "Buffer is full on ID: " << uiTPos);
+							mThreadDadas[uiTPos].bFullOnClient = true;
 							goto gI;
 						}
 						case PROTO_A_BUFFER_READY:
 						{
 							LOG_P(LOG_CAT_I, "Buffer is ready on ID: " << uiTPos);
-							mThreadDadas[uiTPos].bOverflowOnClient = false;
+							mThreadDadas[uiTPos].bFullOnClient = false;
 							goto gI;
 						}
 						case PROTO_C_REQUEST_LEAVING:
@@ -418,7 +422,7 @@ void* Server::ConversationThread(void* p_vNum)
 						}
 					}
 					// Блок объектов.
-					if(mThreadDadas[uiTPos].bOverflowOnServer == false)
+					if(mThreadDadas[uiTPos].bFullOnServer == false)
 					{
 						switch(oParsingResult.chTypeCode)
 						{
@@ -447,7 +451,7 @@ gI:				break;
 				break;
 			}
 		}
-		if((mThreadDadas[uiTPos].bOverflowOnServer == false) &&
+		if((mThreadDadas[uiTPos].bFullOnServer == false) &&
 		   oParsingResult.bStored) mThreadDadas[uiTPos].uiCurrentFreePocket++;
 		pthread_mutex_unlock(&ptConnMutex);
 	}
@@ -475,11 +479,10 @@ enc:
 	LOG_P(LOG_CAT_I, "Exiting thread: " << mThreadDadas[uiTPos].p_Thread.p);
 #endif
 	CleanThrDadaPos(uiTPos);
-	mThreadDadas[uiTPos].bInUse = false;
 	if(iSelectedConnection == (int)uiTPos) iSelectedConnection = CONNECTION_SEL_ERROR;
 	if(pf_CBConnectionChanged != 0) pf_CBConnectionChanged(uiTPos, false); // Вызов кэлбэка смены статуса.
-	pthread_mutex_unlock(&ptConnMutex);
 	if(bKillListenerAccept) bListenerAlive = false;
+	pthread_mutex_unlock(&ptConnMutex);
 	RETURN_THREAD;
 }
 
@@ -490,7 +493,6 @@ void* Server::ServerThread(void *p_vPlug)
 	tinyxml2::XMLDocument xmlDocSConf;
 	list <XMLNode*> o_lNet;
 	XMLError eResult;
-	_uiRetval = _uiRetval; // Заглушка.
 	int iServerStatus;
 	addrinfo o_Hints;
 	char* p_chServerIP = 0;
