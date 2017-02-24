@@ -18,7 +18,8 @@ char* Server::p_chPassword = 0;
 pthread_t Server::ServerThr;
 char* Server::p_chSettingsPath = 0;
 int Server::iSelectedConnection = -1;
-CBClientStateChanged Server::pf_CBClientStateChanged;
+CBClientStateChanged Server::pf_CBClientStateChanged = 0;
+CBClientDataArrived Server::pf_CBClientDataArrived = 0;
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс сервера.
@@ -113,6 +114,14 @@ void Server::SetClientStateChangedCB(CBClientStateChanged pf_CBClientStateChange
 	pthread_mutex_unlock(&ptConnMutex);
 }
 
+// Установка указателя кэлбэка обработки принятых пакетов от клиентов.
+void Server::SetClientDataArrivedCB(CBClientDataArrived pf_CBClientDataArrivedIn)
+{
+	pthread_mutex_lock(&ptConnMutex);
+	pf_CBClientDataArrived = pf_CBClientDataArrivedIn;
+	pthread_mutex_unlock(&ptConnMutex);
+}
+
 // Установка текущего индекса осоединения для исходящих.
 bool Server::SetCurrentConnection(unsigned int uiIndex)
 {
@@ -183,7 +192,7 @@ char Server::ReleaseCurrentData()
 	return chRes;
 }
 
-// Доступ к крайнему элементу из массива принятых пакетов.
+// Доступ к крайнему элементу из массива принятых пакетов от текущего клиента.
 char Server::AccessCurrentData(void** pp_vDataBuffer)
 {
 	char chRes = DATA_ACCESS_ERROR;
@@ -350,16 +359,17 @@ void* Server::ConversationThread(void* p_vNum)
 					mThreadDadas[uiTPos].bFullOnServer);
 		if((mThreadDadas[uiTPos].bFullOnServer == true) && (oParsingResult.bStored == true)) // DEBUG.
 		{
-			LOG_P(LOG_CAT_W, "Receive owerflowed pocket from ID: " << uiTPos);
+			LOG_P(LOG_CAT_W, "Received owerflowed pocket from ID: " << uiTPos);
 		}
 		switch(oParsingResult.chRes)
 		{
 			case PROTOPARSER_OK:
 			{
-				if(oParsingResult.bStored)
+				if(oParsingResult.bStored == true)
 				{
 					LOG_P(LOG_CAT_I, "Received pocket: " <<
-						(mThreadDadas[uiTPos].uiCurrentFreePocket + 1) << " of " << S_MAX_STORED_POCKETS);
+						(mThreadDadas[uiTPos].uiCurrentFreePocket + 1) << " of " << S_MAX_STORED_POCKETS <<
+						" for ID: " << uiTPos);
 					mThreadDadas[uiTPos].mReceivedPockets[mThreadDadas[uiTPos].uiCurrentFreePocket].bFresh = true;
 				}
 				if(mThreadDadas[uiTPos].bSecured == false)
@@ -422,17 +432,9 @@ void* Server::ConversationThread(void* p_vNum)
 						}
 					}
 					// Блок объектов.
-					if(mThreadDadas[uiTPos].bFullOnServer == false)
+					if(oParsingResult.bStored == true)
 					{
-						switch(oParsingResult.chTypeCode)
-						{
-							case PROTO_O_TEXT_MSG:
-							{
-								LOG_P(LOG_CAT_I, "Received text message from ID: " << uiTPos << " : " <<
-									  p_CurrentData->oProtocolStorage.p_TextMsg->m_chMsg);
-								break;
-							}
-						}
+						if(pf_CBClientDataArrived != 0) pf_CBClientDataArrived(uiTPos);
 					}
 				}
 gI:				break;

@@ -14,9 +14,15 @@ LOGDECL_INIT_PTHRD_ADD
 
 //== ФУНКЦИИ.
 /// Кэлбэк обработки статутов подключений клиентов.
-void ClientStateChangedCallback(unsigned int uiIndex, bool bConnected)
+void ClientStateChangedCallback(unsigned int uiClientIndex, bool bConnected)
 {
-	LOG_P(LOG_CAT_I, "Client ID: " << uiIndex << " Status: " << bConnected);
+	LOG_P(LOG_CAT_I, "Client ID: " << uiClientIndex << " Status: " << bConnected);
+}
+
+/// Кэлбэк обработки прихода пакетов от клиентов.
+void ClientDataArrivedCallback(unsigned int uiClientIndex)
+{
+	LOG_P(LOG_CAT_I, "Data arrived from ID: " << uiClientIndex);
 }
 
 /// Точка входа в приложение.
@@ -38,6 +44,7 @@ int main(int argc, char *argv[])
 	char chTypeCode;
 	//
 	oServer.SetClientStateChangedCB(ClientStateChangedCallback);
+	oServer.SetClientDataArrivedCB(ClientDataArrivedCallback);
 	oServer.Start();
 gAg:cin >> strAdminCommand;
 	if(strAdminCommand.find("exit") == std::string::npos)
