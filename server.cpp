@@ -98,6 +98,10 @@ bool Server::SendToUser(char chCommand, char* p_chBuffer, int iLength)
 			bRes = true;
 	}
 gUE:pthread_mutex_unlock(&ptConnMutex);
+	if(bRes == false)
+	{
+		LOG_P(LOG_CAT_E, "Sending failed.");
+	}
 	return bRes;
 }
 
@@ -110,15 +114,21 @@ void Server::SetConnectionChangedCB(CBConnectionChanged pf_CBConnectionChangedIn
 }
 
 // Установка текущего индекса осоединения для исходящих.
-bool Server::SetCurrentConnectoin(unsigned int uiIndex)
+bool Server::SetCurrentConnection(unsigned int uiIndex)
 {
 	bool bRes = false;
 	//
+	if(uiIndex > (MAX_CONN - 1))
+	{
+		LOG_P(LOG_CAT_E, "Index is out of range.");
+		return false;
+	}
 	pthread_mutex_lock(&ptConnMutex);
 	if(mThreadDadas[uiIndex].bInUse == true)
 	{
 		iSelectedConnection = uiIndex;
 		LOG_P(LOG_CAT_I, "Selected ID: " << uiIndex);
+		bRes = true;
 	}
 	else
 	{
@@ -127,6 +137,83 @@ bool Server::SetCurrentConnectoin(unsigned int uiIndex)
 	}
 	pthread_mutex_unlock(&ptConnMutex);
 	return bRes;
+}
+
+// Удаление крайнего элемента из массива принятых пакетов.
+char Server::ReleaseCurrentData()
+{
+	char chRes = BUFFER_IS_EMPTY;
+	//
+	pthread_mutex_lock(&ptConnMutex);
+	if(iSelectedConnection != CONNECTION_SEL_ERROR)
+	{
+		if(mThreadDadas[iSelectedConnection].uiCurrentFreePocket > 0)
+		{
+			if(mThreadDadas[iSelectedConnection].bOverflowOnServer == false)
+			{
+				mThreadDadas[iSelectedConnection].uiCurrentFreePocket--;
+			}
+			else
+			{
+				mThreadDadas[iSelectedConnection].bOverflowOnServer = false;
+				SendToClient(mThreadDadas[iSelectedConnection].oConnectionData, PROTO_A_BUFFER_READY);
+			}
+			if(mThreadDadas[iSelectedConnection].
+			   mReceivedPockets[mThreadDadas[iSelectedConnection].uiCurrentFreePocket].bFresh == true)
+			{
+				mThreadDadas[iSelectedConnection].
+						mReceivedPockets[mThreadDadas[iSelectedConnection].uiCurrentFreePocket].bFresh = false;
+				mThreadDadas[iSelectedConnection].
+						mReceivedPockets[mThreadDadas[iSelectedConnection].uiCurrentFreePocket].oProtocolStorage.CleanPointers();
+				chRes = RETVAL_OK;
+				LOG_P(LOG_CAT_I, "Position has been released.");
+			}
+		}
+	}
+	else
+	{
+		chRes = CONNECTION_SEL_ERROR;
+		LOG_P(LOG_CAT_E, "Wrong connection number (release).");
+	}
+	pthread_mutex_unlock(&ptConnMutex);
+	if(chRes == BUFFER_IS_EMPTY)
+	{
+		LOG_P(LOG_CAT_E, "Buffer is empty.");
+	}
+	return chRes;
+}
+
+// Доступ к крайнему элементу из массива принятых пакетов.
+char Server::AccessCurrentData(void** pp_vDataBuffer)
+{
+	char chRes = DATA_ACCESS_ERROR;
+	unsigned int uiPos;
+	//
+	pthread_mutex_lock(&ptConnMutex);
+	if(iSelectedConnection != CONNECTION_SEL_ERROR)
+	{
+		uiPos = mThreadDadas[iSelectedConnection].uiCurrentFreePocket;
+		if(mThreadDadas[iSelectedConnection].uiCurrentFreePocket > 0)
+		{
+			if(mThreadDadas[iSelectedConnection].bOverflowOnServer == false) uiPos--;
+			if(mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].bFresh == true)
+			{
+				*pp_vDataBuffer = mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].oProtocolStorage.GetPointer();
+				chRes = mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].oProtocolStorage.chTypeCode;
+			}
+		}
+	}
+	else
+	{
+		chRes = CONNECTION_SEL_ERROR;
+		LOG_P(LOG_CAT_E, "Wrong connection number (access).");
+	}
+	pthread_mutex_unlock(&ptConnMutex);
+	if(chRes == DATA_ACCESS_ERROR)
+	{
+		LOG_P(LOG_CAT_E, "Data access error.");
+	}
+	return chRes;
 }
 
 // Очистка позиции данных потока.
@@ -164,11 +251,12 @@ void* Server::ConversationThread(void* p_vNum)
 	ProtoParser::ParseResult oParsingResult;
 	char m_chNameBuffer[INET6_ADDRSTRLEN];
 	char m_chPortBuffer[6];
-	ProtoParser::ParsedObject* pParsedObject;
 	bool bLocalExitSignal;
+	ReceivedData* p_CurrentData;
 	//
 	bLocalExitSignal = false;
 	uiTPos = *((unsigned int*)p_vNum); // Получили номер в массиве.
+	memset(&mThreadDadas[uiTPos].mReceivedPockets, 0, sizeof(mThreadDadas[uiTPos].mReceivedPockets));
 	mThreadDadas[uiTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
 #ifndef WIN32
 	LOG_P(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[uiTPos].p_Thread);
@@ -240,10 +328,6 @@ void* Server::ConversationThread(void* p_vNum)
 					 mThreadDadas[uiTPos].m_chData,
 				sizeof(mThreadDadas[uiTPos].m_chData), 0);
 		pthread_mutex_lock(&ptConnMutex);
-		if(mThreadDadas[uiTPos].bOverflowOnServer == true) // DEBUG.
-		{
-			LOG_P(LOG_CAT_W, "Received overflowed pocket from ID: " << uiTPos);
-		}
 		if (bExitSignal == true) // Если по выходу из приёмки обнаружен общий сигнал на выход...
 		{
 			LOG_P(LOG_CAT_I, "Exiting reading from ID: " << uiTPos);
@@ -254,47 +338,48 @@ void* Server::ConversationThread(void* p_vNum)
 			LOG_P(LOG_CAT_I, "Reading socket has been stopped for ID: " << uiTPos);
 			goto ecd;
 		}
+		p_CurrentData = &mThreadDadas[uiTPos].mReceivedPockets[mThreadDadas[uiTPos].uiCurrentFreePocket];
 		oParsingResult = p_ProtoParser->ParsePocket(
 					mThreadDadas[uiTPos].m_chData,
 					mThreadDadas[uiTPos].oConnectionData.iStatus,
-					mThreadDadas[uiTPos].mReceivedPockets[mThreadDadas[uiTPos].uiCurrentFreePocket].oParsedObject,
+					p_CurrentData->oProtocolStorage,
 					mThreadDadas[uiTPos].bOverflowOnServer);
-		pParsedObject = &mThreadDadas[uiTPos].mReceivedPockets[mThreadDadas[uiTPos].uiCurrentFreePocket].oParsedObject;
+		if((mThreadDadas[uiTPos].bOverflowOnServer == true) && (oParsingResult.bStored == true)) // DEBUG.
+		{
+			LOG_P(LOG_CAT_W, "Received overflowed pocket from ID: " << uiTPos);
+		}
 		switch(oParsingResult.chRes)
 		{
 			case PROTOPARSER_OK:
 			{
 				if(oParsingResult.bStored)
 				{
-					LOG_P(LOG_CAT_I, "Received pocket nr." <<
+					LOG_P(LOG_CAT_I, "Received pocket: " <<
 						(mThreadDadas[uiTPos].uiCurrentFreePocket + 1) << " of " << S_MAX_STORED_POCKETS);
 					mThreadDadas[uiTPos].mReceivedPockets[mThreadDadas[uiTPos].uiCurrentFreePocket].bFresh = true;
 				}
 				if(mThreadDadas[uiTPos].bSecured == false)
 				{
-					if(pParsedObject->chTypeCode == PROTO_C_SEND_PASSW)
+					if(oParsingResult.chTypeCode == PROTO_C_SEND_PASSW)
 					{
-						for(char chI = 0; chI != MAX_PASSW; chI++) // DEBUG Подстраховка для тестов с NetCat`а.
-						{
-							if(pParsedObject->oProtocolStorage.oPassword.m_chPassw[(int)chI] == 0x0A)
-							{
-								pParsedObject->oProtocolStorage.oPassword.m_chPassw[(int)chI] = 0;
-								break;
-							}
-						}
-						if(!strcmp(p_chPassword, pParsedObject->oProtocolStorage.oPassword.m_chPassw))
+						if(!strcmp(p_chPassword, p_CurrentData->oProtocolStorage.p_Password->m_chPassw))
 						{
 							SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_PASSW_OK);
 							mThreadDadas[uiTPos].bSecured = true;
-							LOG_P(LOG_CAT_I, "Connection is secured fot ID: " << uiTPos);
-							break;
+							LOG_P(LOG_CAT_I, "Connection is secured for ID: " << uiTPos);
 						}
 						else
 						{
 							SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_PASSW_ERR);
 							LOG_P(LOG_CAT_W, "Authentification failed for ID: " << uiTPos);
-							break;
 						}
+						p_CurrentData->oProtocolStorage.CleanPointers();
+						p_CurrentData->bFresh = false;
+						mThreadDadas[uiTPos].uiCurrentFreePocket--;
+						LOG_P(LOG_CAT_I, "Free pockets: " << S_MAX_STORED_POCKETS -
+							  (mThreadDadas[uiTPos].uiCurrentFreePocket + 1)
+							  << " of " << S_MAX_STORED_POCKETS << " for ID: " << uiTPos);
+						break;
 					}
 					else
 					{
@@ -306,15 +391,15 @@ void* Server::ConversationThread(void* p_vNum)
 				else
 				{
 					// Блок взаимодействия.
-					switch(pParsedObject->chTypeCode)
+					switch(oParsingResult.chTypeCode)
 					{
 						case PROTO_C_BUFFER_OVERFLOW:
 						{
-							LOG_P(LOG_CAT_E, "Buffer overflow on ID: " << uiTPos);
+							LOG_P(LOG_CAT_W, "Buffer overflow on ID: " << uiTPos);
 							mThreadDadas[uiTPos].bOverflowOnClient = true;
 							goto gI;
 						}
-						case PROTO_C_BUFFER_READY:
+						case PROTO_A_BUFFER_READY:
 						{
 							LOG_P(LOG_CAT_I, "Buffer is ready on ID: " << uiTPos);
 							mThreadDadas[uiTPos].bOverflowOnClient = false;
@@ -335,12 +420,12 @@ void* Server::ConversationThread(void* p_vNum)
 					// Блок объектов.
 					if(mThreadDadas[uiTPos].bOverflowOnServer == false)
 					{
-						switch(pParsedObject->chTypeCode)
+						switch(oParsingResult.chTypeCode)
 						{
 							case PROTO_O_TEXT_MSG:
 							{
 								LOG_P(LOG_CAT_I, "Received text message from ID: " << uiTPos << " : " <<
-									  pParsedObject->oProtocolStorage.oTextMsg.m_chMsg);
+									  p_CurrentData->oProtocolStorage.p_TextMsg->m_chMsg);
 								break;
 							}
 						}
@@ -352,7 +437,7 @@ gI:				break;
 			{
 				SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_OUT_OF_RANGE);
 				LOG_P(LOG_CAT_E, (char*)POCKET_OUT_OF_RANGE << " from ID: " <<
-					  uiTPos << " - " << pParsedObject->iDataLength);
+					  uiTPos << " - " << oParsingResult.iDataLength);
 				break;
 			}
 			case PROTOPARSER_UNKNOWN_COMMAND:

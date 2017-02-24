@@ -4,43 +4,44 @@
 
 //== МАКРОСЫ.
 // Утиль.
-#define _ParsedPSName(name)				oParsedObject.oProtocolStorage.name
-#define _PPControlSize(name)			if((int)sizeof(_ParsedPSName(PObjNaming(name))) < oParsedObject.iDataLength)			\
+#define _PPControlSize(name)			if((int)sizeof(ProtocolStorage::name) < oParseResult.iDataLength)						\
 										{																						\
-											oParsedObject.iDataLength = (int)sizeof(_ParsedPSName(PObjNaming(name)));			\
+											oParseResult.iDataLength = (int)sizeof(ProtocolStorage::name);						\
 											oParseResult.chRes = PROTOPARSER_OUT_OF_RANGE;										\
 											break;																				\
 										}																						\
 										else oParseResult.chRes = PROTOPARSER_OK;
-#define _CopyDataToStructure(name)		_ParsedPSName(PObjNaming(name)) = *(ProtocolStorage::name*)p_chCurrPos
-#define ProcessToStorage(name)			_PPControlSize(name);																	\
+#define FillNewStructure(name)			_PPControlSize(name);																	\
 										if(!bDoNotStore)																		\
 										{																						\
 											oParseResult.bStored = true;														\
-											_CopyDataToStructure(name);															\
+											aProtocolStorage._PObjPointerNaming(name) = new(ProtocolStorage::name);				\
+											*(aProtocolStorage._PObjPointerNaming(name)) =										\
+												*(ProtocolStorage::name*)p_chCurrPos;											\
 										}
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс парсера протокола.
 // Парсинг пакета в соответствующий член хранилища класса парсера.
-ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength, ParsedObject& oParsedObject, bool bDoNotStore)
+ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength,
+												  ProtocolStorage& aProtocolStorage, bool bDoNotStore)
 {
 	char* p_chCurrPos;
 	ParseResult oParseResult;
 	oParseResult.chRes = PROTOPARSER_UNKNOWN_COMMAND;
 	oParseResult.bStored = false;
-	bDoNotStore = bDoNotStore; // Заглушка от #define.
+	bDoNotStore = bDoNotStore;
 	//
 	p_chCurrPos = p_chData;
-	oParsedObject.chTypeCode = *p_chCurrPos;
+	oParseResult.chTypeCode = *p_chCurrPos;
 	p_chCurrPos++; // Команда уже обработана.
-	oParsedObject.iDataLength = iLength - 1;
-	switch(oParsedObject.chTypeCode)
+	oParseResult.iDataLength = iLength - 1;
+	switch(oParseResult.chTypeCode)
 	{
 		// ОБРАБОТКА КОМАНД УПРАВЛЕНИЯ.
 		case PROTO_C_SEND_PASSW:
 		{
-			ProcessToStorage(Password);
+			FillNewStructure(Password);
 			break;
 		}
 		case PROTO_S_PASSW_OK:
@@ -78,26 +79,25 @@ ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength, P
 			oParseResult.chRes = PROTOPARSER_OK;
 			break;
 		}
-		case PROTO_S_BUFFER_READY:
-		{
-			oParseResult.chRes = PROTOPARSER_OK;
-			break;
-		}
-		case PROTO_C_BUFFER_READY:
+		case PROTO_A_BUFFER_READY:
 		{
 			oParseResult.chRes = PROTOPARSER_OK;
 			break;
 		}
 		// ОБРАБОТКА ПАКЕТОВ.
-		// ProcessToStorage(имя структуры в протоколе)
-		// - копирует объект в хранилище, проверяя совпадение размера и доверяя любому содержимому (именование по шаблону).
+		// FillNewStructure(имя структуры в протоколе)
+		// - копирует данные в новую структуру, проверяя совпадение размера и доверяя любому содержимому (именование по шаблону).
 		case PROTO_O_TEXT_MSG:
 		{
-			ProcessToStorage(TextMsg);
-			oParsedObject.oProtocolStorage.oTextMsg.m_chMsg[oParsedObject.iDataLength - 1] = 0; // DEBUG.
-			oParsedObject.oProtocolStorage.oTextMsg.m_chMsg[oParsedObject.iDataLength] = 0;
+			FillNewStructure(TextMsg);
+			if(aProtocolStorage.p_TextMsg != 0)
+			{
+				aProtocolStorage.p_TextMsg->m_chMsg[oParseResult.iDataLength - 1] = 0; // DEBUG.
+				aProtocolStorage.p_TextMsg->m_chMsg[oParseResult.iDataLength] = 0;
+			}
 			break;
 		}
 	}
+	if(oParseResult.bStored == true) aProtocolStorage.chTypeCode = oParseResult.chTypeCode;
 	return oParseResult;
 }

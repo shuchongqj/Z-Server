@@ -4,25 +4,32 @@
 //== МАКРОСЫ.
 #define MAX_MSG							512
 #define MAX_PASSW						16
-
 // Утиль.
-#define PObjNaming(name)				o##name // Создаёт имя объекта структуры добавлением 'o' в начале.
-#define PObjDecl(name)					name PObjNaming(name) // Унифицированная декларация объектов.
-#define PObjPointerNaming(name)			p_##name // Создаёт имя объекта структуры добавлением 'p_' в начале.
-#define PObjPointerDecl(name)			name* PObjPointerNaming(name) // / Унифицированная декларация ук. на объекты.
-// Определение структуры члена протокола с именем структуры, определением данных и авто-добавлением объекта с предикатом 'o'.
-#define ProtocolStorageDef(name, code)	struct name															\
-										{																	\
-											code															\
-										};																	\
-										PObjDecl(name);														\
-										PObjPointerDecl(name);
+#define _PObjPointerNaming(name)		p_##name // Создаёт имя указателя добавлением 'p_' в начале.
+#define _PObjPointerNamingExt(name)		*p_##name // Создаёт имя указателя добавлением '*p_' в начале.
+#define _PObjPointerDecl(name)			name _PObjPointerNamingExt(name) // Унифицированная декларация ук. на объекты.
+#define Code(typecode)					char chType = typecode
+// Определение структуры члена протокола с именем структуры, определением данных и авто-добавлением указателя с предикатом 'p_'.
+#define ProtocolStorageDef(name, code, type)	struct name	{code; type};																			\
+										_PObjPointerDecl(name)
 // Определение класса протокола с перечислением структур типа 'ProtocolStorageDef'.
-#define ProtocolStorageClassInit(defs)	class ProtocolStorage												\
-										{																	\
-										public:																\
-											defs															\
+#define ProtocolStorageClassInit(defs, constructor, destructor, access)	class ProtocolStorage						\
+										{																			\
+										public:																		\
+											defs																	\
+											char chTypeCode;														\
+											void CleanPointers() {destructor};										\
+											ProtocolStorage() {constructor};										\
+											~ProtocolStorage() {CleanPointers();}									\
+											void* GetPointer() {access; return 0;}									\
+										};
+#define ProtocolStorageConstructorElement(name)	_PObjPointerNaming(name) = 0
+#define ProtocolStorageDestructorElement(name)	if(_PObjPointerNaming(name) != 0)									\
+										{																			\
+											delete _PObjPointerNaming(name);										\
+											_PObjPointerNaming(name) = 0;											\
 										}
+#define ProtocolStorageAccessElement(code, name)	if(chTypeCode == code) return (void*)_PObjPointerNaming(name)
 
 // ========================= КОДЫ ВЗАИМОДЕЙСТВИЯ ==============================
 #define PROTO_C_SEND_PASSW			'H'
@@ -36,8 +43,7 @@
 #define PROTO_S_SHUTDOWN_INFO		'Q'
 #define PROTO_S_BUFFER_OVERFLOW		'^'
 #define PROTO_C_BUFFER_OVERFLOW		'~'
-#define PROTO_S_BUFFER_READY		'+'
-#define PROTO_C_BUFFER_READY		'*'
+#define PROTO_A_BUFFER_READY		'+'
 // ============================================================================
 
 // ============================ КОДЫ ПАКЕТОВ ==================================
@@ -50,13 +56,27 @@ ProtocolStorageClassInit
 	ProtocolStorageDef
 	(
 		Password, // Имя типа структуры.
-		char m_chPassw[MAX_PASSW]; // Данные.
+		char m_chPassw[MAX_PASSW], // Данные.
+		Code(0);
 	);
 	ProtocolStorageDef
 	(
 		TextMsg, // Имя типа структуры.
-		char m_chMsg[MAX_MSG]; // Данные.
+		char m_chMsg[MAX_MSG], // Данные.
+		Code(PROTO_O_TEXT_MSG);
 	);
 // ============================================================================
-);
+,
+// ====================== ЭЛЕМЕНТЫ КОНСТРУКТОРА ПАКЕТОВ =======================
+	ProtocolStorageConstructorElement(Password);
+	ProtocolStorageConstructorElement(TextMsg);
+,
+// ====================== ЭЛЕМЕНТЫ ДЕСТРУКТОРА ПАКЕТОВ ========================
+	ProtocolStorageDestructorElement(Password);
+	ProtocolStorageDestructorElement(TextMsg);
+,
+// ====================== ЭЛЕМЕНТЫ ДОСТУПА К ПАКЕТАМ ==========================
+	ProtocolStorageAccessElement(0, Password);
+	ProtocolStorageAccessElement(PROTO_O_TEXT_MSG, TextMsg);
+)
 #endif // PROTOCOL_H

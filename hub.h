@@ -26,6 +26,8 @@
 #else
 #define MSleep(val)				Sleep(val)
 #endif
+#define	DATA_ACCESS_ERROR		1
+#define	BUFFER_IS_EMPTY			2
 
 //== ОПРЕДЕЛЕНИЯ ТИПОВ.
 typedef void (*CBConnectionChanged)(unsigned int uiIndex, bool bConnected);
@@ -43,11 +45,12 @@ struct ConnectionData
 #endif
 	int iStatus; ///< Статус последней операции.
 };
+
 /// Структура принятого пакета.
 struct ReceivedData
 {
 	bool bFresh; ///< Свежее сообщение.
-	ProtoParser::ParsedObject oParsedObject; ///< Принятый пакет.
+	ProtocolStorage oProtocolStorage; ///< Принятая структура хаба указателей.
 };
 
 //== ФУНКЦИИ.

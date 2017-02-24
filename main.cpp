@@ -27,6 +27,8 @@ int main(int argc, char *argv[])
 	string strArgument;
 	unsigned int uiConnNr = 0;
 	size_t szPos;
+	void* p_ReceivedData;
+	char chTypeCode;
 	//
 	oServer.Start();
 gAg:cin >> strAdminCommand;
@@ -35,30 +37,32 @@ gAg:cin >> strAdminCommand;
 		szPos = strAdminCommand.find("select:");
 		if(szPos == std::string::npos)
 		{
-			bool bRes;
-			//
-			bRes = oServer.SendToUser(PROTO_O_TEXT_MSG, (char*)strAdminCommand.c_str(), (int)(strAdminCommand.length() + 1));
-			if(!bRes)
+			if(strAdminCommand.find("fetch") == std::string::npos)
 			{
-				LOG_P(LOG_CAT_E, "Sending failed.");
+				oServer.SendToUser(PROTO_O_TEXT_MSG, (char*)strAdminCommand.c_str(), (int)(strAdminCommand.length() + 1));
 			}
 			else
 			{
-				LOG_P(LOG_CAT_I, "Message has been sent.");
+				chTypeCode = oServer.AccessCurrentData(&p_ReceivedData);
+				if(chTypeCode != DATA_ACCESS_ERROR)
+				{
+					if(chTypeCode == PROTO_O_TEXT_MSG)
+					{
+						LOG_P(LOG_CAT_I, "Got last data: " << string((char*)p_ReceivedData));
+					}
+					else if(chTypeCode != CONNECTION_SEL_ERROR)
+					{
+						LOG_P(LOG_CAT_W, "Got unknown data with type: " << chTypeCode);
+					}
+				}
+				oServer.ReleaseCurrentData();
 			}
 		}
 		else
 		{
 			strArgument = strAdminCommand.substr(szPos + 7);
 			uiConnNr = (unsigned int)stoi(strArgument);
-			if(uiConnNr > (MAX_CONN - 1))
-			{
-				LOG_P(LOG_CAT_E, "Index is out of range.");
-			}
-			else
-			{
-				oServer.SetCurrentConnectoin(uiConnNr);
-			}
+			oServer.SetCurrentConnection(uiConnNr);
 		}
 		goto gAg;
 	}

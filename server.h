@@ -86,12 +86,19 @@ public:
 								///< \param[in] iLength Длина буфера в байтах.
 								///< \return true, при удаче.
 	/// Установка текущего индекса соединения для исходящих.
-	bool SetCurrentConnectoin(unsigned int uiIndex);
+	bool SetCurrentConnection(unsigned int uiIndex);
 								///< \param[in] uiIndex Индекс соединения.
 								///< \return true, если соединение действительно.
 	/// Установка указателя кэлбэка изменения статуса подкл.
 	void SetConnectionChangedCB(CBConnectionChanged pf_CBConnectionChangedIn);
 								///< \param[in] pf_CBConnectionChangedIn Указатель на пользовательскую функцию.
+	/// Доступ к крайнему элементу из массива принятых пакетов.
+	char AccessCurrentData(void** pp_vDataBuffer);
+								///< \param[in,out] p_vDataBuffer Указатель на указатель на буфер с данными.
+								///< \return Код пакета, DATA_ACCESS_ERROR при ошибке, CONNECTION_SEL_ERROR соотв.
+	/// Удаление крайнего элемента из массива принятых пакетов.
+	static char ReleaseCurrentData();
+								///< \return RETVAL_OK, если удачно, BUFFER_IS_EMPTY, если пусто, CONNECTION_SEL_ERROR соотв.
 private:
 	/// Функция отправки пакета клиенту.
 	static bool SendToClient(ConnectionData &oConnectionData,

@@ -16,27 +16,22 @@
 class ProtoParser
 {
 public:
-	/// Структура описания и хранинлища.
-	struct ParsedObject
-	{
-		char chTypeCode; ///< Тип пакета.
-		int iDataLength; ///< Длина пакета в байтах.
-		ProtocolStorage oProtocolStorage; ///< Составной объект хранилища, определяемый в протоколе.
-	};
 	/// Структура возвратных результатов парсинга.
 	struct ParseResult
 	{
-		bool bStored; ///< Был ли использован буфер сохранения.
-		char chRes; ///< Код результата.
+		bool bStored; ///< Признак сохранения в новую структуру.
+		char chRes; ///< Результат операции.
+		char chTypeCode; ///< Код принятого пакета (вне зависимости от статуса сохранения).
+		int iDataLength; ///< Длина пакета в байтах.
 	};
 public:
 	/// Парсинг пакета в соответствующий член хранилища.
-	ParseResult ParsePocket(char* p_chData, int iLength, ParsedObject& oParsedObject, bool bDoNotStore = false);
+	ParseResult ParsePocket(char* p_chData, int iLength, ProtocolStorage& aProtocolStorage, bool bDoNotStore = false);
 											///< \param[in] p_chData Указатель на пакет.
 											///< \param[in] iLength Длина пакета в байтах.
-											///< \param[in] oParsedObject Ссылка на объект структуры описания и хранилище.
+											///< \param[out] aProtocolStorage Ссылка на структуру для заполнения.
 											///< \param[in] bDoNotStore Флаг необходимости игнорировать заполнение хранилища.
-											///< \return Результат парсинга.
+											///< \return Результат парсинга в соотв. структуре.
 };
 
 #endif // PROTOPARSER_H
