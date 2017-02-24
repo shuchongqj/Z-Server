@@ -1,5 +1,5 @@
-#ifndef PROTOCOLUTIL_H
-#define PROTOCOLUTIL_H
+#ifndef PROTO_UTIL_H
+#define PROTO_UTIL_H
 
 //== МАКРОСЫ.
 #define MAX_MSG							512
@@ -42,4 +42,4 @@
 #define PROTO_C_BUFFER_FULL			'~'
 #define PROTO_A_BUFFER_READY		'+'
 
-#endif // PROTOCOLUTIL_H
+#endif // PROTO_UTIL_H

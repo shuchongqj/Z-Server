@@ -1,5 +1,5 @@
-#ifndef PROTOPARSER_H
-#define PROTOPARSER_H
+#ifndef PROTO_PARSER_H
+#define PROTO_PARSER_H
 
 //== ВКЛЮЧЕНИЯ.
 #include "protocol.h"
@@ -34,4 +34,4 @@ public:
 											///< \return Результат парсинга в соотв. структуре.
 };
 
-#endif // PROTOPARSER_H
+#endif // PROTO_PARSER_H

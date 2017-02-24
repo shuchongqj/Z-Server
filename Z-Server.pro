@@ -30,7 +30,6 @@ SOURCES += main.cpp \
     Server/net-hub.cpp
 
 HEADERS += \
-    hub.h \
     dirent-win32/dirent.h \
     dlfcn-win32/dlfcn.h \
     TinyXML2/tinyxml2.h \

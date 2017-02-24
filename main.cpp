@@ -10,6 +10,14 @@
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL
+LOGDECL_INIT_PTHRD_ADD
+
+//== ФУНКЦИИ.
+/// Кэлбэк обработки статутов подключений.
+void ConnectionChangedCallback(unsigned int uiIndex, bool bConnected)
+{
+	LOG_P(LOG_CAT_I, "Client ID: " << uiIndex << " Status:" << bConnected);
+}
 
 /// Точка входа в приложение.
 int main(int argc, char *argv[])
@@ -20,7 +28,6 @@ int main(int argc, char *argv[])
 	argc = argc; // Заглушка.
 	argv = argv; // Заглушка.
 	LOG_CTRL_INIT;
-	LOGDECL_INIT_PTHRD_ADD;
 	LOG_P(LOG_CAT_I, "Starting application, server initialization.");
 	Server oServer(S_CONF_PATH, _ptLogMutex);
 	string strAdminCommand;
@@ -30,6 +37,7 @@ int main(int argc, char *argv[])
 	void* p_ReceivedData;
 	char chTypeCode;
 	//
+	oServer.SetConnectionChangedCB(ConnectionChangedCallback);
 	oServer.Start();
 gAg:cin >> strAdminCommand;
 	if(strAdminCommand.find("exit") == std::string::npos)

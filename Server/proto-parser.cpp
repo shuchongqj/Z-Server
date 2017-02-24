@@ -11,7 +11,9 @@
 											break;																				\
 										}																						\
 										else oParseResult.chRes = PROTOPARSER_OK;
-#define FillNewStructure(name)			_PPControlSize(name);																	\
+// _FillNewStructure(имя структуры в протоколе)
+// - копирует данные в новую структуру, проверяя совпадение размера и доверяя любому содержимому (именование по шаблону).
+#define _FillNewStructure(name)			_PPControlSize(name);																	\
 										if(!bDoNotStore)																		\
 										{																						\
 											oParseResult.bStored = true;														\
@@ -19,6 +21,13 @@
 											*(aProtocolStorage._PObjPointerNaming(name)) =										\
 												*(ProtocolStorage::name*)p_chCurrPos;											\
 										}
+#define _CaseCommand(typecode)			case typecode: oParseResult.chRes = PROTOPARSER_OK; break
+//
+#define CaseCommandHub					_CaseCommand(PROTO_S_PASSW_OK); _CaseCommand(PROTO_S_PASSW_ERR);						\
+										_CaseCommand(PROTO_C_REQUEST_LEAVING); _CaseCommand(PROTO_S_ACCEPT_LEAVING);			\
+										_CaseCommand(PROTO_S_SHUTDOWN_INFO); _CaseCommand(PROTO_S_BUFFER_FULL);					\
+										_CaseCommand(PROTO_C_BUFFER_FULL); _CaseCommand(PROTO_A_BUFFER_READY)
+#define CasePocket(typecode, name)		case typecode: _FillNewStructure(name); oParseResult.chRes = PROTOPARSER_OK; break
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс парсера протокола.
@@ -38,65 +47,10 @@ ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength,
 	oParseResult.iDataLength = iLength - 1;
 	switch(oParseResult.chTypeCode)
 	{
-		// ОБРАБОТКА КОМАНД УПРАВЛЕНИЯ.
-		case PROTO_C_SEND_PASSW:
-		{
-			FillNewStructure(Password);
-			break;
-		}
-		case PROTO_S_PASSW_OK:
-		{
-			oParseResult.chRes = PROTOPARSER_OK;
-			break;
-		}
-		case PROTO_S_PASSW_ERR:
-		{
-			oParseResult.chRes = PROTOPARSER_OK;
-			break;
-		}
-		case PROTO_C_REQUEST_LEAVING:
-		{
-			oParseResult.chRes = PROTOPARSER_OK;
-			break;
-		}
-		case PROTO_S_ACCEPT_LEAVING:
-		{
-			oParseResult.chRes = PROTOPARSER_OK;
-			break;
-		}
-		case PROTO_S_SHUTDOWN_INFO:
-		{
-			oParseResult.chRes = PROTOPARSER_OK;
-			break;
-		}
-		case PROTO_S_BUFFER_FULL:
-		{
-			oParseResult.chRes = PROTOPARSER_OK;
-			break;
-		}
-		case PROTO_C_BUFFER_FULL:
-		{
-			oParseResult.chRes = PROTOPARSER_OK;
-			break;
-		}
-		case PROTO_A_BUFFER_READY:
-		{
-			oParseResult.chRes = PROTOPARSER_OK;
-			break;
-		}
+		CaseCommandHub;
 		// ОБРАБОТКА ПАКЕТОВ.
-		// FillNewStructure(имя структуры в протоколе)
-		// - копирует данные в новую структуру, проверяя совпадение размера и доверяя любому содержимому (именование по шаблону).
-		case PROTO_O_TEXT_MSG:
-		{
-			FillNewStructure(TextMsg);
-			if(aProtocolStorage.p_TextMsg != 0)
-			{
-				aProtocolStorage.p_TextMsg->m_chMsg[oParseResult.iDataLength - 1] = 0; // DEBUG.
-				aProtocolStorage.p_TextMsg->m_chMsg[oParseResult.iDataLength] = 0;
-			}
-			break;
-		}
+		CasePocket(PROTO_C_SEND_PASSW, Password);
+		CasePocket(PROTO_O_TEXT_MSG, TextMsg);
 	}
 	if(oParseResult.bStored == true) aProtocolStorage.chTypeCode = oParseResult.chTypeCode;
 	return oParseResult;

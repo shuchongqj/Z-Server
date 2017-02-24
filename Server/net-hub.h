@@ -1,5 +1,5 @@
-#ifndef HUB_H
-#define HUB_H
+#ifndef NET_HUB_H
+#define NET_HUB_H
 
 //== ВКЛЮЧЕНИЯ.
 #include "../TinyXML2/tinyxml2.h"
@@ -60,4 +60,4 @@ bool SendToAddress(ConnectionData &oConnectionData, char chCommand, char *p_chBu
 													///< \param[in] p_chBuffer Указатель на буффер с данными.
 													///< \param[in] iLength Длина пакета в байтах.
 													///< \return true, при удаче.
-#endif // HUB_H
+#endif // NET_HUB_H

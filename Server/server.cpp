@@ -478,9 +478,10 @@ enc:
 #else
 	LOG_P(LOG_CAT_I, "Exiting thread: " << mThreadDadas[uiTPos].p_Thread.p);
 #endif
+	if(mThreadDadas[uiTPos].bInUse == true)
+		if(pf_CBConnectionChanged != 0) pf_CBConnectionChanged(uiTPos, false); // Вызов кэлбэка смены статуса.
 	CleanThrDadaPos(uiTPos);
 	if(iSelectedConnection == (int)uiTPos) iSelectedConnection = CONNECTION_SEL_ERROR;
-	if(pf_CBConnectionChanged != 0) pf_CBConnectionChanged(uiTPos, false); // Вызов кэлбэка смены статуса.
 	if(bKillListenerAccept) bListenerAlive = false;
 	pthread_mutex_unlock(&ptConnMutex);
 	RETURN_THREAD;
