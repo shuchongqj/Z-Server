@@ -4,7 +4,7 @@
 //== ВКЛЮЧЕНИЯ.
 #include "../TinyXML2/tinyxml2.h"
 #ifdef WIN32
-#include "dlfcn-win32/dlfcn.h"
+#include "../dlfcn-win32/dlfcn.h"
 #include <WinSock2.h>
 #else
 #include <dlfcn.h>

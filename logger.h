@@ -43,7 +43,7 @@
 							static time_t _LogTimeNow; static timeval _LogTimeval; static int _iRetval;
 #else
 #define LOGDECL             static std::fstream LOGVarname; static char _m_chLogBuf[80]; static char _m_chLogMSBuf[8];      \
-							static time_t _LogTimeNow; static timeval _LogTimeval; static unsigned int _iRetval;           \
+                            static time_t _LogTimeNow; static timeval _LogTimeval; static int _iRetval;                     \
 							static int gettimeofday(timeval * tp, struct timezone * tzp){                                   \
                                 SYSTEMTIME system_time; FILETIME file_time; GetSystemTime(&system_time);                    \
                                 SystemTimeToFileTime(&system_time, &file_time);                                             \
