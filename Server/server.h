@@ -36,7 +36,7 @@ typedef void (*CBClientStatusChanged)(bool bConnected, unsigned int uiClientInde
 //== МАКРОСЫ.
 #define USER_RESPONSE_MS		100
 #define WAITING_FOR_CLIENT_DSC	1000
-#define MAX_CONN				16
+#define MAX_CONN				2
 #define CONNECTION_SEL_ERROR	-1
 
 //== КЛАССЫ.

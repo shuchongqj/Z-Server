@@ -532,7 +532,7 @@ void* Server::ServerThread(void *p_vPlug)
 	char* p_chServerIP = 0;
 	char* p_chPort = 0;
 	addrinfo* p_Res;
-	unsigned int uiCurrPos = 0;
+	int iCurrPos = 0;
 	char m_chNameBuffer[INET6_ADDRSTRLEN];
 #ifdef WIN32
 	WSADATA wsadata = WSADATA();
@@ -647,10 +647,15 @@ void* Server::ServerThread(void *p_vPlug)
 	bListenerAlive = true;
 	// Цикл ожидания входа клиентов.
 nc:	bRequestNewConn = false; // Вход в звено цикла ожидания клиентов - сброс флага запроса.
-	uiCurrPos = FindFreeThrDadaPos();
-	pthread_create(&mThreadDadas[uiCurrPos].p_Thread, NULL,
-				   ConversationThread, &uiCurrPos); // Создание нового потока приёмки.
-	while(!bExitSignal)
+	iCurrPos = FindFreeThrDadaPos();
+	if(iCurrPos == RETVAL_ERR)
+	{
+		LOG_P(LOG_CAT_W, "Server is full.");
+		goto gNN;
+	}
+	pthread_create(&mThreadDadas[iCurrPos].p_Thread, NULL,
+				   ConversationThread, &iCurrPos); // Создание нового потока приёмки.
+gNN:while(!bExitSignal)
 	{
 		if(bRequestNewConn == true)
 			goto nc;
@@ -673,32 +678,32 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 	LOG_P(LOG_CAT_I, "Listener has been closed.");
 	// Закрытие сокетов клиентов.
 	LOG_P(LOG_CAT_I, "Disconnecting clients...");
-	for(uiCurrPos = 0; uiCurrPos != MAX_CONN; uiCurrPos++) // Закрываем все клиентские сокеты.
+	for(iCurrPos = 0; iCurrPos != MAX_CONN; iCurrPos++) // Закрываем все клиентские сокеты.
 	{
-		if(mThreadDadas[uiCurrPos].bInUse == true)
+		if(mThreadDadas[iCurrPos].bInUse == true)
 		{
-			SendToClient(mThreadDadas[uiCurrPos].oConnectionData, PROTO_S_SHUTDOWN_INFO);
+			SendToClient(mThreadDadas[iCurrPos].oConnectionData, PROTO_S_SHUTDOWN_INFO);
 		}
 	}
 	MSleep(WAITING_FOR_CLIENT_DSC * 2);
 	pthread_mutex_lock(&ptConnMutex);
-	for(uiCurrPos = 0; uiCurrPos != MAX_CONN; uiCurrPos++) // Закрываем все клиентские сокеты.
+	for(iCurrPos = 0; iCurrPos != MAX_CONN; iCurrPos++) // Закрываем все клиентские сокеты.
 	{
-		if(mThreadDadas[uiCurrPos].bInUse == true)
+		if(mThreadDadas[iCurrPos].bInUse == true)
 		{
 #ifndef WIN32
-			shutdown(mThreadDadas[uiCurrPos].iConnection, SHUT_RDWR);
-			close(mThreadDadas[uiCurrPos].iConnection);
+			shutdown(mThreadDadas[iCurrPos].iConnection, SHUT_RDWR);
+			close(mThreadDadas[iCurrPos].iConnection);
 #else
-			closesocket(mThreadDadas[uiCurrPos].iConnection);
+			closesocket(mThreadDadas[iCurrPos].iConnection);
 #endif
 #ifndef WIN32
-			getnameinfo(&mThreadDadas[uiCurrPos].oConnectionData.ai_addr,
-						mThreadDadas[uiCurrPos].oConnectionData.ai_addrlen,
+			getnameinfo(&mThreadDadas[iCurrPos].oConnectionData.ai_addr,
+						mThreadDadas[iCurrPos].oConnectionData.ai_addrlen,
 						m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
 #else
-			getnameinfo(&mThreadDadas[uiCurrPos].oConnectionData.ai_addr,
-						(socklen_t)mThreadDadas[uiCurrPos].oConnectionData.ai_addrlen,
+			getnameinfo(&mThreadDadas[iCurrPos].oConnectionData.ai_addr,
+						(socklen_t)mThreadDadas[iCurrPos].oConnectionData.ai_addrlen,
 						m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
 #endif
 			LOG_P(LOG_CAT_I, "Socket closed internally: " << m_chNameBuffer);
@@ -706,11 +711,11 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 	}
 	pthread_mutex_unlock(&ptConnMutex);
 	// Ждём, пока дойдёт до всех потоков соединений с клиентами.
-stc:uiCurrPos = 0;
-	for(; uiCurrPos != MAX_CONN; uiCurrPos++)
+stc:iCurrPos = 0;
+	for(; iCurrPos != MAX_CONN; iCurrPos++)
 	{
 		// Если занят - на начало.
-		if(mThreadDadas[uiCurrPos].bInUse == true)
+		if(mThreadDadas[iCurrPos].bInUse == true)
 		{
 			MSleep(USER_RESPONSE_MS);
 			goto stc;
