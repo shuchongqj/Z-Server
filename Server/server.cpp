@@ -283,10 +283,12 @@ void* Server::ConversationThread(void* p_vNum)
 	iTPos = *((unsigned int*)p_vNum); // Получили номер в массиве.
 	if(iTPos == RETVAL_ERR)
 	{
-		while(((iTempTPos = FindFreeThrDadaPos()) ==  RETVAL_ERR))
+gAG:	iTempListener = (int)accept(iListener, NULL, NULL); // Ждём перегруженных входящих.
+		iTempTPos = FindFreeThrDadaPos();
+		if(iTempTPos == RETVAL_ERR)
 		{
 			if(bExitSignal) goto gOE;
-			iTempListener = (int)accept(iListener, NULL, NULL); // Ждём перегруженных входящих.
+			goto gAG;
 		}
 		iTPos = iTempTPos;
 		mThreadDadas[iTPos].oConnectionData.iSocket = iTempListener;
