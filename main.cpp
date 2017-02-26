@@ -41,7 +41,7 @@ void ClientStatusChangedCallback(bool bConnected, unsigned int uiClientIndex, so
 	getnameinfo(&ai_addr, ai_addrlen, m_chNameBuffer, sizeof(m_chNameBuffer),
 				m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
 #else
-	getnameinfo(&ai_addr, ai_addrlen,
+	getnameinfo(&ai_addr, (socklen_t)ai_addrlen,
 				m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
 #endif
 	LOG_P(LOG_CAT_I, "IP: " << m_chNameBuffer << " Port: " << m_chPortBuffer);
