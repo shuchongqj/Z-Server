@@ -653,6 +653,10 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 		LOG_P(LOG_CAT_W, "Server is full.");
 		goto gNN;
 	}
+	else
+	{
+		LOG_P(LOG_CAT_I, "Free ID slot: " << iCurrPos);
+	}
 	pthread_create(&mThreadDadas[iCurrPos].p_Thread, NULL,
 				   ConversationThread, &iCurrPos); // Создание нового потока приёмки.
 gNN:while(!bExitSignal)
@@ -664,18 +668,21 @@ gNN:while(!bExitSignal)
 	printf("\b\b");
 	LOG_P(LOG_CAT_I, "Terminated by admin.");
 	// Закрытие приёмника.
-	LOG_P(LOG_CAT_I, "Closing listener...");
-#ifndef WIN32
-	shutdown(iListener, SHUT_RDWR);
-	close(iListener);
-#else
-	closesocket(iListener);
-#endif
-	while(bListenerAlive)
+	if(iCurrPos != RETVAL_ERR)
 	{
-		MSleep(USER_RESPONSE_MS);
+		LOG_P(LOG_CAT_I, "Closing listener...");
+#ifndef WIN32
+		shutdown(iListener, SHUT_RDWR);
+		close(iListener);
+#else
+		closesocket(iListener);
+#endif
+		while(bListenerAlive)
+		{
+			MSleep(USER_RESPONSE_MS);
+		}
+		LOG_P(LOG_CAT_I, "Listener has been closed.");
 	}
-	LOG_P(LOG_CAT_I, "Listener has been closed.");
 	// Закрытие сокетов клиентов.
 	LOG_P(LOG_CAT_I, "Disconnecting clients...");
 	for(iCurrPos = 0; iCurrPos != MAX_CONN; iCurrPos++) // Закрываем все клиентские сокеты.
