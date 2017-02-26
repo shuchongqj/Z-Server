@@ -26,7 +26,8 @@
 #define CaseCommandHub					_CaseCommand(PROTO_S_PASSW_OK); _CaseCommand(PROTO_S_PASSW_ERR);						\
 										_CaseCommand(PROTO_C_REQUEST_LEAVING); _CaseCommand(PROTO_S_ACCEPT_LEAVING);			\
 										_CaseCommand(PROTO_S_SHUTDOWN_INFO); _CaseCommand(PROTO_S_BUFFER_FULL);					\
-										_CaseCommand(PROTO_C_BUFFER_FULL); _CaseCommand(PROTO_A_BUFFER_READY)
+										_CaseCommand(PROTO_C_BUFFER_FULL); _CaseCommand(PROTO_A_BUFFER_READY);					\
+										_CaseCommand(PROTO_S_UNSECURED);
 #define CasePocket(typecode, name)		case typecode: _FillNewStructure(name); oParseResult.chRes = PROTOPARSER_OK; break
 
 //== ФУНКЦИИ КЛАССОВ.

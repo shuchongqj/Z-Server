@@ -18,7 +18,7 @@ char* Server::p_chPassword = 0;
 pthread_t Server::ServerThr;
 char* Server::p_chSettingsPath = 0;
 int Server::iSelectedConnection = -1;
-CBClientStateChanged Server::pf_CBClientStateChanged = 0;
+CBClientRequestArrived Server::pf_CBClientRequestArrived = 0;
 CBClientDataArrived Server::pf_CBClientDataArrived = 0;
 
 //== ФУНКЦИИ КЛАССОВ.
@@ -92,7 +92,7 @@ bool Server::SendToUser(char chCommand, char* p_chBuffer, int iLength)
 	bool bRes = false;
 	pthread_mutex_lock(&ptConnMutex);
 	if(iSelectedConnection == CONNECTION_SEL_ERROR) goto gUE;
-	if((mThreadDadas[iSelectedConnection].bFullOnClient == false))
+	if((mThreadDadas[iSelectedConnection].bFullOnClient == false) & (mThreadDadas[iSelectedConnection].bSecured == true))
 	{
 		if(SendToClient(mThreadDadas[iSelectedConnection].oConnectionData,
 					  chCommand, false, p_chBuffer, iLength) == true)
@@ -107,10 +107,10 @@ gUE:pthread_mutex_unlock(&ptConnMutex);
 }
 
 // Установка указателя кэлбэка изменения статуса подключения клиента.
-void Server::SetClientStateChangedCB(CBClientStateChanged pf_CBClientStateChangedIn)
+void Server::SetClientRequestArrivedCB(CBClientRequestArrived pf_CBClientRequestArrivedIn)
 {
 	pthread_mutex_lock(&ptConnMutex);
-	pf_CBClientStateChanged = pf_CBClientStateChangedIn;
+	pf_CBClientRequestArrived = pf_CBClientRequestArrivedIn;
 	pthread_mutex_unlock(&ptConnMutex);
 }
 
@@ -323,7 +323,6 @@ void* Server::ConversationThread(void* p_vNum)
 	}
 	//
 	bRequestNewConn = true; // Соединение готово - установка флага для главного потока на запрос нового.
-	if(pf_CBClientStateChanged != 0) pf_CBClientStateChanged(uiTPos, true); // Вызов кэлбэка смены статуса.
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
 	{
@@ -372,6 +371,10 @@ void* Server::ConversationThread(void* p_vNum)
 						" for ID: " << uiTPos);
 					mThreadDadas[uiTPos].mReceivedPockets[mThreadDadas[uiTPos].uiCurrentFreePocket].bFresh = true;
 				}
+				if((oParsingResult.bStored == false) | (oParsingResult.chTypeCode == PROTO_C_SEND_PASSW))
+				{
+					if(pf_CBClientRequestArrived != 0) pf_CBClientRequestArrived(uiTPos, oParsingResult.chTypeCode);
+				}
 				if(mThreadDadas[uiTPos].bSecured == false)
 				{
 					if(oParsingResult.chTypeCode == PROTO_C_SEND_PASSW)
@@ -381,63 +384,75 @@ void* Server::ConversationThread(void* p_vNum)
 							SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_PASSW_OK);
 							mThreadDadas[uiTPos].bSecured = true;
 							LOG_P(LOG_CAT_I, "Connection is secured for ID: " << uiTPos);
+							LOG_P(LOG_CAT_I, "Free pockets: " << S_MAX_STORED_POCKETS -
+								  (mThreadDadas[uiTPos].uiCurrentFreePocket)
+								  << " of " << S_MAX_STORED_POCKETS << " for ID: " << uiTPos);
 						}
 						else
 						{
 							SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_PASSW_ERR);
+							mThreadDadas[uiTPos].bSecured = false;
 							LOG_P(LOG_CAT_W, "Authentification failed for ID: " << uiTPos);
 						}
 						p_CurrentData->oProtocolStorage.CleanPointers();
 						p_CurrentData->bFresh = false;
 						mThreadDadas[uiTPos].uiCurrentFreePocket--;
-						LOG_P(LOG_CAT_I, "Free pockets: " << S_MAX_STORED_POCKETS -
-							  (mThreadDadas[uiTPos].uiCurrentFreePocket + 1)
-							  << " of " << S_MAX_STORED_POCKETS << " for ID: " << uiTPos);
-						break;
+						goto gI;
 					}
 					else
 					{
-						SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_UNSECURED);
-						LOG_P(LOG_CAT_W, "Client is not autherised, ID: " << uiTPos);
-						break;
+						if(oParsingResult.chTypeCode != PROTO_C_REQUEST_LEAVING)
+						{
+							SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_UNSECURED);
+							LOG_P(LOG_CAT_W, "Client is not autherised, ID: " << uiTPos);
+						}
+						goto gI;
 					}
 				}
 				else
 				{
-					// Блок взаимодействия.
-					switch(oParsingResult.chTypeCode)
-					{
-						case PROTO_C_BUFFER_FULL:
-						{
-							LOG_P(LOG_CAT_W, "Buffer is full on ID: " << uiTPos);
-							mThreadDadas[uiTPos].bFullOnClient = true;
-							goto gI;
-						}
-						case PROTO_A_BUFFER_READY:
-						{
-							LOG_P(LOG_CAT_I, "Buffer is ready on ID: " << uiTPos);
-							mThreadDadas[uiTPos].bFullOnClient = false;
-							goto gI;
-						}
-						case PROTO_C_REQUEST_LEAVING:
-						{
-							LOG_P(LOG_CAT_I, "ID: " << uiTPos << " request leaving.");
-							// МЕСТО ДЛЯ ВСТАВКИ КОДА ОБРАБОТКИ ВЫХОДА КЛИЕНТОВ.
-							//
-							SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_ACCEPT_LEAVING);
-							LOG_P(LOG_CAT_I, "ID: " << uiTPos << " leaving accepted.");
-							MSleep(WAITING_FOR_CLIENT_DSC);
-							bLocalExitSignal = true;
-							goto ecd;
-						}
-					}
 					// Блок объектов.
 					if(oParsingResult.bStored == true)
 					{
 						if(pf_CBClientDataArrived != 0) pf_CBClientDataArrived(uiTPos);
 					}
 				}
-gI:				break;
+				// Блок взаимодействия.
+gI:				switch(oParsingResult.chTypeCode)
+				{
+					case PROTO_C_BUFFER_FULL:
+					{
+						LOG_P(LOG_CAT_W, "Buffer is full on ID: " << uiTPos);
+						mThreadDadas[uiTPos].bFullOnClient = true;
+						goto gI;
+					}
+					case PROTO_A_BUFFER_READY:
+					{
+						LOG_P(LOG_CAT_I, "Buffer is ready on ID: " << uiTPos);
+						mThreadDadas[uiTPos].bFullOnClient = false;
+						goto gI;
+					}
+					case PROTO_C_REQUEST_LEAVING:
+					{
+						LOG_P(LOG_CAT_I, "ID: " << uiTPos << " request leaving.");
+						// МЕСТО ДЛЯ ВСТАВКИ КОДА ОБРАБОТКИ ВЫХОДА КЛИЕНТОВ.
+						//
+						SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_ACCEPT_LEAVING);
+						LOG_P(LOG_CAT_I, "ID: " << uiTPos << " leaving accepted.");
+						MSleep(WAITING_FOR_CLIENT_DSC);
+						bLocalExitSignal = true;
+						goto ecd;
+					}
+				}
+				if((mThreadDadas[uiTPos].bSecured == false) & (oParsingResult.bStored == true) &
+				   (oParsingResult.chTypeCode != PROTO_C_SEND_PASSW))
+				{
+					LOG_P(LOG_CAT_W, "Position has been cleared.");
+					p_CurrentData->oProtocolStorage.CleanPointers();
+					p_CurrentData->bFresh = false;
+					mThreadDadas[uiTPos].uiCurrentFreePocket--;
+				}
+				break;
 			}
 			case PROTOPARSER_OUT_OF_RANGE:
 			{
@@ -449,7 +464,8 @@ gI:				break;
 			case PROTOPARSER_UNKNOWN_COMMAND:
 			{
 				SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_UNKNOWN_COMMAND);
-				LOG_P(LOG_CAT_W, (char*)UNKNOWN_COMMAND << " from ID: " << uiTPos);
+				LOG_P(LOG_CAT_W, (char*)UNKNOWN_COMMAND  << ": '" << oParsingResult.chTypeCode << "'"
+					  << " from ID: " << uiTPos);
 				break;
 			}
 		}
@@ -480,8 +496,6 @@ enc:
 #else
 	LOG_P(LOG_CAT_I, "Exiting thread: " << mThreadDadas[uiTPos].p_Thread.p);
 #endif
-	if(mThreadDadas[uiTPos].bInUse == true)
-		if(pf_CBClientStateChanged != 0) pf_CBClientStateChanged(uiTPos, false); // Вызов кэлбэка смены статуса.
 	CleanThrDadaPos(uiTPos);
 	if(iSelectedConnection == (int)uiTPos) iSelectedConnection = CONNECTION_SEL_ERROR;
 	if(bKillListenerAccept) bListenerAlive = false;
@@ -621,13 +635,6 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 				   ConversationThread, &uiCurrPos); // Создание нового потока приёмки.
 	while(!bExitSignal)
 	{
-#ifndef WIN32
-#else
-		if(GetConsoleWindow() == GetForegroundWindow())
-		{
-			if(GetAsyncKeyState(VK_ESCAPE)) bExitSignal = true;
-		}
-#endif
 		if(bRequestNewConn == true)
 			goto nc;
 		MSleep(USER_RESPONSE_MS);

@@ -14,9 +14,9 @@ LOGDECL_INIT_PTHRD_ADD
 
 //== ФУНКЦИИ.
 /// Кэлбэк обработки статутов подключений клиентов.
-void ClientStateChangedCallback(unsigned int uiClientIndex, bool bConnected)
+void ClientRequestArrivedCallback(unsigned int uiClientIndex, char chRequest)
 {
-	LOG_P(LOG_CAT_I, "Client ID: " << uiClientIndex << " Status: " << bConnected);
+	LOG_P(LOG_CAT_I, "Client ID: " << uiClientIndex << " Request: " << chRequest);
 }
 
 /// Кэлбэк обработки прихода пакетов от клиентов.
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 	void* p_ReceivedData;
 	char chTypeCode;
 	//
-	oServer.SetClientStateChangedCB(ClientStateChangedCallback);
+	oServer.SetClientRequestArrivedCB(ClientRequestArrivedCallback);
 	oServer.SetClientDataArrivedCB(ClientDataArrivedCallback);
 	oServer.Start();
 gAg:cin >> strAdminCommand;

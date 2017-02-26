@@ -24,7 +24,7 @@
 #endif
 
 //== ОПРЕДЕЛЕНИЯ ТИПОВ.
-typedef void (*CBClientStateChanged)(unsigned int uiClientIndex, bool bConnected);
+typedef void (*CBClientRequestArrived)(unsigned int uiClientIndex, char chRequest);
 typedef void (*CBClientDataArrived)(unsigned int uiClientIndex);
 
 //== МАКРОСЫ.
@@ -63,7 +63,7 @@ private:
 	static pthread_t ServerThr; ///< Идентификатор потока сервера.
 	static char* p_chSettingsPath; ///< Ссылка на строку с путём к установкам сервера.
 	static int iSelectedConnection; ///< Индекс соединения для исходящих или CONNECTION_SEL_ERROR.
-	static CBClientStateChanged pf_CBClientStateChanged; ///< Указатель на кэлбэк изменения статуса клиента.
+	static CBClientRequestArrived pf_CBClientRequestArrived; ///< Указатель на кэлбэк изменения статуса клиента.
 	static CBClientDataArrived pf_CBClientDataArrived; ///< Указатель на кэлбэк приёма пакетов.
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD
@@ -95,8 +95,8 @@ public:
 								///< \param[in] uiIndex Индекс соединения.
 								///< \return true, если соединение действительно.
 	/// Установка указателя кэлбэка изменения статуса подключения клиента.
-	void SetClientStateChangedCB(CBClientStateChanged pf_CBClientStateChangedIn);
-								///< \param[in] pf_CBClientStateChangedIn Указатель на пользовательскую функцию.
+	void SetClientRequestArrivedCB(CBClientRequestArrived pf_CBClientRequestArrivedIn);
+								///< \param[in] pf_CBClientRequestArrivedIn Указатель на пользовательскую функцию.
 	/// Установка указателя кэлбэка обработки принятых пакетов от клиентов.
 	void SetClientDataArrivedCB(CBClientDataArrived pf_CBClientDataArrivedIn);
 								///< \param[in] pf_CBClientDataArrivedIn Указатель на пользовательскую функцию.
