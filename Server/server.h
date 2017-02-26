@@ -63,7 +63,7 @@ private:
 	static pthread_t ServerThr; ///< Идентификатор потока сервера.
 	static char* p_chSettingsPath; ///< Ссылка на строку с путём к установкам сервера.
 	static int iSelectedConnection; ///< Индекс соединения для исходящих или CONNECTION_SEL_ERROR.
-	static CBClientRequestArrived pf_CBClientRequestArrived; ///< Указатель на кэлбэк изменения статуса клиента.
+	static CBClientRequestArrived pf_CBClientRequestArrived; ///< Указатель на кэлбэк приёма запросов.
 	static CBClientDataArrived pf_CBClientDataArrived; ///< Указатель на кэлбэк приёма пакетов.
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD

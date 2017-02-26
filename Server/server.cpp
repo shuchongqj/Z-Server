@@ -424,19 +424,17 @@ gI:				switch(oParsingResult.chTypeCode)
 					{
 						LOG_P(LOG_CAT_W, "Buffer is full on ID: " << uiTPos);
 						mThreadDadas[uiTPos].bFullOnClient = true;
-						goto gI;
+						break;
 					}
 					case PROTO_A_BUFFER_READY:
 					{
 						LOG_P(LOG_CAT_I, "Buffer is ready on ID: " << uiTPos);
 						mThreadDadas[uiTPos].bFullOnClient = false;
-						goto gI;
+						break;
 					}
 					case PROTO_C_REQUEST_LEAVING:
 					{
 						LOG_P(LOG_CAT_I, "ID: " << uiTPos << " request leaving.");
-						// МЕСТО ДЛЯ ВСТАВКИ КОДА ОБРАБОТКИ ВЫХОДА КЛИЕНТОВ.
-						//
 						SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_ACCEPT_LEAVING);
 						LOG_P(LOG_CAT_I, "ID: " << uiTPos << " leaving accepted.");
 						MSleep(WAITING_FOR_CLIENT_DSC);
@@ -469,8 +467,11 @@ gI:				switch(oParsingResult.chTypeCode)
 				break;
 			}
 		}
-		if((mThreadDadas[uiTPos].bFullOnServer == false) &&
-		   oParsingResult.bStored) mThreadDadas[uiTPos].uiCurrentFreePocket++;
+		if((mThreadDadas[uiTPos].bFullOnServer == false) &
+		   oParsingResult.bStored)
+		{
+			mThreadDadas[uiTPos].uiCurrentFreePocket++;
+		}
 		pthread_mutex_unlock(&ptConnMutex);
 	}
 	pthread_mutex_lock(&ptConnMutex);
