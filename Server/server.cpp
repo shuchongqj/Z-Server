@@ -267,7 +267,7 @@ void* Server::ConversationThread(void* p_vNum)
 {
 	///< \param[in] p_vNum Ук. на переменную типа int с номером предоставленной структуры в mThreadDadas.
 	///< \return Заглушка.
-	unsigned int uiTPos;
+	int iTPos;
 	bool bKillListenerAccept;
 	ProtoParser* p_ProtoParser;
 	ProtoParser::ParseResult oParsingResult;
@@ -275,101 +275,115 @@ void* Server::ConversationThread(void* p_vNum)
 	char m_chPortBuffer[6];
 	bool bLocalExitSignal;
 	ReceivedData* p_CurrentData;
+	int iTempListener;
+	int iTempTPos;
 	//
 	bLocalExitSignal = false;
-	uiTPos = *((unsigned int*)p_vNum); // Получили номер в массиве.
-	memset(&mThreadDadas[uiTPos].mReceivedPockets, 0, sizeof(mThreadDadas[uiTPos].mReceivedPockets));
-	mThreadDadas[uiTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
+	iTempTPos = RETVAL_ERR;
+	iTPos = *((unsigned int*)p_vNum); // Получили номер в массиве.
+	if(iTPos == RETVAL_ERR)
+	{
+		while(((iTempTPos = FindFreeThrDadaPos()) ==  RETVAL_ERR))
+		{
+			if(bExitSignal) goto gOE;
+			iTempListener = (int)accept(iListener, NULL, NULL); // Ждём перегруженных входящих.
+		}
+		iTPos = iTempTPos;
+		mThreadDadas[iTPos].oConnectionData.iSocket = iTempListener;
+	}
+	memset(&mThreadDadas[iTPos].mReceivedPockets, 0, sizeof(mThreadDadas[iTPos].mReceivedPockets));
+	mThreadDadas[iTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
 #ifndef WIN32
-	LOG_P(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[uiTPos].p_Thread);
+	LOG_P(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread);
 #else
-	LOG_P(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[uiTPos].p_Thread.p);
+	LOG_P(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread.p);
 #endif
 	bKillListenerAccept = false;
-	mThreadDadas[uiTPos].oConnectionData.iSocket = (int)accept(iListener, NULL, NULL); // Ждём входящих.
-	if((mThreadDadas[uiTPos].oConnectionData.iSocket < 0)) // При ошибке после выхода из ожидания входящих...
+	if(iTempTPos == RETVAL_ERR) // Если пришло мимо перегруженного ожидания...
+		mThreadDadas[iTPos].oConnectionData.iSocket = (int)accept(iListener, NULL, NULL); // Ждём входящих.
+	if((mThreadDadas[iTPos].oConnectionData.iSocket < 0)) // При ошибке после выхода из ожидания входящих...
 	{
 		if(!bExitSignal) // Если не было сигнала на выход от основного потока...
 		{
 			pthread_mutex_lock(&ptConnMutex);
-			LOG_P(LOG_CAT_E, "'accept': " << gai_strerror(mThreadDadas[uiTPos].oConnectionData.iSocket)); // Про ошибку.
+			LOG_P(LOG_CAT_E, "'accept': " << gai_strerror(mThreadDadas[iTPos].oConnectionData.iSocket)); // Про ошибку.
 			goto enc;
 		}
 		else
 		{
-			pthread_mutex_lock(&ptConnMutex);
+gOE:		pthread_mutex_lock(&ptConnMutex);
 			LOG_P(LOG_CAT_I, "Accepting connections terminated."); // Норм. сообщение.
 			bKillListenerAccept = true; // Заказываем подтверждение закрытия приёмника.
 			goto enc;
 		}
 	}
-	mThreadDadas[uiTPos].bInUse = true; // Флаг занятости структуры.
+	mThreadDadas[iTPos].bInUse = true; // Флаг занятости структуры.
 	LOG_P(LOG_CAT_I, "New connection accepted.");
-	mThreadDadas[uiTPos].iConnection = mThreadDadas[uiTPos].oConnectionData.iSocket; // Установка ИД соединения.
-	mThreadDadas[uiTPos].oConnectionData.ai_addrlen = sizeof(sockaddr);
+	mThreadDadas[iTPos].iConnection = mThreadDadas[iTPos].oConnectionData.iSocket; // Установка ИД соединения.
+	mThreadDadas[iTPos].oConnectionData.ai_addrlen = sizeof(sockaddr);
 #ifndef WIN32
-	getpeername(mThreadDadas[uiTPos].oConnectionData.iSocket, &mThreadDadas[uiTPos].oConnectionData.ai_addr,
-				&mThreadDadas[uiTPos].oConnectionData.ai_addrlen);
+	getpeername(mThreadDadas[iTPos].oConnectionData.iSocket, &mThreadDadas[iTPos].oConnectionData.ai_addr,
+				&mThreadDadas[iTPos].oConnectionData.ai_addrlen);
 #else
-	getpeername(mThreadDadas[uiTPos].oConnectionData.iSocket, &mThreadDadas[uiTPos].oConnectionData.ai_addr,
-				(int*)&mThreadDadas[uiTPos].oConnectionData.ai_addrlen);
+	getpeername(mThreadDadas[iTPos].oConnectionData.iSocket, &mThreadDadas[iTPos].oConnectionData.ai_addr,
+				(int*)&mThreadDadas[iTPos].oConnectionData.ai_addrlen);
 #endif
 #ifndef WIN32
-	getnameinfo(&mThreadDadas[uiTPos].oConnectionData.ai_addr,
-				mThreadDadas[uiTPos].oConnectionData.ai_addrlen,
+	getnameinfo(&mThreadDadas[iTPos].oConnectionData.ai_addr,
+				mThreadDadas[iTPos].oConnectionData.ai_addrlen,
 				m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
 #else
-	getnameinfo(&mThreadDadas[uiTPos].oConnectionData.ai_addr,
-				(socklen_t)mThreadDadas[uiTPos].oConnectionData.ai_addrlen,
+	getnameinfo(&mThreadDadas[iTPos].oConnectionData.ai_addr,
+				(socklen_t)mThreadDadas[iTPos].oConnectionData.ai_addrlen,
 				m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
 #endif
-	LOG_P(LOG_CAT_I, "Connected with: " << m_chNameBuffer << " ID: " << uiTPos);
-	if(mThreadDadas[uiTPos].oConnectionData.iStatus == -1) // Если не вышло отправить...
+	LOG_P(LOG_CAT_I, "Connected with: " << m_chNameBuffer << " ID: " << iTPos);
+	if(mThreadDadas[iTPos].oConnectionData.iStatus == -1) // Если не вышло отправить...
 	{
 		pthread_mutex_lock(&ptConnMutex);
-		LOG_P(LOG_CAT_E, "'send': " << gai_strerror(mThreadDadas[uiTPos].oConnectionData.iStatus));
+		LOG_P(LOG_CAT_E, "'send': " << gai_strerror(mThreadDadas[iTPos].oConnectionData.iStatus));
 		goto ec;
 	}
 	//
 	bRequestNewConn = true; // Соединение готово - установка флага для главного потока на запрос нового.
-	pf_CBClientStatusChanged(true, uiTPos, mThreadDadas[uiTPos].oConnectionData.ai_addr,
-							 mThreadDadas[uiTPos].oConnectionData.ai_addrlen);
+	pf_CBClientStatusChanged(true, iTPos, mThreadDadas[iTPos].oConnectionData.ai_addr,
+							 mThreadDadas[iTPos].oConnectionData.ai_addrlen);
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
 	{
 		pthread_mutex_lock(&ptConnMutex);
-		if(mThreadDadas[uiTPos].uiCurrentFreePocket >= S_MAX_STORED_POCKETS)
+		if(mThreadDadas[iTPos].uiCurrentFreePocket >= S_MAX_STORED_POCKETS)
 		{
-			LOG_P(LOG_CAT_W, "Buffer is full for ID: " << uiTPos);
-			mThreadDadas[uiTPos].bFullOnServer = true;
-			SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_BUFFER_FULL);
-			mThreadDadas[uiTPos].uiCurrentFreePocket = S_MAX_STORED_POCKETS - 1;
+			LOG_P(LOG_CAT_W, "Buffer is full for ID: " << iTPos);
+			mThreadDadas[iTPos].bFullOnServer = true;
+			SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_BUFFER_FULL);
+			mThreadDadas[iTPos].uiCurrentFreePocket = S_MAX_STORED_POCKETS - 1;
 		}
 		pthread_mutex_unlock(&ptConnMutex);
-		mThreadDadas[uiTPos].oConnectionData.iStatus =  // Принимаем пакет в текущую позицию.
-				recv(mThreadDadas[uiTPos].oConnectionData.iSocket,
-					 mThreadDadas[uiTPos].m_chData,
-				sizeof(mThreadDadas[uiTPos].m_chData), 0);
+		mThreadDadas[iTPos].oConnectionData.iStatus =  // Принимаем пакет в текущую позицию.
+				recv(mThreadDadas[iTPos].oConnectionData.iSocket,
+					 mThreadDadas[iTPos].m_chData,
+				sizeof(mThreadDadas[iTPos].m_chData), 0);
 		pthread_mutex_lock(&ptConnMutex);
 		if (bExitSignal == true) // Если по выходу из приёмки обнаружен общий сигнал на выход...
 		{
-			LOG_P(LOG_CAT_I, "Exiting reading from ID: " << uiTPos);
+			LOG_P(LOG_CAT_I, "Exiting reading from ID: " << iTPos);
 			goto ecd;
 		}
-		if (mThreadDadas[uiTPos].oConnectionData.iStatus <= 0) // Если статус приёмки - отказ (вместо принятых байт)...
+		if (mThreadDadas[iTPos].oConnectionData.iStatus <= 0) // Если статус приёмки - отказ (вместо принятых байт)...
 		{
-			LOG_P(LOG_CAT_I, "Reading socket has been stopped for ID: " << uiTPos);
+			LOG_P(LOG_CAT_I, "Reading socket has been stopped for ID: " << iTPos);
 			goto ecd;
 		}
-		p_CurrentData = &mThreadDadas[uiTPos].mReceivedPockets[mThreadDadas[uiTPos].uiCurrentFreePocket];
+		p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentFreePocket];
 		oParsingResult = p_ProtoParser->ParsePocket(
-					mThreadDadas[uiTPos].m_chData,
-					mThreadDadas[uiTPos].oConnectionData.iStatus,
+					mThreadDadas[iTPos].m_chData,
+					mThreadDadas[iTPos].oConnectionData.iStatus,
 					p_CurrentData->oProtocolStorage,
-					mThreadDadas[uiTPos].bFullOnServer);
-		if((mThreadDadas[uiTPos].bFullOnServer == true) && (oParsingResult.bStored == true)) // DEBUG.
+					mThreadDadas[iTPos].bFullOnServer);
+		if((mThreadDadas[iTPos].bFullOnServer == true) && (oParsingResult.bStored == true)) // DEBUG.
 		{
-			LOG_P(LOG_CAT_W, "Received owerflowed pocket from ID: " << uiTPos);
+			LOG_P(LOG_CAT_W, "Received owerflowed pocket from ID: " << iTPos);
 		}
 		switch(oParsingResult.chRes)
 		{
@@ -378,44 +392,44 @@ void* Server::ConversationThread(void* p_vNum)
 				if(oParsingResult.bStored == true)
 				{
 					LOG_P(LOG_CAT_I, "Received pocket: " <<
-						(mThreadDadas[uiTPos].uiCurrentFreePocket + 1) << " of " << S_MAX_STORED_POCKETS <<
-						" for ID: " << uiTPos);
-					mThreadDadas[uiTPos].mReceivedPockets[mThreadDadas[uiTPos].uiCurrentFreePocket].bFresh = true;
+						(mThreadDadas[iTPos].uiCurrentFreePocket + 1) << " of " << S_MAX_STORED_POCKETS <<
+						" for ID: " << iTPos);
+					mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentFreePocket].bFresh = true;
 				}
 				if((oParsingResult.bStored == false) | (oParsingResult.chTypeCode == PROTO_C_SEND_PASSW))
 				{
-					if(pf_CBClientRequestArrived != 0) pf_CBClientRequestArrived(uiTPos, oParsingResult.chTypeCode);
+					if(pf_CBClientRequestArrived != 0) pf_CBClientRequestArrived(iTPos, oParsingResult.chTypeCode);
 				}
-				if(mThreadDadas[uiTPos].bSecured == false)
+				if(mThreadDadas[iTPos].bSecured == false)
 				{
 					if(oParsingResult.chTypeCode == PROTO_C_SEND_PASSW)
 					{
 						if(!strcmp(p_chPassword, p_CurrentData->oProtocolStorage.p_Password->m_chPassw))
 						{
-							SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_PASSW_OK);
-							mThreadDadas[uiTPos].bSecured = true;
-							LOG_P(LOG_CAT_I, "Connection is secured for ID: " << uiTPos);
+							SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_PASSW_OK);
+							mThreadDadas[iTPos].bSecured = true;
+							LOG_P(LOG_CAT_I, "Connection is secured for ID: " << iTPos);
 							LOG_P(LOG_CAT_I, "Free pockets: " << S_MAX_STORED_POCKETS -
-								  (mThreadDadas[uiTPos].uiCurrentFreePocket)
-								  << " of " << S_MAX_STORED_POCKETS << " for ID: " << uiTPos);
+								  (mThreadDadas[iTPos].uiCurrentFreePocket)
+								  << " of " << S_MAX_STORED_POCKETS << " for ID: " << iTPos);
 						}
 						else
 						{
-							SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_PASSW_ERR);
-							mThreadDadas[uiTPos].bSecured = false;
-							LOG_P(LOG_CAT_W, "Authentification failed for ID: " << uiTPos);
+							SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_PASSW_ERR);
+							mThreadDadas[iTPos].bSecured = false;
+							LOG_P(LOG_CAT_W, "Authentification failed for ID: " << iTPos);
 						}
 						p_CurrentData->oProtocolStorage.CleanPointers();
 						p_CurrentData->bFresh = false;
-						mThreadDadas[uiTPos].uiCurrentFreePocket--;
+						mThreadDadas[iTPos].uiCurrentFreePocket--;
 						goto gI;
 					}
 					else
 					{
 						if(oParsingResult.chTypeCode != PROTO_C_REQUEST_LEAVING)
 						{
-							SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_UNSECURED);
-							LOG_P(LOG_CAT_W, "Client is not autherised, ID: " << uiTPos);
+							SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_UNSECURED);
+							LOG_P(LOG_CAT_W, "Client is not autherised, ID: " << iTPos);
 						}
 						goto gI;
 					}
@@ -425,7 +439,7 @@ void* Server::ConversationThread(void* p_vNum)
 					// Блок объектов.
 					if(oParsingResult.bStored == true)
 					{
-						if(pf_CBClientDataArrived != 0) pf_CBClientDataArrived(uiTPos);
+						if(pf_CBClientDataArrived != 0) pf_CBClientDataArrived(iTPos);
 					}
 				}
 				// Блок взаимодействия.
@@ -433,55 +447,55 @@ gI:				switch(oParsingResult.chTypeCode)
 				{
 					case PROTO_C_BUFFER_FULL:
 					{
-						LOG_P(LOG_CAT_W, "Buffer is full on ID: " << uiTPos);
-						mThreadDadas[uiTPos].bFullOnClient = true;
+						LOG_P(LOG_CAT_W, "Buffer is full on ID: " << iTPos);
+						mThreadDadas[iTPos].bFullOnClient = true;
 						break;
 					}
 					case PROTO_A_BUFFER_READY:
 					{
-						LOG_P(LOG_CAT_I, "Buffer is ready on ID: " << uiTPos);
-						mThreadDadas[uiTPos].bFullOnClient = false;
+						LOG_P(LOG_CAT_I, "Buffer is ready on ID: " << iTPos);
+						mThreadDadas[iTPos].bFullOnClient = false;
 						break;
 					}
 					case PROTO_C_REQUEST_LEAVING:
 					{
-						LOG_P(LOG_CAT_I, "ID: " << uiTPos << " request leaving.");
-						SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_ACCEPT_LEAVING);
-						LOG_P(LOG_CAT_I, "ID: " << uiTPos << " leaving accepted.");
+						LOG_P(LOG_CAT_I, "ID: " << iTPos << " request leaving.");
+						SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_ACCEPT_LEAVING);
+						LOG_P(LOG_CAT_I, "ID: " << iTPos << " leaving accepted.");
 						MSleep(WAITING_FOR_CLIENT_DSC);
 						bLocalExitSignal = true;
 						goto ecd;
 					}
 				}
-				if((mThreadDadas[uiTPos].bSecured == false) & (oParsingResult.bStored == true) &
+				if((mThreadDadas[iTPos].bSecured == false) & (oParsingResult.bStored == true) &
 				   (oParsingResult.chTypeCode != PROTO_C_SEND_PASSW))
 				{
 					LOG_P(LOG_CAT_W, "Position has been cleared.");
 					p_CurrentData->oProtocolStorage.CleanPointers();
 					p_CurrentData->bFresh = false;
-					mThreadDadas[uiTPos].uiCurrentFreePocket--;
+					mThreadDadas[iTPos].uiCurrentFreePocket--;
 				}
 				break;
 			}
 			case PROTOPARSER_OUT_OF_RANGE:
 			{
-				SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_OUT_OF_RANGE);
+				SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_OUT_OF_RANGE);
 				LOG_P(LOG_CAT_E, (char*)POCKET_OUT_OF_RANGE << " from ID: " <<
-					  uiTPos << " - " << oParsingResult.iDataLength);
+					  iTPos << " - " << oParsingResult.iDataLength);
 				break;
 			}
 			case PROTOPARSER_UNKNOWN_COMMAND:
 			{
-				SendToClient(mThreadDadas[uiTPos].oConnectionData, PROTO_S_UNKNOWN_COMMAND);
+				SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_UNKNOWN_COMMAND);
 				LOG_P(LOG_CAT_W, (char*)UNKNOWN_COMMAND  << ": '" << oParsingResult.chTypeCode << "'"
-					  << " from ID: " << uiTPos);
+					  << " from ID: " << iTPos);
 				break;
 			}
 		}
-		if((mThreadDadas[uiTPos].bFullOnServer == false) &
+		if((mThreadDadas[iTPos].bFullOnServer == false) &
 		   oParsingResult.bStored)
 		{
-			mThreadDadas[uiTPos].uiCurrentFreePocket++;
+			mThreadDadas[iTPos].uiCurrentFreePocket++;
 		}
 		pthread_mutex_unlock(&ptConnMutex);
 	}
@@ -491,30 +505,30 @@ ecd:delete p_ProtoParser;
 ec: if((bLocalExitSignal || bExitSignal) == false)
 	{
 #ifndef WIN32
-		shutdown(mThreadDadas[uiTPos].oConnectionData.iSocket, SHUT_RDWR);
-		close(mThreadDadas[uiTPos].oConnectionData.iSocket);
+		shutdown(mThreadDadas[iTPos].oConnectionData.iSocket, SHUT_RDWR);
+		close(mThreadDadas[iTPos].oConnectionData.iSocket);
 #else
-		closesocket(mThreadDadas[uiTPos].oConnectionData.iSocket);
+		closesocket(mThreadDadas[iTPos].oConnectionData.iSocket);
 #endif
-		LOG_P(LOG_CAT_W, "Closed by client absence: " << m_chNameBuffer << " ID: " << uiTPos);
+		LOG_P(LOG_CAT_W, "Closed by client absence: " << m_chNameBuffer << " ID: " << iTPos);
 	}
 	else
 	{
-		LOG_P(LOG_CAT_I, "Closed ordinary: " << m_chNameBuffer << " ID: " << uiTPos);
+		LOG_P(LOG_CAT_I, "Closed ordinary: " << m_chNameBuffer << " ID: " << iTPos);
 	}
 enc:
 #ifndef WIN32
-	LOG_P(LOG_CAT_I, "Exiting thread: " << mThreadDadas[uiTPos].p_Thread);
+	LOG_P(LOG_CAT_I, "Exiting thread: " << mThreadDadas[iTPos].p_Thread);
 #else
-	LOG_P(LOG_CAT_I, "Exiting thread: " << mThreadDadas[uiTPos].p_Thread.p);
+	LOG_P(LOG_CAT_I, "Exiting thread: " << mThreadDadas[iTPos].p_Thread.p);
 #endif
 	if(!bKillListenerAccept)
 	{
-		pf_CBClientStatusChanged(false, uiTPos, mThreadDadas[uiTPos].oConnectionData.ai_addr,
-							 mThreadDadas[uiTPos].oConnectionData.ai_addrlen);
+		pf_CBClientStatusChanged(false, iTPos, mThreadDadas[iTPos].oConnectionData.ai_addr,
+							 mThreadDadas[iTPos].oConnectionData.ai_addrlen);
 	}
-	CleanThrDadaPos(uiTPos);
-	if(iSelectedConnection == (int)uiTPos) iSelectedConnection = CONNECTION_SEL_ERROR;
+	CleanThrDadaPos(iTPos);
+	if(iSelectedConnection == (int)iTPos) iSelectedConnection = CONNECTION_SEL_ERROR;
 	if(bKillListenerAccept) bListenerAlive = false;
 	pthread_mutex_unlock(&ptConnMutex);
 	RETURN_THREAD;
@@ -651,7 +665,6 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 	if(iCurrPos == RETVAL_ERR)
 	{
 		LOG_P(LOG_CAT_W, "Server is full.");
-		goto gNN;
 	}
 	else
 	{
@@ -659,7 +672,7 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 	}
 	pthread_create(&mThreadDadas[iCurrPos].p_Thread, NULL,
 				   ConversationThread, &iCurrPos); // Создание нового потока приёмки.
-gNN:while(!bExitSignal)
+	while(!bExitSignal)
 	{
 		if(bRequestNewConn == true)
 			goto nc;

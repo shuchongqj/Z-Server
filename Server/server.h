@@ -82,36 +82,36 @@ public:
 	/// Деструктор.
 	~Server();
 	/// Запрос запуска сервера.
-	void Start();
+	static void Start();
 	/// Запрос остановки сервера.
-	void Stop();
+	static void Stop();
 	/// Запрос статуса лога.
-	int GetLogStatus();
+	static int GetLogStatus();
 				///< \return Статус лога по макросам логгера.
 	/// Запрос готовности.
-	bool CheckReady();
+	static bool CheckReady();
 				///< \return true - готов.
 	/// Отправка пакета пользователю на текущее выбранное соединение.
-	bool SendToUser(char chCommand, char* p_chBuffer, int iLength);
+	static bool SendToUser(char chCommand, char* p_chBuffer, int iLength);
 								///< \param[in] chCommand Код команды протокола.
 								///< \param[in] p_chBuffer Указатель на буфер с данными для отправки.
 								///< \param[in] iLength Длина буфера в байтах.
 								///< \return true, при удаче.
 	/// Установка текущего индекса соединения для исходящих.
-	bool SetCurrentConnection(unsigned int uiIndex);
+	static bool SetCurrentConnection(unsigned int uiIndex);
 								///< \param[in] uiIndex Индекс соединения.
 								///< \return true, если соединение действительно.
 	/// Установка указателя кэлбэка изменения статуса подключения клиента.
-	void SetClientRequestArrivedCB(CBClientRequestArrived pf_CBClientRequestArrivedIn);
+	static void SetClientRequestArrivedCB(CBClientRequestArrived pf_CBClientRequestArrivedIn);
 								///< \param[in] pf_CBClientRequestArrivedIn Указатель на пользовательскую функцию.
 	/// Установка указателя кэлбэка обработки принятых пакетов от клиентов.
-	void SetClientDataArrivedCB(CBClientDataArrived pf_CBClientDataArrivedIn);
+	static void SetClientDataArrivedCB(CBClientDataArrived pf_CBClientDataArrivedIn);
 								///< \param[in] pf_CBClientDataArrivedIn Указатель на пользовательскую функцию.
 	/// Установка указателя кэлбэка отслеживания статута клиентов.
-	void SetClientStatusChangedCB(CBClientStatusChanged pf_CBClientDataArrivedIn);
+	static void SetClientStatusChangedCB(CBClientStatusChanged pf_CBClientDataArrivedIn);
 								///< \param[in] pf_CBClientStatusChangedIn Указатель на пользовательскую функцию.
 	/// Доступ к крайнему элементу из массива принятых пакетов от текущего клиента.
-	char AccessCurrentData(void** pp_vDataBuffer);
+	static char AccessCurrentData(void** pp_vDataBuffer);
 								///< \param[in,out] p_vDataBuffer Указатель на указатель на буфер с данными.
 								///< \return Код пакета, DATA_ACCESS_ERROR при ошибке, CONNECTION_SEL_ERROR соотв.
 	/// Удаление крайнего элемента из массива принятых пакетов.
