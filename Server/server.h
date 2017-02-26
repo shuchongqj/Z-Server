@@ -26,6 +26,12 @@
 //== ОПРЕДЕЛЕНИЯ ТИПОВ.
 typedef void (*CBClientRequestArrived)(unsigned int uiClientIndex, char chRequest);
 typedef void (*CBClientDataArrived)(unsigned int uiClientIndex);
+typedef void (*CBClientStatusChanged)(bool bConnected, unsigned int uiClientIndex, sockaddr ai_addr,
+#ifndef WIN32
+																									socklen_t ai_addrlen);
+#else
+																									size_t ai_addrlen);
+#endif
 
 //== МАКРОСЫ.
 #define USER_RESPONSE_MS		100
@@ -65,6 +71,7 @@ private:
 	static int iSelectedConnection; ///< Индекс соединения для исходящих или CONNECTION_SEL_ERROR.
 	static CBClientRequestArrived pf_CBClientRequestArrived; ///< Указатель на кэлбэк приёма запросов.
 	static CBClientDataArrived pf_CBClientDataArrived; ///< Указатель на кэлбэк приёма пакетов.
+	static CBClientStatusChanged pf_CBClientStatusChanged; ///< Указатель на кэлбэк отслеживания статута клиентов.
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD
 public:
@@ -100,6 +107,9 @@ public:
 	/// Установка указателя кэлбэка обработки принятых пакетов от клиентов.
 	void SetClientDataArrivedCB(CBClientDataArrived pf_CBClientDataArrivedIn);
 								///< \param[in] pf_CBClientDataArrivedIn Указатель на пользовательскую функцию.
+	/// Установка указателя кэлбэка отслеживания статута клиентов.
+	void SetClientStatusChangedCB(CBClientStatusChanged pf_CBClientDataArrivedIn);
+								///< \param[in] pf_CBClientStatusChangedIn Указатель на пользовательскую функцию.
 	/// Доступ к крайнему элементу из массива принятых пакетов от текущего клиента.
 	char AccessCurrentData(void** pp_vDataBuffer);
 								///< \param[in,out] p_vDataBuffer Указатель на указатель на буфер с данными.

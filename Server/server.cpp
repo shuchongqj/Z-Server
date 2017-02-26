@@ -20,6 +20,7 @@ char* Server::p_chSettingsPath = 0;
 int Server::iSelectedConnection = -1;
 CBClientRequestArrived Server::pf_CBClientRequestArrived = 0;
 CBClientDataArrived Server::pf_CBClientDataArrived = 0;
+CBClientStatusChanged Server::pf_CBClientStatusChanged = 0;
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс сервера.
@@ -119,6 +120,14 @@ void Server::SetClientDataArrivedCB(CBClientDataArrived pf_CBClientDataArrivedIn
 {
 	pthread_mutex_lock(&ptConnMutex);
 	pf_CBClientDataArrived = pf_CBClientDataArrivedIn;
+	pthread_mutex_unlock(&ptConnMutex);
+}
+
+// Установка указателя кэлбэка отслеживания статута клиентов.
+void Server::SetClientStatusChangedCB(CBClientStatusChanged pf_CBClientStatusChangedIn)
+{
+	pthread_mutex_lock(&ptConnMutex);
+	pf_CBClientStatusChanged = pf_CBClientStatusChangedIn;
 	pthread_mutex_unlock(&ptConnMutex);
 }
 
@@ -323,6 +332,8 @@ void* Server::ConversationThread(void* p_vNum)
 	}
 	//
 	bRequestNewConn = true; // Соединение готово - установка флага для главного потока на запрос нового.
+	pf_CBClientStatusChanged(true, uiTPos, mThreadDadas[uiTPos].oConnectionData.ai_addr,
+							 mThreadDadas[uiTPos].oConnectionData.ai_addrlen);
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
 	{
@@ -497,6 +508,11 @@ enc:
 #else
 	LOG_P(LOG_CAT_I, "Exiting thread: " << mThreadDadas[uiTPos].p_Thread.p);
 #endif
+	if(!bKillListenerAccept)
+	{
+		pf_CBClientStatusChanged(false, uiTPos, mThreadDadas[uiTPos].oConnectionData.ai_addr,
+							 mThreadDadas[uiTPos].oConnectionData.ai_addrlen);
+	}
 	CleanThrDadaPos(uiTPos);
 	if(iSelectedConnection == (int)uiTPos) iSelectedConnection = CONNECTION_SEL_ERROR;
 	if(bKillListenerAccept) bListenerAlive = false;
