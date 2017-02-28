@@ -16,13 +16,14 @@ LOGDECL_INIT_PTHRD_ADD
 /// Кэлбэк обработки статутов подключений клиентов.
 void ClientRequestArrivedCallback(unsigned int uiClientIndex, char chRequest)
 {
-	LOG_P(LOG_CAT_I, "Client ID: " << uiClientIndex << " Request: " << chRequest);
+	LOG_P_0(LOG_CAT_I, "Client ID: " << uiClientIndex << " Request: " << chRequest);
 }
 
 /// Кэлбэк обработки прихода пакетов от клиентов.
 void ClientDataArrivedCallback(unsigned int uiClientIndex)
 {
-	LOG_P(LOG_CAT_I, "Data arrived from ID: " << uiClientIndex);
+	uiClientIndex = uiClientIndex; // Заглушка от #define.
+	LOG_P_2(LOG_CAT_I, "Data arrived from ID: " << uiClientIndex);
 }
 
 /// Кэлбэк обработки отслеживания статута клиентов.
@@ -36,7 +37,7 @@ void ClientStatusChangedCallback(bool bConnected, unsigned int uiClientIndex, so
 	char m_chNameBuffer[INET6_ADDRSTRLEN];
 	char m_chPortBuffer[6];
 	//
-	LOG_P(LOG_CAT_I, "ID: " << uiClientIndex << " have status: " << bConnected);
+	LOG_P_0(LOG_CAT_I, "ID: " << uiClientIndex << " have status: " << bConnected);
 #ifndef WIN32
 	getnameinfo(&ai_addr, ai_addrlen, m_chNameBuffer, sizeof(m_chNameBuffer),
 				m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
@@ -44,7 +45,7 @@ void ClientStatusChangedCallback(bool bConnected, unsigned int uiClientIndex, so
 	getnameinfo(&ai_addr, (socklen_t)ai_addrlen,
 				m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
 #endif
-	LOG_P(LOG_CAT_I, "IP: " << m_chNameBuffer << " Port: " << m_chPortBuffer);
+	LOG_P_0(LOG_CAT_I, "IP: " << m_chNameBuffer << " Port: " << m_chPortBuffer);
 }
 
 
@@ -57,7 +58,7 @@ int main(int argc, char *argv[])
 	argc = argc; // Заглушка.
 	argv = argv; // Заглушка.
 	LOG_CTRL_INIT;
-	LOG_P(LOG_CAT_I, "Starting application, server initialization.");
+	LOG_P_0(LOG_CAT_I, "Starting application, server initialization.");
 	Server oServer(S_CONF_PATH, _ptLogMutex);
 	string strAdminCommand;
 	string strArgument;
@@ -87,11 +88,11 @@ gAg:cin >> strAdminCommand;
 				{
 					if(chTypeCode == PROTO_O_TEXT_MSG)
 					{
-						LOG_P(LOG_CAT_I, "Got last data: " << string((char*)p_ReceivedData));
+						LOG_P_0(LOG_CAT_I, "Got last data: " << string((char*)p_ReceivedData));
 					}
 					else if(chTypeCode != CONNECTION_SEL_ERROR)
 					{
-						LOG_P(LOG_CAT_W, "Got unknown data with type: " << chTypeCode);
+						LOG_P_0(LOG_CAT_W, "Got unknown data with type: " << chTypeCode);
 					}
 				}
 				oServer.ReleaseCurrentData();
@@ -110,7 +111,7 @@ gAg:cin >> strAdminCommand;
 		case RETVAL_OK:
 		{
 			oServer.Stop();
-			LOG_P(LOG_CAT_I, "Stopping server.");
+			LOG_P_0(LOG_CAT_I, "Stopping server.");
 			while(oServer.CheckReady() == false)
 			{
 				MSleep(USER_RESPONSE_MS);
@@ -119,11 +120,11 @@ gAg:cin >> strAdminCommand;
 		}
 		case RETVAL_ERR:
 		{
-			LOG_P(LOG_CAT_W, "Server returned an error.");
+			LOG_P_0(LOG_CAT_W, "Server returned an error.");
 			break;
 		}
 	}
-	LOG_P(LOG_CAT_I, "Exiting application.");
+	LOG_P_0(LOG_CAT_I, "Exiting application.");
 	LOGCLOSE;
 	return LOGRETVAL;
 }

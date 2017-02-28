@@ -2,7 +2,6 @@
 #define LOGGER_H
 
 //=== ЛОГГЕР ===
-
 // #define LOGNAME	"Name"			- добавить в макросы для определения имени лога.
 // LOGDECL							- вставить в переменные заголовока (или исходника, если не используется внутри класса).
 // LOGDECL_PTHRD_INCLASS_ADD		- вставить в переменные заголовока класса для поддержки потокобезопасности с pthread.
@@ -29,6 +28,7 @@
 #endif
 
 //== МАКРОСЫ.
+#define LOG_LEVEL_0			// Уровень логирования.
 #define LOGVarname          o_LogFileStream
 #define LOGTimeFormat       "%Y-%m-%d %X"
 #ifdef WIN32
@@ -68,6 +68,19 @@
 #define LOG_P(Category,Text)	pthread_mutex_lock(&_ptLogMutex);															\
 								LOG(Category,Text);																			\
 								pthread_mutex_unlock(&_ptLogMutex);
+#ifdef LOG_LEVEL_0
+#define LOG_P_0(Category,Text)		LOG_P(Category,Text)
+#define LOG_P_1(Category,Text)
+#define LOG_P_2(Category,Text)
+#elif LOG_LEVEL_1
+#define LOG_P_0(Category,Text)		LOG_P(Category,Text)
+#define LOG_P_1(Category,Text)		LOG_P(Category,Text)
+#define LOG_P_2(Category,Text)
+#elif LOG_LEVEL_2
+#define LOG_P_0(Category,Text)		LOG_P(Category,Text)
+#define LOG_P_1(Category,Text)		LOG_P(Category,Text)
+#define LOG_P_2(Category,Text)		LOG_P(Category,Text)
+#endif
 //
 #define LOG_CAT_I           LOG_NAME": <I> "
 #define LOG_CAT_W           LOG_NAME": <W> "
