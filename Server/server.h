@@ -77,8 +77,8 @@ private:
 public:
 	/// Конструктор.
 	Server(const char* cp_chSettingsPath, pthread_mutex_t ptLogMutex);
-								///< \param[in] p_chSettingsPath Ссылка на строку с путём к установкам сервера.
-								///< \param[in] ptLogMutex Инициализатор мбютекса лога.
+								///< \param[in] cp_chSettingsPath Ссылка на строку с путём к установкам сервера.
+								///< \param[in] ptLogMutex Инициализатор мьютекса лога.
 	/// Деструктор.
 	~Server();
 	/// Запрос запуска сервера.
@@ -108,11 +108,11 @@ public:
 	static void SetClientDataArrivedCB(CBClientDataArrived pf_CBClientDataArrivedIn);
 								///< \param[in] pf_CBClientDataArrivedIn Указатель на пользовательскую функцию.
 	/// Установка указателя кэлбэка отслеживания статута клиентов.
-	static void SetClientStatusChangedCB(CBClientStatusChanged pf_CBClientDataArrivedIn);
+	static void SetClientStatusChangedCB(CBClientStatusChanged pf_CBClientStatusChangedIn);
 								///< \param[in] pf_CBClientStatusChangedIn Указатель на пользовательскую функцию.
 	/// Доступ к крайнему элементу из массива принятых пакетов от текущего клиента.
 	static char AccessCurrentData(void** pp_vDataBuffer);
-								///< \param[in,out] p_vDataBuffer Указатель на указатель на буфер с данными.
+								///< \param[in,out] pp_vDataBuffer Указатель на указатель на буфер с данными.
 								///< \return Код пакета, DATA_ACCESS_ERROR при ошибке, CONNECTION_SEL_ERROR соотв.
 	/// Удаление крайнего элемента из массива принятых пакетов.
 	static char ReleaseCurrentData();
