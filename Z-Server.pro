@@ -1,17 +1,18 @@
-QT -= gui
+QT += core gui widgets
 
 CONFIG += c++11
 
 TARGET = Z-Server
+
 CONFIG += console
 win32 {
 CONFIG += no_batch
 }
-CONFIG -= app_bundle
 
 unix {
 LIBS += -ldl -lX11 -lXtst
 }
+
 win32 {
 LIBS += "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib\x64\User32.Lib" \
     "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib\x64\Shell32.lib" \
@@ -27,7 +28,9 @@ SOURCES += main.cpp \
     parser-ext.cpp \
     Server/proto-parser.cpp \
     Server/server.cpp \
-    Server/net-hub.cpp
+    Server/net-hub.cpp \
+    mainwindow.cpp \
+    main-hub.cpp
 
 HEADERS += \
     dirent-win32/dirent.h \
@@ -42,8 +45,13 @@ HEADERS += \
     Server/proto-util.h \
     Server/protocol.h \
     Server/server.h \
-    Server/net-hub.h
+    Server/net-hub.h \
+    mainwindow.h \
+    main-hub.h
 
 DISTFILES += \
     pthread/lib/pthreadVC2.lib \
     pthread/dll/pthreadVC2.dll
+
+FORMS += \
+    mainwindow.ui

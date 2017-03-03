@@ -94,5 +94,6 @@
 #define RETVAL_SET(value)	_iRetval = value
 #define _lci(path)			_iRetval = RETVAL_OK;																			\
 							LOGOPEN(path)
+#define RETVAL				_iRetval
 #endif // LOGGER_H
 
