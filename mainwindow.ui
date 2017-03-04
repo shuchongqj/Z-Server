@@ -155,7 +155,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>22</height>
+     <height>20</height>
     </rect>
    </property>
    <property name="acceptDrops">
@@ -171,7 +171,6 @@
     <property name="title">
      <string>Файл</string>
     </property>
-    <addaction name="Exit_action"/>
    </widget>
    <widget class="QMenu" name="Help_menu">
     <property name="acceptDrops">
@@ -193,11 +192,6 @@
    <addaction name="Help_menu"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
-  <action name="Exit_action">
-   <property name="text">
-    <string>Выход</string>
-   </property>
-  </action>
   <action name="About_action">
    <property name="text">
     <string>О программе</string>

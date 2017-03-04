@@ -29,10 +29,7 @@ public:
 	/// Процедуры при закрытии окна приложения.
 	void closeEvent(QCloseEvent* event);
 							///< \param[in] event - Указатель на событие.
-	/// Процедуры запуска сервера.
-	void StartProcedures();
-	/// Процедуры остановки сервера.
-	void StopProcedures();
+
 	/// Кэлбэк обработки отслеживания статута клиентов.
 	static void ClientStatusChangedCallback(bool bConnected, unsigned int uiClientIndex, sockaddr ai_addr,
 	#ifndef WIN32
@@ -44,9 +41,14 @@ public:
 							///< \param[in] uiClientIndex Индекс клиента.
 							///< \param[in] ai_addr Адрес.
 							///< \param[in] ai_addrlen Длина адреса.
+
+private:
+	/// Процедуры запуска сервера.
+	void StartProcedures();
+	/// Процедуры остановки сервера.
+	void StopProcedures();
+
 private slots:
-	/// При нажатии на Выход.
-	void on_Exit_action_triggered();
 	/// При нажатии на 'О программе'.
 	void on_About_action_triggered();
 	/// При завершении ввода строки чата.

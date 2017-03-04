@@ -143,12 +143,6 @@ void MainWindow::ClientStatusChangedCallback(bool bConnected, unsigned int uiCli
 	}
 }
 
-// При нажатии на 'Выход'.
-void MainWindow::on_Exit_action_triggered()
-{
-	QApplication::quit();
-}
-
 // При нажатии на 'О программе'.
 void MainWindow::on_About_action_triggered()
 {
