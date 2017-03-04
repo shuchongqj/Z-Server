@@ -171,7 +171,7 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 				if(p_Server->SetCurrentConnection(lst_uiConnectedClients.at(iNum)))
 				{
 				   p_Server->SendToUser(PROTO_O_TEXT_MSG, (char*)p_ui->Chat_lineEdit->text().toStdString().c_str(),
-										p_ui->Chat_lineEdit->text().toStdString().length());
+										(int)p_ui->Chat_lineEdit->text().toStdString().length());
 				}
 			}
 			p_ui->Chat_textBrowser->insertPlainText("Сервер: " + p_ui->Chat_lineEdit->text() + "\n");
