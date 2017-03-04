@@ -7,6 +7,7 @@
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL_INIT_INCLASS(Server)
 LOGDECL_INIT_PTHRD_INCLASS_EXT_ADD(Server)
+bool Server::bServerAlive = false;
 bool Server::bExitSignal = false;
 pthread_mutex_t Server::ptConnMutex = PTHREAD_MUTEX_INITIALIZER;
 int Server::iListener = 0;
@@ -34,33 +35,50 @@ Server::Server(const char* cp_chSettingsPath, pthread_mutex_t ptLogMutex)
 // Деструктор.
 Server::~Server()
 {
-	LOGCLOSE;
+	LOG_CLOSE;
 }
 
 // Запрос запуска клиента.
 void Server::Start()
 {
-	bExitSignal = false;
-	LOG_P_2(LOG_CAT_I, "Starting server thread.");
-	pthread_create(&ServerThr, NULL, ServerThread, NULL);
+	if(!bServerAlive)
+	{
+		LOG_P_2(LOG_CAT_I, "Starting server thread.");
+		pthread_create(&ServerThr, NULL, ServerThread, NULL);
+		LOG_RETVAL = RETVAL_OK;
+	}
+	else
+	{
+		LOG_P_0(LOG_CAT_E, "Starting server failed - already started.");
+		LOG_RETVAL = RETVAL_ERR;
+	}
 }
 
 // Запрос остановки клиента.
 void Server::Stop()
 {
-	bExitSignal = true;
+	if(bServerAlive)
+	{
+		bExitSignal = true;
+		LOG_RETVAL = RETVAL_OK;
+	}
+	else
+	{
+		LOG_P_0(LOG_CAT_E, "Stopping server failed - is off.");
+		LOG_RETVAL = RETVAL_ERR;
+	}
 }
 
 // Запрос статуса лога.
 int Server::GetLogStatus()
 {
-	return LOGRETVAL;
+	return LOG_RETVAL;
 }
 
 // Запрос готовности.
 bool Server::CheckReady()
 {
-	return !bExitSignal;
+	return bServerAlive;
 }
 
 // Функция отправки клиенту.
@@ -137,6 +155,7 @@ bool Server::SetCurrentConnection(unsigned int uiIndex)
 	//
 	if(uiIndex > (MAX_CONN - 1))
 	{
+		iSelectedConnection = CONNECTION_SEL_ERROR;
 		LOG_P_0(LOG_CAT_E, "Index is out of range.");
 		return false;
 	}
@@ -277,6 +296,7 @@ void* Server::ConversationThread(void* p_vNum)
 	int iTempListener;
 	int iTempTPos;
 	//
+	bServerAlive = true;
 	bLocalExitSignal = false;
 	iTempTPos = RETVAL_ERR;
 	iTPos = *((unsigned int*)p_vNum); // Получили номер в массиве.
@@ -347,8 +367,9 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 	}
 	//
 	bRequestNewConn = true; // Соединение готово - установка флага для главного потока на запрос нового.
-	pf_CBClientStatusChanged(true, iTPos, mThreadDadas[iTPos].oConnectionData.ai_addr,
-							 mThreadDadas[iTPos].oConnectionData.ai_addrlen);
+	if(pf_CBClientStatusChanged != 0)
+		pf_CBClientStatusChanged(true, iTPos, mThreadDadas[iTPos].oConnectionData.ai_addr,
+								mThreadDadas[iTPos].oConnectionData.ai_addrlen);
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
 	{
@@ -525,8 +546,9 @@ enc:
 #endif
 	if(!bKillListenerAccept)
 	{
-		pf_CBClientStatusChanged(false, iTPos, mThreadDadas[iTPos].oConnectionData.ai_addr,
-							 mThreadDadas[iTPos].oConnectionData.ai_addrlen);
+		if(pf_CBClientStatusChanged != 0)
+				pf_CBClientStatusChanged(false, iTPos, mThreadDadas[iTPos].oConnectionData.ai_addr,
+								mThreadDadas[iTPos].oConnectionData.ai_addrlen);
 	}
 	CleanThrDadaPos(iTPos);
 	if(iSelectedConnection == (int)iTPos) iSelectedConnection = CONNECTION_SEL_ERROR;
@@ -749,5 +771,6 @@ ex:
 #endif
 	LOG_P_1(LOG_CAT_I, "Exiting server thread.");
 	bExitSignal = false;
+	bServerAlive = false;
 	RETURN_THREAD;
 }

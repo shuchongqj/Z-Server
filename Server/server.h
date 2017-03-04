@@ -59,12 +59,13 @@ private:
 		bool bSecured; ///< Флаг защищённого соединения.
 	};
 private:
+	static bool bServerAlive; ///< Признак жизни потока сервера.
 	static bool bExitSignal; ///< Сигнал на общее завершение.
 	static pthread_mutex_t ptConnMutex; ///< Инициализатор мьютекса соединений.
 	static int iListener; ///< Сокет приёмника.
 	static bool bRequestNewConn; ///< Сигнал запроса нового соединения.
 	static ConversationThreadData mThreadDadas[MAX_CONN]; ///< Массив структур описания потоков соединений.
-	static bool bListenerAlive; ///< Признак жизни приёмника.
+	static bool bListenerAlive; ///< Признак жизни потока приёмника.
 	static char *p_chPassword; ///< Указатель на строку с паролем.
 	static pthread_t ServerThr; ///< Идентификатор потока сервера.
 	static char* p_chSettingsPath; ///< Ссылка на строку с путём к установкам сервера.

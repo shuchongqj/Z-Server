@@ -4,6 +4,10 @@
 //== ВКЛЮЧЕНИЯ.
 #include <QFileInfo>
 
+//== МАКРОСЫ.
+#define S_CONF_PATH				"./settings/server.ini"
+#define S_UI_CONF_PATH			"./settings/ui.ini"
+
 //== ФУНКЦИИ.
 /// Проверка на наличие файла.
 bool IsFileExists(char *p_chPath);

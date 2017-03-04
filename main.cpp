@@ -2,18 +2,6 @@
 #include "mainwindow.h"
 #include <QApplication>
 
-////== МАКРОСЫ.
-//#define LOG_NAME				"Z-Admin"
-//#define S_CONF_PATH				"./settings/server.ini"
-//#ifdef WIN32
-//#include <string>
-//#endif
-
-////== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
-//LOGDECL
-//LOGDECL_INIT_PTHRD_ADD
-
-
 ///// Кэлбэк обработки статутов подключений клиентов.
 //void ClientRequestArrivedCallback(unsigned int uiClientIndex, char chRequest)
 //{
