@@ -3,6 +3,7 @@
 
 //== МАКРОСЫ.
 #define LOG_NAME				"Z-Server"
+#define PORTSTRLEN				6
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL_INIT_INCLASS(Server)
@@ -284,20 +285,52 @@ int Server::FindFreeThrDadaPos()
 		}
 	}
 	pthread_mutex_unlock(&ptConnMutex);
-	return RETVAL_ERR;
+	return CONNECTION_SEL_ERROR;
 }
 
 // Получение копии структуры описания соединения по индексу.
 ConnectionData Server::GetConnectionData(unsigned int uiIndex)
 {
 	ConnectionData oConnectionDataRes;
+	pthread_mutex_lock(&ptConnMutex);
 	if((uiIndex < MAX_CONN) & (mThreadDadas[uiIndex].bInUse == true))
 	{
 		oConnectionDataRes = mThreadDadas[uiIndex].oConnectionData;
+		pthread_mutex_unlock(&ptConnMutex);
 		return oConnectionDataRes;
 	}
+	pthread_mutex_unlock(&ptConnMutex);
 	oConnectionDataRes.iStatus = CONNECTION_SEL_ERROR;
 	return oConnectionDataRes;
+}
+
+// Заполнение структуры описания соединения.
+void Server::FillConnectionData(int iSocket, ConnectionData& a_ConnectionData)
+{
+	a_ConnectionData.ai_addrlen = sizeof(sockaddr);
+	a_ConnectionData.iSocket = iSocket;
+	a_ConnectionData.iStatus = 0;
+#ifndef WIN32
+	getpeername(a_ConnectionData.iSocket, &a_ConnectionData.ai_addr,
+				&a_ConnectionData.ai_addrlen);
+#else
+	getpeername(a_ConnectionData.iSocket, &a_ConnectionData.ai_addr,
+				(int*)&a_ConnectionData.ai_addrlen);
+#endif
+}
+
+// Заполнение буферов имён IP и порта.
+void Server::FillIPAndPortNames(ConnectionData& a_ConnectionData, char* p_chIP, char* p_chPort)
+{
+#ifndef WIN32
+	getnameinfo(&a_ConnectionData.ai_addr,
+				a_ConnectionData.ai_addrlen,
+				p_chIP, INET6_ADDRSTRLEN, p_chPort, PORTSTRLEN, NI_NUMERICHOST);
+#else
+	getnameinfo(&a_ConnectionData.ai_addr,
+				(socklen_t)a_ConnectionData.ai_addrlen,
+				p_chIP, INET6_ADDRSTRLEN, p_chPort, PORTSTRLEN, NI_NUMERICHOST);
+#endif
 }
 
 // Поток соединения.
@@ -309,38 +342,51 @@ void* Server::ConversationThread(void* p_vNum)
 	bool bKillListenerAccept;
 	ProtoParser* p_ProtoParser;
 	ProtoParser::ParseResult oParsingResult;
-	char m_chNameBuffer[INET6_ADDRSTRLEN];
-	char m_chPortBuffer[6];
+	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
+	char m_chPortNameBuffer[PORTSTRLEN];
 	bool bLocalExitSignal;
 	ReceivedData* p_CurrentData;
 	int iTempListener;
 	int iTempTPos;
+	ConnectionData oConnectionDataInt;
 	//
+	bKillListenerAccept = false;
 	bServerAlive = true;
 	bLocalExitSignal = false;
-	iTempTPos = RETVAL_ERR;
+	iTempTPos = CONNECTION_SEL_ERROR;
 	iTPos = *((int*)p_vNum); // Получили номер в массиве.
-	if(iTPos == RETVAL_ERR)
+	if(iTPos != CONNECTION_SEL_ERROR)
 	{
+		mThreadDadas[iTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
+#ifndef WIN32
+		LOG_P_2(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread);
+#else
+		LOG_P_2(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread.p);
+#endif
+	}
+	else
+	{
+		LOG_P_1(LOG_CAT_W, "Waiting connection on reserved thread: " << pthread_self());
 gAG:	iTempListener = (int)accept(iListener, NULL, NULL); // Ждём перегруженных входящих.
+		FillConnectionData(iTempListener, oConnectionDataInt);
+		FillIPAndPortNames(oConnectionDataInt, m_chIPNameBuffer, m_chPortNameBuffer);
 		iTempTPos = FindFreeThrDadaPos();
-		if(iTempTPos == RETVAL_ERR)
+		if(iTempTPos == CONNECTION_SEL_ERROR)
 		{
+#ifndef WIN32
+			shutdown(iTempListener, SHUT_RDWR);
+			close(iTempListener);
+#else
+			closesocket(iTempListener);
+#endif
+			LOG_P_2(LOG_CAT_I, "Connection rejected for: " << m_chIPNameBuffer);
 			if(bExitSignal) goto gOE;
 			goto gAG;
 		}
 		iTPos = iTempTPos;
 		mThreadDadas[iTPos].oConnectionData.iSocket = iTempListener;
 	}
-	//memset(&mThreadDadas[iTPos].mReceivedPockets, 0, sizeof(mThreadDadas[iTPos].mReceivedPockets));
-	mThreadDadas[iTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
-#ifndef WIN32
-	LOG_P_2(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread);
-#else
-	LOG_P_2(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread.p);
-#endif
-	bKillListenerAccept = false;
-	if(iTempTPos == RETVAL_ERR) // Если пришло мимо перегруженного ожидания...
+	if(iTempTPos == CONNECTION_SEL_ERROR) // Если пришло мимо перегруженного ожидания...
 		mThreadDadas[iTPos].oConnectionData.iSocket = (int)accept(iListener, NULL, NULL); // Ждём входящих.
 	if((mThreadDadas[iTPos].oConnectionData.iSocket < 0)) // При ошибке после выхода из ожидания входящих...
 	{
@@ -360,24 +406,9 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 	}
 	mThreadDadas[iTPos].bInUse = true; // Флаг занятости структуры.
 	LOG_P_1(LOG_CAT_I, "New connection accepted.");
-	mThreadDadas[iTPos].oConnectionData.ai_addrlen = sizeof(sockaddr);
-#ifndef WIN32
-	getpeername(mThreadDadas[iTPos].oConnectionData.iSocket, &mThreadDadas[iTPos].oConnectionData.ai_addr,
-				&mThreadDadas[iTPos].oConnectionData.ai_addrlen);
-#else
-	getpeername(mThreadDadas[iTPos].oConnectionData.iSocket, &mThreadDadas[iTPos].oConnectionData.ai_addr,
-				(int*)&mThreadDadas[iTPos].oConnectionData.ai_addrlen);
-#endif
-#ifndef WIN32
-	getnameinfo(&mThreadDadas[iTPos].oConnectionData.ai_addr,
-				mThreadDadas[iTPos].oConnectionData.ai_addrlen,
-				m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
-#else
-	getnameinfo(&mThreadDadas[iTPos].oConnectionData.ai_addr,
-				(socklen_t)mThreadDadas[iTPos].oConnectionData.ai_addrlen,
-				m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
-#endif
-	LOG_P_1(LOG_CAT_I, "Connected with: " << m_chNameBuffer << " ID: " << iTPos);
+	FillConnectionData(mThreadDadas[iTPos].oConnectionData.iSocket, mThreadDadas[iTPos].oConnectionData);
+	FillIPAndPortNames(mThreadDadas[iTPos].oConnectionData, m_chIPNameBuffer, m_chPortNameBuffer);
+	LOG_P_1(LOG_CAT_I, "Connected with: " << m_chIPNameBuffer << " ID: " << iTPos);
 	if(mThreadDadas[iTPos].oConnectionData.iStatus == -1) // Если не вышло отправить...
 	{
 		pthread_mutex_lock(&ptConnMutex);
@@ -387,7 +418,9 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 	//
 	bRequestNewConn = true; // Соединение готово - установка флага для главного потока на запрос нового.
 	if(pf_CBClientStatusChanged != 0)
+	{
 		pf_CBClientStatusChanged(true, iTPos);
+	}
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
 	{
@@ -438,7 +471,12 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 				}
 				if((oParsingResult.bStored == false) | (oParsingResult.chTypeCode == PROTO_C_SEND_PASSW))
 				{
-					if(pf_CBClientRequestArrived != 0) pf_CBClientRequestArrived(iTPos, oParsingResult.chTypeCode);
+					if(pf_CBClientRequestArrived != 0)
+					{
+						pthread_mutex_unlock(&ptConnMutex);
+						pf_CBClientRequestArrived(iTPos, oParsingResult.chTypeCode);
+						pthread_mutex_lock(&ptConnMutex);
+					}
 				}
 				if(mThreadDadas[iTPos].bSecured == false)
 				{
@@ -479,7 +517,12 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 					// Блок объектов.
 					if(oParsingResult.bStored == true)
 					{
-						if(pf_CBClientDataArrived != 0) pf_CBClientDataArrived(iTPos);
+						if(pf_CBClientDataArrived != 0)
+						{
+							pthread_mutex_unlock(&ptConnMutex);
+							pf_CBClientDataArrived(iTPos);
+							pthread_mutex_lock(&ptConnMutex);
+						}
 					}
 				}
 				// Блок взаимодействия.
@@ -546,7 +589,7 @@ ec: if(bLocalExitSignal == false) // Если не было локального
 	{
 		if(bExitSignal == false)
 		{
-			LOG_P_0(LOG_CAT_W, "Closed by client absence: " << m_chNameBuffer << " ID: " << iTPos);
+			LOG_P_0(LOG_CAT_W, "Closed by client absence: " << m_chIPNameBuffer << " ID: " << iTPos);
 		}
 	}
 	else // При локальном - закрываем здесь.
@@ -557,22 +600,30 @@ ec: if(bLocalExitSignal == false) // Если не было локального
 #else
 		closesocket(mThreadDadas[iTPos].oConnectionData.iSocket);
 #endif
-		LOG_P_2(LOG_CAT_I, "Closed ordinary: " << m_chNameBuffer << " ID: " << iTPos);
+		LOG_P_2(LOG_CAT_I, "Closed ordinary: " << m_chIPNameBuffer << " ID: " << iTPos);
 	}
-enc:
+enc:if(iTPos != CONNECTION_SEL_ERROR)
+	{
 #ifndef WIN32
 	LOG_P_2(LOG_CAT_I, "Exiting thread: " << mThreadDadas[iTPos].p_Thread);
 #else
 	LOG_P_2(LOG_CAT_I, "Exiting thread: " << mThreadDadas[iTPos].p_Thread.p);
 #endif
+	}
+	else
+	{
+		LOG_P_2(LOG_CAT_I, "Exiting reserved thread: " << pthread_self());
+	}
 	if(!bKillListenerAccept)
 	{
 		if(pf_CBClientStatusChanged != 0)
 		{
-				pf_CBClientStatusChanged(false, iTPos);
+			pthread_mutex_unlock(&ptConnMutex);
+			pf_CBClientStatusChanged(false, iTPos);
+			pthread_mutex_lock(&ptConnMutex);
 		}
 	}
-	if(iTPos != RETVAL_ERR)
+	if(iTPos != CONNECTION_SEL_ERROR)
 	{
 		CleanThrDadaPos(iTPos);
 		if(!bExitSignal)
@@ -599,7 +650,7 @@ void* Server::ServerThread(void *p_vPlug)
 	char* p_chPort = 0;
 	addrinfo* p_Res;
 	int iCurrPos = 0;
-	char m_chNameBuffer[INET6_ADDRSTRLEN];
+	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
 #ifdef WIN32
 	WSADATA wsadata = WSADATA();
 #endif
@@ -714,7 +765,7 @@ void* Server::ServerThread(void *p_vPlug)
 	// Цикл ожидания входа клиентов.
 nc:	bRequestNewConn = false; // Вход в звено цикла ожидания клиентов - сброс флага запроса.
 	iCurrPos = FindFreeThrDadaPos();
-	if(iCurrPos == RETVAL_ERR)
+	if(iCurrPos == CONNECTION_SEL_ERROR)
 	{
 		LOG_P_0(LOG_CAT_W, "Server is full.");
 		pthread_create(&p_ThreadOverrunned, NULL,
@@ -765,11 +816,11 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 #ifndef WIN32
 			getnameinfo(&mThreadDadas[iCurrPos].oConnectionData.ai_addr,
 						mThreadDadas[iCurrPos].oConnectionData.ai_addrlen,
-						m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
+						m_chIPNameBuffer, sizeof(m_chIPNameBuffer), 0, 0, NI_NUMERICHOST);
 #else
 			getnameinfo(&mThreadDadas[iCurrPos].oConnectionData.ai_addr,
 						(socklen_t)mThreadDadas[iCurrPos].oConnectionData.ai_addrlen,
-						m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
+						m_chIPNameBuffer, sizeof(m_chIPNameBuffer), 0, 0, NI_NUMERICHOST);
 #endif
 #ifndef WIN32
 			shutdown(mThreadDadas[iCurrPos].oConnectionData.iSocket, SHUT_RDWR);
@@ -777,7 +828,7 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 #else
 			closesocket(mThreadDadas[iCurrPos].oConnectionData.iSocket);
 #endif
-			LOG_P_1(LOG_CAT_I, "Socket closed internally: " << m_chNameBuffer);
+			LOG_P_1(LOG_CAT_I, "Socket closed internally: " << m_chIPNameBuffer);
 		}
 	}
 	pthread_mutex_unlock(&ptConnMutex);

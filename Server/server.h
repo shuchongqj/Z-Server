@@ -31,8 +31,8 @@ typedef void (*CBClientStatusChanged)(bool bConnected, unsigned int uiClientInde
 //== МАКРОСЫ.
 #define USER_RESPONSE_MS		100
 #define WAITING_FOR_CLIENT_DSC	1000
-#define MAX_CONN				2
-#define CONNECTION_SEL_ERROR	_NMG-6
+#define MAX_CONN				1
+#define CONNECTION_SEL_ERROR	_NMG-6 // См. protocol.h для занятия нового свободного номера.
 
 //== КЛАССЫ.
 /// Класс сервера.
@@ -117,6 +117,12 @@ public:
 	static ConnectionData GetConnectionData(unsigned int uiIndex);
 								///< \param[in] uiIndex Индекс соединения.
 								///< \return ConnectionData.iStatus == CONNECTION_SEL_ERROR если соединение не действительно.
+	/// Заполнение буферов имён IP и порта.
+	static void FillIPAndPortNames(ConnectionData& a_ConnectionData, char* p_chIP, char* p_chPort);
+								///< \param[in] a_ConnectionData Ссылка на структуру описания соединения.
+								///< \param[in,out] p_chIP Указатель на буфер имени IP.
+								///< \param[in,out] p_chPort Указатель на буфер имени порта.
+
 private:
 	/// Функция отправки пакета клиенту.
 	static bool SendToClient(ConnectionData &oConnectionData,
@@ -132,7 +138,7 @@ private:
 								///< \param[in] iPos Позиция в массиве.
 	/// Поиск свободной позиции данных потока.
 	static int FindFreeThrDadaPos();
-								///< \return Возвращает номер свободной позиции, иначе - RETVAL_ERR.
+								///< \return Возвращает номер свободной позиции, иначе - CONNECTION_SEL_ERROR.
 	/// Поток соединения.
 	static void* ConversationThread(void* p_vNum);
 								///< \param[in] p_vNum Неопределённый указатель на int-переменную с номером соединения.
@@ -141,6 +147,10 @@ private:
 	static void* ServerThread(void *p_vPlug);
 								///< \param[in] p_vPlug Заглушка.
 								///< \return Заглушка.
+	/// Заполнение структуры описания соединения.
+	static void FillConnectionData(int iSocket, ConnectionData& a_ConnectionData);
+								///< \param[in] iSocket Сокет.
+								///< \param[in,out] a_ConnectionData Ссылка на структуру для заполнения.
 };
 
 #endif // SERVER_H
