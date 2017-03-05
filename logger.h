@@ -28,7 +28,7 @@
 #endif
 
 //== МАКРОСЫ.
-#define LOG_LEVEL_2			// Уровень логирования.
+#define LOG_LEVEL_0			// Уровень логирования.
 #define _LOGVarname          o_LogFileStream
 #define _LOGTimeFormat       "%Y-%m-%d %X"
 #ifdef WIN32

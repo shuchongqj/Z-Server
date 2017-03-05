@@ -201,7 +201,8 @@ char Server::ReleaseCurrentData()
 				mThreadDadas[iSelectedConnection].
 						mReceivedPockets[mThreadDadas[iSelectedConnection].uiCurrentFreePocket].bFresh = false;
 				mThreadDadas[iSelectedConnection].
-						mReceivedPockets[mThreadDadas[iSelectedConnection].uiCurrentFreePocket].oProtocolStorage.CleanPointers();
+						mReceivedPockets[mThreadDadas[iSelectedConnection].uiCurrentFreePocket].
+						oProtocolStorage.CleanPointers();
 				chRes = RETVAL_OK;
 				LOG_P_2(LOG_CAT_I, "Position has been released.");
 			}
@@ -260,7 +261,12 @@ void Server::CleanThrDadaPos(unsigned int uiPos)
 	{
 		mThreadDadas[uiPos].mReceivedPockets[uiC].oProtocolStorage.CleanPointers();
 	}
-	memset(&mThreadDadas[uiPos], 0, sizeof(mThreadDadas[uiPos]));
+	mThreadDadas[uiPos].bFullOnClient = false;
+	mThreadDadas[uiPos].bFullOnServer = false;
+	mThreadDadas[uiPos].bSecured = false;
+	mThreadDadas[uiPos].uiCurrentFreePocket = 0;
+	memset(&mThreadDadas[uiPos].mReceivedPockets, 0, sizeof(ReceivedData));
+	memset(&mThreadDadas[uiPos].m_chData, 0, sizeof(mThreadDadas[uiPos].m_chData));
 }
 
 // Поиск свободной позиции данных потока.
@@ -485,8 +491,8 @@ gI:				switch(oParsingResult.chTypeCode)
 						LOG_P_1(LOG_CAT_I, "ID: " << iTPos << " request leaving.");
 						SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_ACCEPT_LEAVING);
 						LOG_P_1(LOG_CAT_I, "ID: " << iTPos << " leaving accepted.");
-						MSleep(WAITING_FOR_CLIENT_DSC);
-						bLocalExitSignal = true;
+						bLocalExitSignal = true; // Флаг самостоятельного отключения клиента.
+						MSleep(WAITING_FOR_CLIENT_DSC); // Ожидание самостоятельного отключения клиента.
 						goto ecd;
 					}
 				}
@@ -525,7 +531,14 @@ gI:				switch(oParsingResult.chTypeCode)
 	pthread_mutex_lock(&ptConnMutex);
 ecd:delete p_ProtoParser;
 	//
-ec: if((bLocalExitSignal || bExitSignal) == false)
+ec: if(bLocalExitSignal == false) // Если не было локального сигнала - будут закрывать снаружи потоков.
+	{
+		if(bExitSignal == false)
+		{
+			LOG_P_0(LOG_CAT_W, "Closed by client absence: " << m_chNameBuffer << " ID: " << iTPos);
+		}
+	}
+	else // При локальном - закрываем здесь.
 	{
 #ifndef WIN32
 		shutdown(mThreadDadas[iTPos].oConnectionData.iSocket, SHUT_RDWR);
@@ -533,10 +546,6 @@ ec: if((bLocalExitSignal || bExitSignal) == false)
 #else
 		closesocket(mThreadDadas[iTPos].oConnectionData.iSocket);
 #endif
-		LOG_P_0(LOG_CAT_W, "Closed by client absence: " << m_chNameBuffer << " ID: " << iTPos);
-	}
-	else
-	{
 		LOG_P_2(LOG_CAT_I, "Closed ordinary: " << m_chNameBuffer << " ID: " << iTPos);
 	}
 enc:
@@ -552,7 +561,14 @@ enc:
 				pf_CBClientStatusChanged(false, iTPos, mThreadDadas[iTPos].oConnectionData.ai_addr,
 								mThreadDadas[iTPos].oConnectionData.ai_addrlen);
 		}
+	}
+	if(iTPos != RETVAL_ERR)
+	{
 		CleanThrDadaPos(iTPos);
+		if(!bExitSignal)
+		{
+			mThreadDadas[iTPos].bInUse = false;
+		}
 	}
 	if(iSelectedConnection == (int)iTPos) iSelectedConnection = CONNECTION_SEL_ERROR;
 	if(bKillListenerAccept) bListenerAlive = false;
@@ -709,21 +725,18 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 	printf("\b\b");
 	LOG_P_2(LOG_CAT_I, "Terminated by admin.");
 	// Закрытие приёмника.
-	if(iCurrPos != RETVAL_ERR)
-	{
-		LOG_P_2(LOG_CAT_I, "Closing listener...");
+	LOG_P_2(LOG_CAT_I, "Closing listener...");
 #ifndef WIN32
-		shutdown(iListener, SHUT_RDWR);
-		close(iListener);
+	shutdown(iListener, SHUT_RDWR);
+	close(iListener);
 #else
-		closesocket(iListener);
+	closesocket(iListener);
 #endif
-		while(bListenerAlive)
-		{
-			MSleep(USER_RESPONSE_MS);
-		}
-		LOG_P_2(LOG_CAT_I, "Listener has been closed.");
+	while(bListenerAlive)
+	{
+		MSleep(USER_RESPONSE_MS);
 	}
+	LOG_P_2(LOG_CAT_I, "Listener has been closed.");
 	// Закрытие сокетов клиентов.
 	LOG_P_2(LOG_CAT_I, "Disconnecting clients...");
 	for(iCurrPos = 0; iCurrPos != MAX_CONN; iCurrPos++) // Закрываем все клиентские сокеты.
@@ -740,12 +753,6 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 		if(mThreadDadas[iCurrPos].bInUse == true)
 		{
 #ifndef WIN32
-			shutdown(mThreadDadas[iCurrPos].iConnection, SHUT_RDWR);
-			close(mThreadDadas[iCurrPos].iConnection);
-#else
-			closesocket(mThreadDadas[iCurrPos].iConnection);
-#endif
-#ifndef WIN32
 			getnameinfo(&mThreadDadas[iCurrPos].oConnectionData.ai_addr,
 						mThreadDadas[iCurrPos].oConnectionData.ai_addrlen,
 						m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
@@ -754,21 +761,16 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 						(socklen_t)mThreadDadas[iCurrPos].oConnectionData.ai_addrlen,
 						m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
 #endif
+#ifndef WIN32
+			shutdown(mThreadDadas[iCurrPos].iConnection, SHUT_RDWR);
+			close(mThreadDadas[iCurrPos].iConnection);
+#else
+			closesocket(mThreadDadas[iCurrPos].iConnection);
+#endif
 			LOG_P_1(LOG_CAT_I, "Socket closed internally: " << m_chNameBuffer);
 		}
 	}
 	pthread_mutex_unlock(&ptConnMutex);
-	// Ждём, пока дойдёт до всех потоков соединений с клиентами.
-stc:iCurrPos = 0;
-	for(; iCurrPos != MAX_CONN; iCurrPos++)
-	{
-		// Если занят - на начало.
-		if(mThreadDadas[iCurrPos].bInUse == true)
-		{
-			MSleep(USER_RESPONSE_MS);
-			goto stc;
-		}
-	}
 	LOG_P_2(LOG_CAT_I, "Clients has been disconnected.");
 ex:
 #ifdef WIN32
