@@ -31,16 +31,9 @@ public:
 							///< \param[in] event - Указатель на событие.
 
 	/// Кэлбэк обработки отслеживания статута клиентов.
-	static void ClientStatusChangedCallback(bool bConnected, unsigned int uiClientIndex, sockaddr ai_addr,
-	#ifndef WIN32
-																									socklen_t ai_addrlen);
-	#else
-																									size_t ai_addrlen);
-	#endif
+	static void ClientStatusChangedCallback(bool bConnected, unsigned int uiClientIndex);
 							///< \param[in] bConnected Статус подключения.
 							///< \param[in] uiClientIndex Индекс клиента.
-							///< \param[in] ai_addr Адрес.
-							///< \param[in] ai_addrlen Длина адреса.
 
 private:
 	/// Процедуры запуска сервера.
@@ -61,7 +54,7 @@ private:
 	static Ui::MainWindow *p_ui; ///< Указатель на UI.
 	static const char* cp_chUISettingsName; ///< Указатель на имя файла с установками UI.
 	QSettings* p_UISettings; ///< Указатель на строку установок UI.
-	Server* p_Server; ///< Ссылка на объект сервера.
+	static Server* p_Server; ///< Ссылка на объект сервера.
 	static QList<unsigned int> lst_uiConnectedClients; ///< Список присоединённых клиентов.
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD

@@ -7,10 +7,10 @@
 #define _PPControlSize(name)			if((int)sizeof(ProtocolStorage::name) < oParseResult.iDataLength)						\
 										{																						\
 											oParseResult.iDataLength = (int)sizeof(ProtocolStorage::name);						\
-											oParseResult.chRes = PROTOPARSER_OUT_OF_RANGE;										\
+											oParseResult.iRes = PROTOPARSER_OUT_OF_RANGE;										\
 											break;																				\
 										}																						\
-										else oParseResult.chRes = PROTOPARSER_OK;
+										else oParseResult.iRes = PROTOPARSER_OK;
 // _FillNewStructure(имя структуры в протоколе)
 // - копирует данные в новую структуру, проверяя совпадение размера и доверяя любому содержимому (именование по шаблону).
 #define _FillNewStructure(name)			_PPControlSize(name);																	\
@@ -21,14 +21,14 @@
 											*(aProtocolStorage._PObjPointerNaming(name)) =										\
 												*(ProtocolStorage::name*)p_chCurrPos;											\
 										}
-#define _CaseCommand(typecode)			case typecode: oParseResult.chRes = PROTOPARSER_OK; break
+#define _CaseCommand(typecode)			case typecode: oParseResult.iRes = PROTOPARSER_OK; break
 //
 #define CaseCommandHub					_CaseCommand(PROTO_S_PASSW_OK); _CaseCommand(PROTO_S_PASSW_ERR);						\
 										_CaseCommand(PROTO_C_REQUEST_LEAVING); _CaseCommand(PROTO_S_ACCEPT_LEAVING);			\
 										_CaseCommand(PROTO_S_SHUTDOWN_INFO); _CaseCommand(PROTO_S_BUFFER_FULL);					\
 										_CaseCommand(PROTO_C_BUFFER_FULL); _CaseCommand(PROTO_A_BUFFER_READY);					\
 										_CaseCommand(PROTO_S_UNSECURED);
-#define CasePocket(typecode, name)		case typecode: _FillNewStructure(name); oParseResult.chRes = PROTOPARSER_OK; break
+#define CasePocket(typecode, name)		case typecode: _FillNewStructure(name); oParseResult.iRes = PROTOPARSER_OK; break
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс парсера протокола.
@@ -38,7 +38,7 @@ ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength,
 {
 	char* p_chCurrPos;
 	ParseResult oParseResult;
-	oParseResult.chRes = PROTOPARSER_UNKNOWN_COMMAND;
+	oParseResult.iRes = PROTOPARSER_UNKNOWN_COMMAND;
 	oParseResult.bStored = false;
 	bDoNotStore = bDoNotStore;
 	//

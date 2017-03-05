@@ -9,6 +9,7 @@
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL_INIT_INCLASS(MainWindow)
 LOGDECL_INIT_PTHRD_INCLASS_OWN_ADD(MainWindow)
+Server* MainWindow::p_Server;
 const char* MainWindow::cp_chUISettingsName = S_UI_CONF_PATH;
 Ui::MainWindow* MainWindow::p_ui = new Ui::MainWindow;
 QList<unsigned int> MainWindow::lst_uiConnectedClients;
@@ -105,42 +106,46 @@ void MainWindow::StopProcedures()
 }
 
 // Кэлбэк обработки отслеживания статута клиентов.
-void MainWindow::ClientStatusChangedCallback(bool bConnected, unsigned int uiClientIndex, sockaddr ai_addr,
-#ifndef WIN32
-																								socklen_t ai_addrlen)
-#else
-																								size_t ai_addrlen)
-#endif
+void MainWindow::ClientStatusChangedCallback(bool bConnected, unsigned int uiClientIndex)
 {
 	char m_chNameBuffer[INET6_ADDRSTRLEN];
 	char m_chPortBuffer[6];
 	QString strName;
 	QList<QListWidgetItem*> lst_MatchItems;
+	ConnectionData oConnectionData;
 	//
 	LOG_P_0(LOG_CAT_I, "ID: " << uiClientIndex << " have status: " << bConnected);
-#ifndef WIN32
-	getnameinfo(&ai_addr, ai_addrlen, m_chNameBuffer, sizeof(m_chNameBuffer),
-				m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
-#else
-	getnameinfo(&ai_addr, (socklen_t)ai_addrlen,
-				m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
-#endif
-	LOG_P_0(LOG_CAT_I, "IP: " << m_chNameBuffer << " Port: " << m_chPortBuffer);
-	strName = QString::fromStdString(m_chNameBuffer) + ":" + QString::fromStdString(m_chPortBuffer) +
-			"=" + QString::number(uiClientIndex);
-	if(bConnected)
+	oConnectionData = p_Server->GetConnectionData(uiClientIndex);
+	if(oConnectionData.iStatus != CONNECTION_SEL_ERROR)
 	{
-		p_ui->Clients_listWidget->addItem(strName);
-		lst_uiConnectedClients.append(uiClientIndex);
+#ifndef WIN32
+		getnameinfo(&oConnectionData.ai_addr, oConnectionData.ai_addrlen, m_chNameBuffer, sizeof(m_chNameBuffer),
+					m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
+#else
+		getnameinfo(&oConnectionData.ai_addr, (socklen_t)oConnectionData.ai_addrlen,
+					m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
+#endif
+		LOG_P_0(LOG_CAT_I, "IP: " << m_chNameBuffer << " Port: " << m_chPortBuffer);
+		strName = QString::fromStdString(m_chNameBuffer) + ":" + QString::fromStdString(m_chPortBuffer) +
+				"=" + QString::number(uiClientIndex);
+		if(bConnected)
+		{
+			p_ui->Clients_listWidget->addItem(strName);
+			lst_uiConnectedClients.append(uiClientIndex);
+		}
+		else
+		{
+			lst_MatchItems = p_ui->Clients_listWidget->findItems(strName, Qt::MatchExactly);
+			for(int iNum = 0; iNum != lst_MatchItems.count(); iNum++)
+			{
+				delete lst_MatchItems.at(iNum);
+				lst_uiConnectedClients.removeAt(lst_uiConnectedClients.indexOf(uiClientIndex));
+			}
+		}
 	}
 	else
 	{
-		lst_MatchItems = p_ui->Clients_listWidget->findItems(strName, Qt::MatchExactly);
-		for(int iNum = 0; iNum != lst_MatchItems.count(); iNum++)
-		{
-			delete lst_MatchItems.at(iNum);
-			lst_uiConnectedClients.removeAt(lst_uiConnectedClients.indexOf(uiClientIndex));
-		}
+		LOG_P_0(LOG_CAT_E, "Can`t get connection data from server storage.");
 	}
 }
 

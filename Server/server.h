@@ -26,18 +26,13 @@
 //== ОПРЕДЕЛЕНИЯ ТИПОВ.
 typedef void (*CBClientRequestArrived)(unsigned int uiClientIndex, char chRequest);
 typedef void (*CBClientDataArrived)(unsigned int uiClientIndex);
-typedef void (*CBClientStatusChanged)(bool bConnected, unsigned int uiClientIndex, sockaddr ai_addr,
-#ifndef WIN32
-																									socklen_t ai_addrlen);
-#else
-																									size_t ai_addrlen);
-#endif
+typedef void (*CBClientStatusChanged)(bool bConnected, unsigned int uiClientIndex);
 
 //== МАКРОСЫ.
 #define USER_RESPONSE_MS		100
 #define WAITING_FOR_CLIENT_DSC	1000
 #define MAX_CONN				2
-#define CONNECTION_SEL_ERROR	-1
+#define CONNECTION_SEL_ERROR	_NMG-6
 
 //== КЛАССЫ.
 /// Класс сервера.
@@ -113,12 +108,16 @@ public:
 	static void SetClientStatusChangedCB(CBClientStatusChanged pf_CBClientStatusChangedIn);
 								///< \param[in] pf_CBClientStatusChangedIn Указатель на пользовательскую функцию.
 	/// Доступ к крайнему элементу из массива принятых пакетов от текущего клиента.
-	static char AccessCurrentData(void** pp_vDataBuffer);
+	static int AccessCurrentData(void** pp_vDataBuffer);
 								///< \param[in,out] pp_vDataBuffer Указатель на указатель на буфер с данными.
 								///< \return Код пакета, DATA_ACCESS_ERROR при ошибке, CONNECTION_SEL_ERROR соотв.
 	/// Удаление крайнего элемента из массива принятых пакетов.
-	static char ReleaseCurrentData();
+	static int ReleaseCurrentData();
 								///< \return RETVAL_OK, если удачно, BUFFER_IS_EMPTY, если пусто, CONNECTION_SEL_ERROR соотв.
+	/// Получение копии структуры описания соединения по индексу.
+	static ConnectionData GetConnectionData(unsigned int uiIndex);
+								///< \param[in] uiIndex Индекс соединения.
+								///< \return ConnectionData.iStatus == CONNECTION_SEL_ERROR если соединение не действительно.
 private:
 	/// Функция отправки пакета клиенту.
 	static bool SendToClient(ConnectionData &oConnectionData,

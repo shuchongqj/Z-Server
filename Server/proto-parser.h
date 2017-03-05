@@ -6,8 +6,8 @@
 
 //== МАКРОСЫ.
 #define PROTOPARSER_OK					0x00
-#define PROTOPARSER_OUT_OF_RANGE		0x01
-#define PROTOPARSER_UNKNOWN_COMMAND		0x02
+#define PROTOPARSER_OUT_OF_RANGE		_NMG-4
+#define PROTOPARSER_UNKNOWN_COMMAND		_NMG-5
 #define POCKET_OUT_OF_RANGE				"Pocket out of range."
 #define UNKNOWN_COMMAND					"Unknown command"
 
@@ -20,7 +20,7 @@ public:
 	struct ParseResult
 	{
 		bool bStored; ///< Признак сохранения в новую структуру.
-		char chRes; ///< Результат операции.
+		int iRes; ///< Результат операции.
 		char chTypeCode; ///< Код принятого пакета (вне зависимости от статуса сохранения).
 		int iDataLength; ///< Длина пакета в байтах.
 	};

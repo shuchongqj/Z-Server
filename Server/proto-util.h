@@ -2,6 +2,7 @@
 #define PROTO_UTIL_H
 
 //== МАКРОСЫ.
+
 #define MAX_MSG							512
 #define MAX_PASSW						16
 // Утиль.

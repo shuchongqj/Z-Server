@@ -18,15 +18,15 @@
 #define S_MAX_STORED_POCKETS	6
 #define C_MAX_STORED_POCKETS	4
 #define MAX_DATA				1024
-#define SOCKET_ERROR_TOO_BIG	65535
+#define SOCKET_ERROR_TOO_BIG	_NMG-1
 #define RETURN_THREAD			pthread_exit(0); return 0;
 #ifndef WIN32
 #define MSleep(val)				usleep(val * 1000)
 #else
 #define MSleep(val)				Sleep(val)
 #endif
-#define	DATA_ACCESS_ERROR		1
-#define	BUFFER_IS_EMPTY			2
+#define	DATA_ACCESS_ERROR		_NMG-2
+#define	BUFFER_IS_EMPTY			_NMG-3
 
 //== СТРУКТУРЫ.
 /// Сруктура для данных по соединению.

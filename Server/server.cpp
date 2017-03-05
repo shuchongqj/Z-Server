@@ -177,9 +177,9 @@ bool Server::SetCurrentConnection(unsigned int uiIndex)
 }
 
 // Удаление крайнего элемента из массива принятых пакетов.
-char Server::ReleaseCurrentData()
+int Server::ReleaseCurrentData()
 {
-	char chRes = BUFFER_IS_EMPTY;
+	int iRes = BUFFER_IS_EMPTY;
 	//
 	pthread_mutex_lock(&ptConnMutex);
 	if(iSelectedConnection != CONNECTION_SEL_ERROR)
@@ -203,28 +203,28 @@ char Server::ReleaseCurrentData()
 				mThreadDadas[iSelectedConnection].
 						mReceivedPockets[mThreadDadas[iSelectedConnection].uiCurrentFreePocket].
 						oProtocolStorage.CleanPointers();
-				chRes = RETVAL_OK;
+				iRes = RETVAL_OK;
 				LOG_P_2(LOG_CAT_I, "Position has been released.");
 			}
 		}
 	}
 	else
 	{
-		chRes = CONNECTION_SEL_ERROR;
+		iRes = CONNECTION_SEL_ERROR;
 		LOG_P_0(LOG_CAT_E, "Wrong connection number (release).");
 	}
 	pthread_mutex_unlock(&ptConnMutex);
-	if(chRes == BUFFER_IS_EMPTY)
+	if(iRes == BUFFER_IS_EMPTY)
 	{
 		LOG_P_0(LOG_CAT_E, "Buffer is empty.");
 	}
-	return chRes;
+	return iRes;
 }
 
 // Доступ к крайнему элементу из массива принятых пакетов от текущего клиента.
-char Server::AccessCurrentData(void** pp_vDataBuffer)
+int Server::AccessCurrentData(void** pp_vDataBuffer)
 {
-	char chRes = DATA_ACCESS_ERROR;
+	int iRes = DATA_ACCESS_ERROR;
 	unsigned int uiPos;
 	//
 	pthread_mutex_lock(&ptConnMutex);
@@ -237,21 +237,21 @@ char Server::AccessCurrentData(void** pp_vDataBuffer)
 			if(mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].bFresh == true)
 			{
 				*pp_vDataBuffer = mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].oProtocolStorage.GetPointer();
-				chRes = mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].oProtocolStorage.chTypeCode;
+				iRes = mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].oProtocolStorage.chTypeCode;
 			}
 		}
 	}
 	else
 	{
-		chRes = CONNECTION_SEL_ERROR;
+		iRes = CONNECTION_SEL_ERROR;
 		LOG_P_0(LOG_CAT_E, "Wrong connection number (access).");
 	}
 	pthread_mutex_unlock(&ptConnMutex);
-	if(chRes == DATA_ACCESS_ERROR)
+	if(iRes == DATA_ACCESS_ERROR)
 	{
 		LOG_P_0(LOG_CAT_E, "Data access error.");
 	}
-	return chRes;
+	return iRes;
 }
 
 // Очистка позиции данных потока.
@@ -285,6 +285,19 @@ int Server::FindFreeThrDadaPos()
 	}
 	pthread_mutex_unlock(&ptConnMutex);
 	return RETVAL_ERR;
+}
+
+// Получение копии структуры описания соединения по индексу.
+ConnectionData Server::GetConnectionData(unsigned int uiIndex)
+{
+	ConnectionData oConnectionDataRes;
+	if((uiIndex < MAX_CONN) & (mThreadDadas[uiIndex].bInUse == true))
+	{
+		oConnectionDataRes = mThreadDadas[uiIndex].oConnectionData;
+		return oConnectionDataRes;
+	}
+	oConnectionDataRes.iStatus = CONNECTION_SEL_ERROR;
+	return oConnectionDataRes;
 }
 
 // Поток соединения.
@@ -347,7 +360,7 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 	}
 	mThreadDadas[iTPos].bInUse = true; // Флаг занятости структуры.
 	LOG_P_1(LOG_CAT_I, "New connection accepted.");
-	mThreadDadas[iTPos].iConnection = mThreadDadas[iTPos].oConnectionData.iSocket; // Установка ИД соединения.
+	mThreadDadas[iTPos].iConnection = mThreadDadas[iTPos].oConnectionData.iSocket; // Установка ИД соединения. FIXME
 	mThreadDadas[iTPos].oConnectionData.ai_addrlen = sizeof(sockaddr);
 #ifndef WIN32
 	getpeername(mThreadDadas[iTPos].oConnectionData.iSocket, &mThreadDadas[iTPos].oConnectionData.ai_addr,
@@ -375,8 +388,7 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 	//
 	bRequestNewConn = true; // Соединение готово - установка флага для главного потока на запрос нового.
 	if(pf_CBClientStatusChanged != 0)
-		pf_CBClientStatusChanged(true, iTPos, mThreadDadas[iTPos].oConnectionData.ai_addr,
-								mThreadDadas[iTPos].oConnectionData.ai_addrlen);
+		pf_CBClientStatusChanged(true, iTPos);
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
 	{
@@ -410,11 +422,11 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 					mThreadDadas[iTPos].oConnectionData.iStatus,
 					p_CurrentData->oProtocolStorage,
 					mThreadDadas[iTPos].bFullOnServer);
-		if((mThreadDadas[iTPos].bFullOnServer == true) && (oParsingResult.bStored == true)) // DEBUG.
+		if((mThreadDadas[iTPos].bFullOnServer == true) & (oParsingResult.bStored == true)) // DEBUG.
 		{
 			LOG_P_0(LOG_CAT_W, "Received owerflowed pocket from ID: " << iTPos);
 		}
-		switch(oParsingResult.chRes)
+		switch(oParsingResult.iRes)
 		{
 			case PROTOPARSER_OK:
 			{
@@ -558,8 +570,7 @@ enc:
 	{
 		if(pf_CBClientStatusChanged != 0)
 		{
-				pf_CBClientStatusChanged(false, iTPos, mThreadDadas[iTPos].oConnectionData.ai_addr,
-								mThreadDadas[iTPos].oConnectionData.ai_addrlen);
+				pf_CBClientStatusChanged(false, iTPos);
 		}
 	}
 	if(iTPos != RETVAL_ERR)
