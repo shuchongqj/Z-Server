@@ -20,10 +20,21 @@ class MainWindow : public QMainWindow
 {
 	Q_OBJECT
 
+private:
+	/// Структура авторизации.
+	struct AuthorizationUnit
+	{
+		char chLevel;
+		char m_chLogin[MAX_AUTH_LOGIN];
+		char m_chPassword[MAX_AUTH_LOGIN];
+	};
+
 public:
+	bool bInitOk; ///< Признак успешной инициализации.
 	static int iConnectionIndex; ///< Индекс текущего соединения для работы или RETVAL_ERR при отсутствии выбранного.
 	static void* p_vLastReceivedDataBuffer; ///< Указатель на текущий запрошенный принятый пакет.
 	static int iLastReceivedDataCode; ///< Код текущего запрошенного принятого пакета.
+
 public:
 	/// Конструктор.
 	explicit MainWindow(QWidget* p_parent = 0);
@@ -45,10 +56,13 @@ public:
 	static void ClientRequestArrivedCallback(unsigned int uiClientIndex, char chRequest);
 
 private:
+	/// Загрузка конфигурации пользователей.
+	bool LoadUsersConfig();
+							///< \return true, при удаче.
 	/// Процедуры запуска сервера.
-	void StartProcedures();
+	void ServerStartProcedures();
 	/// Процедуры остановки сервера.
-	void StopProcedures();
+	void ServerStopProcedures();
 
 private slots:
 	/// При нажатии на 'О программе'.
@@ -67,6 +81,10 @@ private:
 	QSettings* p_UISettings; ///< Указатель на строку установок UI.
 	static Server* p_Server; ///< Ссылка на объект сервера.
 	static QList<unsigned int> lst_uiConnectedClients; ///< Список присоединённых клиентов.
+	static tinyxml2::XMLDocument xmlDocUsers; ///< Документ авторизации.
+	static list<XMLNode*> o_lUsers; ///< Главный список разъёмов документа авторизации.
+	static QList<AuthorizationUnit> lst_AuthorizationUnits; ///< Список авторизованных пользователей.
+	bool bAutostart; ///< Флаг автозапуска.
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD
 };

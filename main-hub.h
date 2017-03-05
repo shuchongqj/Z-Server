@@ -7,6 +7,7 @@
 //== МАКРОСЫ.
 #define S_CONF_PATH				"./settings/server.ini"
 #define S_UI_CONF_PATH			"./settings/ui.ini"
+#define S_USERS_CONF_PATH		"./settings/users.ini"
 
 //== ФУНКЦИИ.
 /// Проверка на наличие файла.

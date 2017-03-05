@@ -13,7 +13,10 @@ int main(int argc, char *argv[])
 	QApplication oApplication(argc, argv);
 	MainWindow wMainWindow;
 	//
-	wMainWindow.show();
-	iExecResult = oApplication.exec();
+	if(wMainWindow.bInitOk)
+	{
+		wMainWindow.show();
+		iExecResult = oApplication.exec();
+	}
 	return iExecResult;
 }

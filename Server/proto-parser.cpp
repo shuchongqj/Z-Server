@@ -52,6 +52,8 @@ ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength,
 		// ОБРАБОТКА ПАКЕТОВ.
 		CasePocket(PROTO_C_SEND_PASSW, Password);
 		CasePocket(PROTO_O_TEXT_MSG, TextMsg);
+		CasePocket(PROTO_O_AUTHORITY_REQUEST, AuthorizationRequest);
+		CasePocket(PROTO_O_AUTHORITY_ANSWER, AuthorizationAnswer);
 	}
 	if(oParseResult.bStored == true) aProtocolStorage.chTypeCode = oParseResult.chTypeCode;
 	return oParseResult;

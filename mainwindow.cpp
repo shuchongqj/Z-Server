@@ -17,6 +17,9 @@ QList<unsigned int> MainWindow::lst_uiConnectedClients;
 int MainWindow::iConnectionIndex = CONNECTION_SEL_ERROR;
 void* MainWindow::p_vLastReceivedDataBuffer = 0;
 int MainWindow::iLastReceivedDataCode = DATA_ACCESS_ERROR;
+tinyxml2::XMLDocument MainWindow::xmlDocUsers;
+QList<MainWindow::AuthorizationUnit> MainWindow::lst_AuthorizationUnits;
+list<XMLNode*> MainWindow::o_lUsers;
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс главного окна.
@@ -24,8 +27,11 @@ int MainWindow::iLastReceivedDataCode = DATA_ACCESS_ERROR;
 MainWindow::MainWindow(QWidget* p_parent) :
 	QMainWindow(p_parent)
 {
+	//
 	LOG_CTRL_INIT;
 	LOG_P_0(LOG_CAT_I, "START.");
+	bInitOk = true;
+	bAutostart = false;
 	qRegisterMetaType<QTextCursor>("QTextCursor"); // Для избежания ошибки при доступе к текстовому браузеру из другого потока.
 	p_UISettings = new QSettings(cp_chUISettingsName, QSettings::IniFormat);
 	p_ui->setupUi(this);
@@ -40,6 +46,7 @@ MainWindow::MainWindow(QWidget* p_parent) :
 		{
 			LOG_P_1(LOG_CAT_E, "Can`t restore WindowState UI state.");
 		}
+		bAutostart = p_UISettings->value("Autostart").toBool();
 	}
 	else
 	{
@@ -50,12 +57,24 @@ MainWindow::MainWindow(QWidget* p_parent) :
 	p_Server->SetClientStatusChangedCB(ClientStatusChangedCallback);
 	p_Server->SetClientDataArrivedCB(ClientDataArrivedCallback);
 	p_Server->SetClientRequestArrivedCB(ClientRequestArrivedCallback);
+	bInitOk = LoadUsersConfig();
+	if(!bInitOk) return;
+	for(int iP = 0; iP < lst_AuthorizationUnits.length(); iP++)
+	{
+		p_ui->Users_listWidget->addItem(QString(lst_AuthorizationUnits.at(iP).m_chLogin) + "[offline]");
+	}
+	if(bAutostart)
+	{
+		LOG_P_0(LOG_CAT_I, "Autostart server.");
+		ServerStartProcedures();
+		p_ui->StartStop_action->toggle();
+	}
 }
 
 // Деструктор.
 MainWindow::~MainWindow()
 {
-	if(p_Server->CheckReady()) StopProcedures();
+	if(p_Server->CheckReady()) ServerStopProcedures();
 	delete p_Server;
 	if(RETVAL == RETVAL_OK)
 	{
@@ -74,11 +93,106 @@ void MainWindow::closeEvent(QCloseEvent *event)
 {
 	p_UISettings->setValue("Geometry", saveGeometry());
 	p_UISettings->setValue("WindowState", saveState());
+	p_UISettings->setValue("Autostart", bAutostart);
 	QMainWindow::closeEvent(event);
 }
 
+// Загрузка конфигурации пользователей.
+bool MainWindow::LoadUsersConfig()
+{
+	XMLError eResult;
+	//
+	eResult = xmlDocUsers.LoadFile(S_USERS_CONF_PATH);
+	if (eResult != XML_SUCCESS)
+	{
+		LOG_P_0(LOG_CAT_E, "Can`t open users configuration file:" << S_USERS_CONF_PATH);
+		return false;
+	}
+	else
+	{
+		LOG_P_1(LOG_CAT_I, "Users configuration loaded.");
+		if(!FindChildNodes(xmlDocUsers.LastChild(), o_lUsers,
+						   "Users", FCN_ONE_LEVEL, FCN_FIRST_ONLY))
+		{
+			return true;
+		}
+		PARSE_CHILDLIST(o_lUsers.front(), p_ListUsers, "User",
+						FCN_ONE_LEVEL, p_NodeUser)
+		{
+			bool bName = false;
+			bool bPassword = false;
+			bool bLevel = false;
+			AuthorizationUnit oAuthorizationUnitInt;
+			QString strHelper;
+			//
+			FIND_IN_CHILDLIST(p_NodeUser, p_ListNames,
+							  "Login", FCN_ONE_LEVEL, p_NodeName)
+			{
+				strHelper = QString(p_NodeName->FirstChild()->Value());
+				if(strHelper.isEmpty())
+				{
+					LOG_P_0(LOG_CAT_E, "Users configuration file is corrupt! 'User' node format incorrect - wrong 'Login' node.");
+					return false;
+				}
+				else
+				{
+					memcpy(oAuthorizationUnitInt.m_chLogin, strHelper.toStdString().c_str(), strHelper.toStdString().length() + 1);
+				}
+				bName = true;
+			} FIND_IN_CHILDLIST_END(p_ListNames);
+			if(!bName)
+			{
+				LOG_P_0(LOG_CAT_E, "Users configuration file is corrupt! 'User' node format incorrect - missing 'Login' node.");
+				return false;
+			}
+			FIND_IN_CHILDLIST(p_NodeUser, p_ListPasswords,
+							  "Password", FCN_ONE_LEVEL, p_NodePassword)
+			{
+				strHelper = QString(p_NodePassword->FirstChild()->Value());
+				if(strHelper.isEmpty())
+				{
+					LOG_P_0(LOG_CAT_E, "Users configuration file is corrupt! 'User' node format incorrect - wrong 'Password' node.");
+					return false;
+				}
+				else
+				{
+					memcpy(oAuthorizationUnitInt.m_chPassword, strHelper.toStdString().c_str(), strHelper.toStdString().length() + 1);
+				}
+				bPassword = true;
+			} FIND_IN_CHILDLIST_END(p_ListPasswords);
+			if(!bPassword)
+			{
+				LOG_P_0(LOG_CAT_E, "Users configuration file is corrupt! 'User' node format incorrect - missing 'Password' node.");
+				return false;
+			}
+			FIND_IN_CHILDLIST(p_NodeUser, p_ListLevels,
+							  "Level", FCN_ONE_LEVEL, p_NodeLevel)
+			{
+				strHelper = QString(p_NodeLevel->FirstChild()->Value());
+				if(strHelper.isEmpty())
+				{
+					LOG_P_0(LOG_CAT_E, "Users configuration file is corrupt! 'User' node format incorrect - wrong 'Level' node.");
+					return false;
+				}
+				else
+				{
+					oAuthorizationUnitInt.chLevel = strHelper.toInt();
+				}
+				bLevel = true;
+			} FIND_IN_CHILDLIST_END(p_ListLevels);
+			if(!bLevel)
+			{
+				LOG_P_0(LOG_CAT_E, "Users configuration file is corrupt! 'User' node format incorrect - missing 'Level' node.");
+				return false;
+			}
+			lst_AuthorizationUnits.append(oAuthorizationUnitInt);
+		} PARSE_CHILDLIST_END(p_ListUsers);
+	}
+	return true;
+}
+
 // Процедуры запуска сервера.
-void MainWindow::StartProcedures()
+void MainWindow::ServerStartProcedures()
 {
 	lst_uiConnectedClients.clear();
 	p_Server->Start();
@@ -92,11 +206,10 @@ void MainWindow::StartProcedures()
 		MSleep(USER_RESPONSE_MS);
 	}
 	LOG_P_0(LOG_CAT_E, "Can`t start server.");
-	p_ui->StartStop_action->setChecked(false);
 }
 
 // Процедуры остановки сервера.
-void MainWindow::StopProcedures()
+void MainWindow::ServerStopProcedures()
 {
 	p_Server->Stop();
 	for(unsigned char uchAtt = 0; uchAtt != 128; uchAtt++)
@@ -109,7 +222,6 @@ void MainWindow::StopProcedures()
 		MSleep(USER_RESPONSE_MS);
 	}
 	LOG_P_0(LOG_CAT_E, "Can`t stop server.");
-	p_ui->StartStop_action->setChecked(true);
 }
 
 // Кэлбэк обработки отслеживания статута клиентов.
@@ -162,22 +274,43 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 	ConnectionData oConnectionDataInt;
 	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
 	char m_chPortNameBuffer[PORTSTRLEN];
-
+	PAuthorizationData oPAuthorizationDataInt;
 	//
 	if(p_Server->SetCurrentConnection(uiClientIndex) == true)
 	{
 		iLastReceivedDataCode = p_Server->AccessCurrentData(&p_vLastReceivedDataBuffer);
 		if((iLastReceivedDataCode != DATA_ACCESS_ERROR) & (iLastReceivedDataCode != CONNECTION_SEL_ERROR) )
 		{
-			if(iLastReceivedDataCode == PROTO_O_TEXT_MSG)
+			switch (iLastReceivedDataCode)
 			{
-				oConnectionDataInt = p_Server->GetConnectionData(uiClientIndex);
-				if(oConnectionDataInt.iStatus != CONNECTION_SEL_ERROR)
+				case PROTO_O_TEXT_MSG:
 				{
-					p_Server->FillIPAndPortNames(oConnectionDataInt, m_chIPNameBuffer, m_chPortNameBuffer);
-					p_ui->Chat_textBrowser->insertPlainText(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
-								" => " + QString((char*)p_vLastReceivedDataBuffer) + "\n");
-					p_Server->ReleaseCurrentData();
+					oConnectionDataInt = p_Server->GetConnectionData(uiClientIndex);
+					if(oConnectionDataInt.iStatus != CONNECTION_SEL_ERROR)
+					{
+						p_Server->FillIPAndPortNames(oConnectionDataInt, m_chIPNameBuffer, m_chPortNameBuffer);
+						p_ui->Chat_textBrowser->insertPlainText(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
+									" => " + QString((char*)p_vLastReceivedDataBuffer) + "\n");
+						p_Server->ReleaseCurrentData();
+					}
+					break;
+				}
+				case PROTO_O_AUTHORITY_REQUEST:
+				{
+					// DEBUG.
+					oConnectionDataInt = p_Server->GetConnectionData(uiClientIndex);
+					if(oConnectionDataInt.iStatus != CONNECTION_SEL_ERROR)
+					{
+						oPAuthorizationDataInt = *((PAuthorizationData*)p_vLastReceivedDataBuffer);
+						p_Server->FillIPAndPortNames(oConnectionDataInt, m_chIPNameBuffer, m_chPortNameBuffer);
+						p_ui->Chat_textBrowser->insertPlainText(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
+									" #> Request: " + QString::number(oPAuthorizationDataInt.chRequestCode) + ", Login: " +
+									QString(oPAuthorizationDataInt.m_chLogin) + ", Password: " +
+									QString(oPAuthorizationDataInt.m_chPassword) + "\n");
+						p_Server->ReleaseCurrentData();
+					}
+					//
+					break;
 				}
 			}
 		}
@@ -230,8 +363,8 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 // При переключении кнопки 'Пуск/Стоп'.
 void MainWindow::on_StartStop_action_triggered(bool checked)
 {
-	if(checked) StartProcedures();
-	else StopProcedures();
+	if(checked) ServerStartProcedures();
+	else ServerStopProcedures();
 }
 
 // При изменении текста чата.

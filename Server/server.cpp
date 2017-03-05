@@ -26,11 +26,11 @@ pthread_t Server::p_ThreadOverrunned;
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс сервера.
 // Конструктор.
-Server::Server(const char* cp_chSettingsPath, pthread_mutex_t ptLogMutex)
+Server::Server(const char* cp_chSettingsPathIn, pthread_mutex_t ptLogMutex)
 {
 	LOG_CTRL_BIND_EXT_MUTEX(ptLogMutex);
 	LOG_CTRL_INIT;
-	p_chSettingsPath = (char*)cp_chSettingsPath;
+	p_chSettingsPath = (char*)cp_chSettingsPathIn;
 }
 
 // Деструктор.
