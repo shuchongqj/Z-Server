@@ -3,7 +3,6 @@
 
 //== МАКРОСЫ.
 #define LOG_NAME				"Z-Server"
-#define PORTSTRLEN				6
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL_INIT_INCLASS(Server)
@@ -458,10 +457,6 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 					mThreadDadas[iTPos].oConnectionData.iStatus,
 					p_CurrentData->oProtocolStorage,
 					mThreadDadas[iTPos].bFullOnServer);
-		if((mThreadDadas[iTPos].bFullOnServer == true) & (oParsingResult.bStored == true)) // DEBUG.
-		{
-			LOG_P_0(LOG_CAT_W, "Received owerflowed pocket from ID: " << iTPos);
-		}
 		switch(oParsingResult.iRes)
 		{
 			case PROTOPARSER_OK:
@@ -523,9 +518,22 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 					{
 						if(pf_CBClientDataArrived != 0)
 						{
+							mThreadDadas[iTPos].uiCurrentFreePocket++;
 							pthread_mutex_unlock(&ptConnMutex);
 							pf_CBClientDataArrived(iTPos);
 							pthread_mutex_lock(&ptConnMutex);
+							mThreadDadas[iTPos].uiCurrentFreePocket--;
+						}
+					}
+					else
+					{
+						if((oParsingResult.chTypeCode != PROTO_C_REQUEST_LEAVING) &
+						   (oParsingResult.chTypeCode != PROTO_C_SEND_PASSW) &
+						   (oParsingResult.chTypeCode != PROTO_C_BUFFER_FULL) &
+						   (oParsingResult.chTypeCode != PROTO_A_BUFFER_READY))
+						{
+							LOG_P_1(LOG_CAT_W, "Reject data from ID: " << iTPos << " (overflowed): " <<
+									oParsingResult.chTypeCode);
 						}
 					}
 				}
@@ -579,8 +587,7 @@ gI:				switch(oParsingResult.chTypeCode)
 				break;
 			}
 		}
-		if((mThreadDadas[iTPos].bFullOnServer == false) &
-		   oParsingResult.bStored)
+		if(oParsingResult.bStored)
 		{
 			mThreadDadas[iTPos].uiCurrentFreePocket++;
 		}

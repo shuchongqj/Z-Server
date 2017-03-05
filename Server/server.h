@@ -118,7 +118,7 @@ public:
 								///< \param[in] uiIndex Индекс соединения.
 								///< \return ConnectionData.iStatus == CONNECTION_SEL_ERROR если соединение не действительно.
 	/// Заполнение буферов имён IP и порта.
-	static void FillIPAndPortNames(ConnectionData& a_ConnectionData, char* p_chIP, char* p_chPort);
+	static void FillIPAndPortNames(ConnectionData& a_ConnectionData, char* p_chIP, char* p_chPort = 0);
 								///< \param[in] a_ConnectionData Ссылка на структуру описания соединения.
 								///< \param[in,out] p_chIP Указатель на буфер имени IP.
 								///< \param[in,out] p_chPort Указатель на буфер имени порта.

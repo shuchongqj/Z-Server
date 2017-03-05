@@ -18,6 +18,7 @@
 #define S_MAX_STORED_POCKETS	6
 #define C_MAX_STORED_POCKETS	4
 #define MAX_DATA				1024
+#define PORTSTRLEN				6
 #define SOCKET_ERROR_TOO_BIG	_NMG-1 // См. protocol.h для занятия нового свободного номера.
 #define RETURN_THREAD			pthread_exit(0); return 0;
 #ifndef WIN32

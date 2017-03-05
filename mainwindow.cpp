@@ -2,6 +2,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "main-hub.h"
+#include <QScrollBar>
 
 //== МАКРОСЫ.
 #define LOG_NAME				"Z-Admin"
@@ -13,6 +14,9 @@ Server* MainWindow::p_Server;
 const char* MainWindow::cp_chUISettingsName = S_UI_CONF_PATH;
 Ui::MainWindow* MainWindow::p_ui = new Ui::MainWindow;
 QList<unsigned int> MainWindow::lst_uiConnectedClients;
+int MainWindow::iConnectionIndex = CONNECTION_SEL_ERROR;
+void* MainWindow::p_vLastReceivedDataBuffer = 0;
+int MainWindow::iLastReceivedDataCode = DATA_ACCESS_ERROR;
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс главного окна.
@@ -22,6 +26,7 @@ MainWindow::MainWindow(QWidget* p_parent) :
 {
 	LOG_CTRL_INIT;
 	LOG_P_0(LOG_CAT_I, "START.");
+	qRegisterMetaType<QTextCursor>("QTextCursor"); // Для избежания ошибки при доступе к текстовому браузеру из другого потока.
 	p_UISettings = new QSettings(cp_chUISettingsName, QSettings::IniFormat);
 	p_ui->setupUi(this);
 	if(IsFileExists((char*)cp_chUISettingsName))
@@ -43,6 +48,7 @@ MainWindow::MainWindow(QWidget* p_parent) :
 	iConnectionIndex = RETVAL_ERR;
 	p_Server = new Server(S_CONF_PATH, LOG_MUTEX);
 	p_Server->SetClientStatusChangedCB(ClientStatusChangedCallback);
+	p_Server->SetClientDataArrivedCB(ClientDataArrivedCallback);
 }
 
 // Деструктор.
@@ -127,7 +133,7 @@ void MainWindow::ClientStatusChangedCallback(bool bConnected, unsigned int uiCli
 #endif
 		LOG_P_0(LOG_CAT_I, "IP: " << m_chNameBuffer << " Port: " << m_chPortBuffer);
 		strName = QString::fromStdString(m_chNameBuffer) + ":" + QString::fromStdString(m_chPortBuffer) +
-				"=" + QString::number(uiClientIndex);
+				"[" + QString::number(uiClientIndex) + "]";
 		if(bConnected)
 		{
 			p_ui->Clients_listWidget->addItem(strName);
@@ -146,6 +152,34 @@ void MainWindow::ClientStatusChangedCallback(bool bConnected, unsigned int uiCli
 	else
 	{
 		LOG_P_0(LOG_CAT_E, "Can`t get connection data from server storage.");
+	}
+}
+
+// Кэлбэк обработки приходящих пакетов данных.
+void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
+{
+	ConnectionData oConnectionDataInt;
+	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
+	char m_chPortNameBuffer[PORTSTRLEN];
+
+	//
+	if(p_Server->SetCurrentConnection(uiClientIndex) == true)
+	{
+		iLastReceivedDataCode = p_Server->AccessCurrentData(&p_vLastReceivedDataBuffer);
+		if((iLastReceivedDataCode != DATA_ACCESS_ERROR) & (iLastReceivedDataCode != CONNECTION_SEL_ERROR) )
+		{
+			if(iLastReceivedDataCode == PROTO_O_TEXT_MSG)
+			{
+				oConnectionDataInt = p_Server->GetConnectionData(uiClientIndex);
+				if(oConnectionDataInt.iStatus != CONNECTION_SEL_ERROR)
+				{
+					p_Server->FillIPAndPortNames(oConnectionDataInt, m_chIPNameBuffer, m_chPortNameBuffer);
+					p_ui->Chat_textBrowser->insertPlainText(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
+								" => " + QString((char*)p_vLastReceivedDataBuffer) + "\n");
+					p_Server->ReleaseCurrentData();
+				}
+			}
+		}
 	}
 }
 
@@ -174,7 +208,7 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 										(int)p_ui->Chat_lineEdit->text().toStdString().length() + 1);
 				}
 			}
-			p_ui->Chat_textBrowser->insertPlainText("Server: ");
+			p_ui->Chat_textBrowser->insertPlainText("Server =>");
 			p_ui->Chat_textBrowser->insertPlainText(p_ui->Chat_lineEdit->text());
 			p_ui->Chat_textBrowser->insertPlainText("\n");
 		}
@@ -191,4 +225,13 @@ void MainWindow::on_StartStop_action_triggered(bool checked)
 {
 	if(checked) StartProcedures();
 	else StopProcedures();
+}
+
+// При изменении текста чата.
+void MainWindow::on_Chat_textBrowser_textChanged()
+{
+	QScrollBar* p_ScrollBar;
+	//
+	p_ScrollBar = p_ui->Chat_textBrowser->verticalScrollBar();
+	p_ScrollBar->setValue(p_ScrollBar->maximum());
 }

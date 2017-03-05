@@ -4,12 +4,15 @@
 //== ВКЛЮЧЕНИЯ.
 #include <QMainWindow>
 #include <QSettings>
+#include <QTextCursor> // Для избежания ошибки при доступе к текстовому браузеру из другого потока.
 #include "Server/server.h"
 
 //== ПРОСТРАНСТВА ИМЁН.
 namespace Ui {
 	class MainWindow;
 }
+
+Q_DECLARE_METATYPE(QTextCursor) // Для избежания ошибки при доступе к текстовому браузеру из другого потока.
 
 //== КЛАССЫ.
 /// Класс главного окна.
@@ -18,8 +21,9 @@ class MainWindow : public QMainWindow
 	Q_OBJECT
 
 public:
-	int iConnectionIndex; ///< Индекс текущего соединения для работы или RETVAL_ERR при отсутствии выбранного.
-
+	static int iConnectionIndex; ///< Индекс текущего соединения для работы или RETVAL_ERR при отсутствии выбранного.
+	static void* p_vLastReceivedDataBuffer; ///< Указатель на текущий запрошенный принятый пакет.
+	static int iLastReceivedDataCode; ///< Код текущего запрошенного принятого пакета.
 public:
 	/// Конструктор.
 	explicit MainWindow(QWidget* p_parent = 0);
@@ -33,6 +37,9 @@ public:
 	/// Кэлбэк обработки отслеживания статута клиентов.
 	static void ClientStatusChangedCallback(bool bConnected, unsigned int uiClientIndex);
 							///< \param[in] bConnected Статус подключения.
+							///< \param[in] uiClientIndex Индекс клиента.
+	/// Кэлбэк обработки приходящих пакетов данных.
+	static void ClientDataArrivedCallback(unsigned int uiClientIndex);
 							///< \param[in] uiClientIndex Индекс клиента.
 
 private:
@@ -49,6 +56,8 @@ private slots:
 	// При переключении кнопки 'Пуск/Стоп'.
 	void on_StartStop_action_triggered(bool checked);
 							///< \param[in] checked - Позиция переключателя.
+	// При изменении текста чата.
+	void on_Chat_textBrowser_textChanged();
 
 private:
 	static Ui::MainWindow *p_ui; ///< Указатель на UI.

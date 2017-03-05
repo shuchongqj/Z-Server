@@ -28,7 +28,7 @@
 #endif
 
 //== МАКРОСЫ.
-#define LOG_LEVEL_0			// Уровень логирования.
+#define LOG_LEVEL_2			// Уровень логирования.
 #define _LOGVarname          o_LogFileStream
 #define _LOGTimeFormat       "%Y-%m-%d %X"
 #ifdef WIN32
@@ -39,10 +39,10 @@
 #define _LOGSpc              " "
 #define LOG_RETVAL			_iRetval
 #ifndef WIN32
-#define LOGDECL             static std::fstream _LOGVarname; static char _m_chLogBuf[80]; static char _m_chLogMSBuf[8];      \
+#define LOGDECL             static std::fstream _LOGVarname; static char _m_chLogBuf[80]; static char _m_chLogMSBuf[8];     \
 							static time_t _LogTimeNow; static timeval _LogTimeval; static int _iRetval;
 #else
-#define LOGDECL             static std::fstream _LOGVarname; static char _m_chLogBuf[80]; static char _m_chLogMSBuf[8];      \
+#define LOGDECL             static std::fstream _LOGVarname; static char _m_chLogBuf[80]; static char _m_chLogMSBuf[8];     \
                             static time_t _LogTimeNow; static timeval _LogTimeval; static int _iRetval;                     \
 							static int gettimeofday(timeval * tp, struct timezone * tzp){                                   \
                                 SYSTEMTIME system_time; FILETIME file_time; GetSystemTime(&system_time);                    \
@@ -61,10 +61,11 @@
 #define LOG_CLOSE            _LOGVarname.close()
 #define LOG(Category,Text)  _LogTimeNow = time(0);                                                                          \
 							gettimeofday(&_LogTimeval, NULL);                                                               \
-							strftime(_m_chLogBuf, sizeof(_m_chLogBuf), _LOGTimeFormat, localtime(&_LogTimeNow));             \
-							sprintf(_m_chLogMSBuf, _LOGMsFormat, _LogTimeval.tv_usec);                                       \
-							_LOGVarname << _m_chLogBuf << _LOGSpc << _m_chLogMSBuf << _LOGSpc << Category << Text << std::endl;\
-							_LOGVarname.flush(); std::cout << _m_chLogBuf << _LOGSpc <<                                       \
+							strftime(_m_chLogBuf, sizeof(_m_chLogBuf), _LOGTimeFormat, localtime(&_LogTimeNow));            \
+							sprintf(_m_chLogMSBuf, _LOGMsFormat, _LogTimeval.tv_usec);                                      \
+							_LOGVarname << _m_chLogBuf << _LOGSpc << _m_chLogMSBuf << _LOGSpc <<							\
+							Category << Text << std::endl;																	\
+							_LOGVarname.flush(); std::cout << _m_chLogBuf << _LOGSpc <<                                     \
 							_m_chLogMSBuf << _LOGSpc << Category << Text << std::endl
 #define LOG_P(Category,Text)	pthread_mutex_lock(&_ptLogMutex);															\
 								LOG(Category,Text);																			\
@@ -95,7 +96,7 @@
 #define LOG_CTRL_INIT		_LOG_INTERNAL_INIT(LOG_PATH)
 #define LOG_CTRL_BIND_EXT_MUTEX(Mutex)	_ptLogMutex = Mutex
 #define RETVAL_SET(value)	_iRetval = value
-#define _LOG_INTERNAL_INIT(path)			_iRetval = RETVAL_OK;																			\
+#define _LOG_INTERNAL_INIT(path)			_iRetval = RETVAL_OK;															\
 							_LOG_OPEN(path)
 #define RETVAL				_iRetval
 #endif // LOGGER_H
