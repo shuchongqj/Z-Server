@@ -360,7 +360,6 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 	}
 	mThreadDadas[iTPos].bInUse = true; // Флаг занятости структуры.
 	LOG_P_1(LOG_CAT_I, "New connection accepted.");
-	mThreadDadas[iTPos].iConnection = mThreadDadas[iTPos].oConnectionData.iSocket; // Установка ИД соединения. FIXME
 	mThreadDadas[iTPos].oConnectionData.ai_addrlen = sizeof(sockaddr);
 #ifndef WIN32
 	getpeername(mThreadDadas[iTPos].oConnectionData.iSocket, &mThreadDadas[iTPos].oConnectionData.ai_addr,
@@ -773,10 +772,10 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 						m_chNameBuffer, sizeof(m_chNameBuffer), 0, 0, NI_NUMERICHOST);
 #endif
 #ifndef WIN32
-			shutdown(mThreadDadas[iCurrPos].iConnection, SHUT_RDWR);
-			close(mThreadDadas[iCurrPos].iConnection);
+			shutdown(mThreadDadas[iCurrPos].oConnectionData.iSocket, SHUT_RDWR);
+			close(mThreadDadas[iCurrPos].oConnectionData.iSocket);
 #else
-			closesocket(mThreadDadas[iCurrPos].iConnection);
+			closesocket(mThreadDadas[iCurrPos].oConnectionData.iSocket);
 #endif
 			LOG_P_1(LOG_CAT_I, "Socket closed internally: " << m_chNameBuffer);
 		}

@@ -43,7 +43,6 @@ private:
 	struct ConversationThreadData
 	{
 		bool bInUse; ///< Флаг использования в соотв. потоке.
-		int iConnection; ///< ИД соединения.
 		pthread_t p_Thread; ///< Указатель на рабочий поток.
 		ReceivedData mReceivedPockets[S_MAX_STORED_POCKETS]; ///< Массив принятых пакетов.
 		ConnectionData oConnectionData; ///< Данные по соединению.
