@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
 							///< \param[in] argv Заглушка.
 							///< \return Общий результат работы.
 {
-	int iExecResult;
+	int iExecResult = -1;
 	QApplication oApplication(argc, argv);
 	MainWindow wMainWindow;
 	//
