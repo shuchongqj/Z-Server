@@ -120,7 +120,14 @@ bool Server::SendToUser(char chCommand, char* p_chBuffer, int iLength)
 gUE:pthread_mutex_unlock(&ptConnMutex);
 	if(bRes == false)
 	{
-		LOG_P_0(LOG_CAT_E, "Sending failed.");
+		if(iSelectedConnection == CONNECTION_SEL_ERROR)
+		{
+			LOG_P_0(LOG_CAT_E, "Sending failed - wrong connection.");
+		}
+		else
+		{
+			LOG_P_0(LOG_CAT_E, "Sending failed for: " << iSelectedConnection);
+		}
 	}
 	return bRes;
 }
