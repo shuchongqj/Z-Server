@@ -468,7 +468,7 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 						" for ID: " << iTPos);
 					mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentFreePocket].bFresh = true;
 				}
-				if((oParsingResult.bStored == false) | (oParsingResult.chTypeCode == PROTO_C_SEND_PASSW))
+				if(oParsingResult.bStored == false)
 				{
 					if(pf_CBClientRequestArrived != 0)
 					{
@@ -532,8 +532,7 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 						   (oParsingResult.chTypeCode != PROTO_C_BUFFER_FULL) &
 						   (oParsingResult.chTypeCode != PROTO_A_BUFFER_READY))
 						{
-							LOG_P_1(LOG_CAT_W, "Reject data from ID: " << iTPos << " (overflowed): " <<
-									oParsingResult.chTypeCode);
+							LOG_P_1(LOG_CAT_W, "Reject data from ID: " << iTPos << " (overflowed)");
 						}
 					}
 				}

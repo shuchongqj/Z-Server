@@ -49,6 +49,7 @@ MainWindow::MainWindow(QWidget* p_parent) :
 	p_Server = new Server(S_CONF_PATH, LOG_MUTEX);
 	p_Server->SetClientStatusChangedCB(ClientStatusChangedCallback);
 	p_Server->SetClientDataArrivedCB(ClientDataArrivedCallback);
+	p_Server->SetClientRequestArrivedCB(ClientRequestArrivedCallback);
 }
 
 // Деструктор.
@@ -181,6 +182,12 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 			}
 		}
 	}
+}
+
+// Кэлбэк обработки приходящих запросов.
+void MainWindow::ClientRequestArrivedCallback(unsigned int uiClientIndex, char chRequest)
+{
+	LOG_P_2(LOG_CAT_I, "Client: " << uiClientIndex << " request: " << chRequest);
 }
 
 // При нажатии на 'О программе'.

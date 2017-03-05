@@ -41,6 +41,8 @@ public:
 	/// Кэлбэк обработки приходящих пакетов данных.
 	static void ClientDataArrivedCallback(unsigned int uiClientIndex);
 							///< \param[in] uiClientIndex Индекс клиента.
+	// Кэлбэк обработки приходящих запросов.
+	static void ClientRequestArrivedCallback(unsigned int uiClientIndex, char chRequest);
 
 private:
 	/// Процедуры запуска сервера.
