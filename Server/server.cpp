@@ -21,7 +21,7 @@ int Server::iSelectedConnection = -1;
 CBClientRequestArrived Server::pf_CBClientRequestArrived = 0;
 CBClientDataArrived Server::pf_CBClientDataArrived = 0;
 CBClientStatusChanged Server::pf_CBClientStatusChanged = 0;
-pthread_t Server::p_ThreadOverrunned = 0;
+pthread_t Server::p_ThreadOverrunned;
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс сервера.
