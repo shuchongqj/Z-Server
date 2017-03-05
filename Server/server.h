@@ -31,7 +31,7 @@ typedef void (*CBClientStatusChanged)(bool bConnected, unsigned int uiClientInde
 //== МАКРОСЫ.
 #define USER_RESPONSE_MS		100
 #define WAITING_FOR_CLIENT_DSC	1000
-#define MAX_CONN				1
+#define MAX_CONN				2
 #define CONNECTION_SEL_ERROR	_NMG-6 // См. protocol.h для занятия нового свободного номера.
 
 //== КЛАССЫ.

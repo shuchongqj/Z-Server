@@ -366,7 +366,11 @@ void* Server::ConversationThread(void* p_vNum)
 	}
 	else
 	{
+#ifndef WIN32
 		LOG_P_1(LOG_CAT_W, "Waiting connection on reserved thread: " << pthread_self());
+#else
+        LOG_P_1(LOG_CAT_W, "Waiting connection on reserved thread: " << pthread_self().p);
+#endif
 gAG:	iTempListener = (int)accept(iListener, NULL, NULL); // Ждём перегруженных входящих.
 		FillConnectionData(iTempListener, oConnectionDataInt);
 		FillIPAndPortNames(oConnectionDataInt, m_chIPNameBuffer, m_chPortNameBuffer);
@@ -611,8 +615,12 @@ enc:if(iTPos != CONNECTION_SEL_ERROR)
 #endif
 	}
 	else
-	{
-		LOG_P_2(LOG_CAT_I, "Exiting reserved thread: " << pthread_self());
+    {
+#ifndef WIN32
+        LOG_P_1(LOG_CAT_W, "Exiting reserved thread: " << pthread_self());
+#else
+        LOG_P_1(LOG_CAT_W, "Exiting reserved thread: " << pthread_self().p);
+#endif
 	}
 	if(!bKillListenerAccept)
 	{
