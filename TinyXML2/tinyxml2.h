@@ -39,9 +39,6 @@ distribution.
 #endif
 
 /*
-   TODO: intern strings instead of allocation.
-*/
-/*
 	gcc:
         g++ -Wall -DDEBUG tinyxml2.cpp xmltest.cpp -o gccxmltest.exe
 
@@ -483,7 +480,6 @@ public:
     }
 };
 
-// WARNING: must match XMLDocument::_errorNames[]
 enum XMLError {
     XML_SUCCESS = 0,
     XML_NO_ERROR = 0,
@@ -1566,10 +1562,6 @@ public:
     /**
     	Load an XML file from disk. You are responsible
     	for providing and closing the FILE*. 
-     
-        NOTE: The file should be opened as binary ("rb")
-        not text in order for TinyXML-2 to correctly
-        do newline normalization.
 
     	Returns XML_NO_ERROR (0) on success, or
     	an errorID.

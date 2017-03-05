@@ -1278,10 +1278,6 @@ class ptw32_exception_exit   : public ptw32_exception {};
 
 #if PTW32_LEVEL >= PTW32_LEVEL_MAX
 
-/* FIXME: This is only required if the library was built using SEH */
-/*
- * Get internal SEH tag
- */
 PTW32_DLLPORT DWORD PTW32_CDECL ptw32_get_exception_services_code(void);
 
 #endif /* PTW32_LEVEL >= PTW32_LEVEL_MAX */
