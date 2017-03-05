@@ -73,6 +73,7 @@ private:
 	static CBClientRequestArrived pf_CBClientRequestArrived; ///< Указатель на кэлбэк приёма запросов.
 	static CBClientDataArrived pf_CBClientDataArrived; ///< Указатель на кэлбэк приёма пакетов.
 	static CBClientStatusChanged pf_CBClientStatusChanged; ///< Указатель на кэлбэк отслеживания статута клиентов.
+	static pthread_t p_ThreadOverrunned; ///< Указатель на рабочий поток при переполнении.
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD
 public:

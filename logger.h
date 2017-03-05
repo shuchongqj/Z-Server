@@ -28,7 +28,7 @@
 #endif
 
 //== МАКРОСЫ.
-#define LOG_LEVEL_0			// Уровень логирования.
+#define LOG_LEVEL_2			// Уровень логирования.
 #define _LOGVarname          o_LogFileStream
 #define _LOGTimeFormat       "%Y-%m-%d %X"
 #ifdef WIN32
@@ -73,11 +73,13 @@
 #define LOG_P_0(Category,Text)		LOG_P(Category,Text)
 #define LOG_P_1(Category,Text)
 #define LOG_P_2(Category,Text)
-#elif LOG_LEVEL_1
+#endif
+#ifdef LOG_LEVEL_1
 #define LOG_P_0(Category,Text)		LOG_P(Category,Text)
 #define LOG_P_1(Category,Text)		LOG_P(Category,Text)
 #define LOG_P_2(Category,Text)
-#elif LOG_LEVEL_2
+#endif
+#ifdef LOG_LEVEL_2
 #define LOG_P_0(Category,Text)		LOG_P(Category,Text)
 #define LOG_P_1(Category,Text)		LOG_P(Category,Text)
 #define LOG_P_2(Category,Text)		LOG_P(Category,Text)

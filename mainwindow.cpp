@@ -126,7 +126,8 @@ void MainWindow::ClientStatusChangedCallback(bool bConnected, unsigned int uiCli
 				m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
 #endif
 	LOG_P_0(LOG_CAT_I, "IP: " << m_chNameBuffer << " Port: " << m_chPortBuffer);
-	strName = QString(m_chNameBuffer) + ":" + QString(m_chPortBuffer) + "=" + QString::number(uiClientIndex);
+	strName = QString::fromStdString(m_chNameBuffer) + ":" + QString::fromStdString(m_chPortBuffer) +
+			"=" + QString::number(uiClientIndex);
 	if(bConnected)
 	{
 		p_ui->Clients_listWidget->addItem(strName);
@@ -165,10 +166,12 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 				if(p_Server->SetCurrentConnection(lst_uiConnectedClients.at(iNum)))
 				{
 				   p_Server->SendToUser(PROTO_O_TEXT_MSG, (char*)p_ui->Chat_lineEdit->text().toStdString().c_str(),
-										(int)p_ui->Chat_lineEdit->text().toStdString().length());
+										(int)p_ui->Chat_lineEdit->text().toStdString().length() + 1);
 				}
 			}
-			p_ui->Chat_textBrowser->insertPlainText("Сервер: " + p_ui->Chat_lineEdit->text() + "\n");
+			p_ui->Chat_textBrowser->insertPlainText("Server: ");
+			p_ui->Chat_textBrowser->insertPlainText(p_ui->Chat_lineEdit->text());
+			p_ui->Chat_textBrowser->insertPlainText("\n");
 		}
 	}
 	else

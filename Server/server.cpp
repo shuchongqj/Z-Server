@@ -21,6 +21,7 @@ int Server::iSelectedConnection = -1;
 CBClientRequestArrived Server::pf_CBClientRequestArrived = 0;
 CBClientDataArrived Server::pf_CBClientDataArrived = 0;
 CBClientStatusChanged Server::pf_CBClientStatusChanged = 0;
+pthread_t Server::p_ThreadOverrunned = 0;
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс сервера.
@@ -259,7 +260,7 @@ void Server::CleanThrDadaPos(unsigned int uiPos)
 	{
 		mThreadDadas[uiPos].mReceivedPockets[uiC].oProtocolStorage.CleanPointers();
 	}
-	memset(&mThreadDadas[uiPos], 0, sizeof(ConversationThreadData));
+	memset(&mThreadDadas[uiPos], 0, sizeof(mThreadDadas[uiPos]));
 }
 
 // Поиск свободной позиции данных потока.
@@ -299,7 +300,7 @@ void* Server::ConversationThread(void* p_vNum)
 	bServerAlive = true;
 	bLocalExitSignal = false;
 	iTempTPos = RETVAL_ERR;
-	iTPos = *((unsigned int*)p_vNum); // Получили номер в массиве.
+	iTPos = *((int*)p_vNum); // Получили номер в массиве.
 	if(iTPos == RETVAL_ERR)
 	{
 gAG:	iTempListener = (int)accept(iListener, NULL, NULL); // Ждём перегруженных входящих.
@@ -312,7 +313,7 @@ gAG:	iTempListener = (int)accept(iListener, NULL, NULL); // Ждём перег�
 		iTPos = iTempTPos;
 		mThreadDadas[iTPos].oConnectionData.iSocket = iTempListener;
 	}
-	memset(&mThreadDadas[iTPos].mReceivedPockets, 0, sizeof(mThreadDadas[iTPos].mReceivedPockets));
+	//memset(&mThreadDadas[iTPos].mReceivedPockets, 0, sizeof(mThreadDadas[iTPos].mReceivedPockets));
 	mThreadDadas[iTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
 #ifndef WIN32
 	LOG_P_2(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread);
@@ -547,10 +548,12 @@ enc:
 	if(!bKillListenerAccept)
 	{
 		if(pf_CBClientStatusChanged != 0)
+		{
 				pf_CBClientStatusChanged(false, iTPos, mThreadDadas[iTPos].oConnectionData.ai_addr,
 								mThreadDadas[iTPos].oConnectionData.ai_addrlen);
+		}
+		CleanThrDadaPos(iTPos);
 	}
-	CleanThrDadaPos(iTPos);
 	if(iSelectedConnection == (int)iTPos) iSelectedConnection = CONNECTION_SEL_ERROR;
 	if(bKillListenerAccept) bListenerAlive = false;
 	pthread_mutex_unlock(&ptConnMutex);
@@ -688,13 +691,15 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 	if(iCurrPos == RETVAL_ERR)
 	{
 		LOG_P_0(LOG_CAT_W, "Server is full.");
+		pthread_create(&p_ThreadOverrunned, NULL,
+					   ConversationThread, &iCurrPos);
 	}
 	else
 	{
 		LOG_P_1(LOG_CAT_I, "Free ID slot: " << iCurrPos);
+		pthread_create(&mThreadDadas[iCurrPos].p_Thread, NULL,
+					   ConversationThread, &iCurrPos); // Создание нового потока приёмки.
 	}
-	pthread_create(&mThreadDadas[iCurrPos].p_Thread, NULL,
-				   ConversationThread, &iCurrPos); // Создание нового потока приёмки.
 	while(!bExitSignal)
 	{
 		if(bRequestNewConn == true)
