@@ -32,6 +32,7 @@ MainWindow::MainWindow(QWidget* p_parent) :
 	bInitOk = true;
 	bAutostart = false;
 	qRegisterMetaType<QTextCursor>("QTextCursor"); // Для избежания ошибки при доступе к текстовому браузеру из другого потока.
+    qRegisterMetaType<QTextBlock>("QTextBlock"); // Для избежания ошибки при доступе к текстовому браузеру из другого потока.
 	p_UISettings = new QSettings(cp_chUISettingsName, QSettings::IniFormat);
 	p_ui->setupUi(this);
 	if(IsFileExists((char*)cp_chUISettingsName))
