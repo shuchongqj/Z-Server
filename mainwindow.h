@@ -59,6 +59,9 @@ private:
 	/// Загрузка конфигурации пользователей.
 	bool LoadUsersConfig();
 							///< \return true, при удаче.
+	/// Сохранение конфигурации пользователей.
+	bool SaveUsersConfig();
+							///< \return true, при удаче.
 	/// Процедуры запуска сервера.
 	void ServerStartProcedures();
 	/// Процедуры остановки сервера.
@@ -81,7 +84,6 @@ private:
 	QSettings* p_UISettings; ///< Указатель на строку установок UI.
 	static Server* p_Server; ///< Ссылка на объект сервера.
 	static QList<unsigned int> lst_uiConnectedClients; ///< Список присоединённых клиентов.
-	static tinyxml2::XMLDocument xmlDocUsers; ///< Документ авторизации.
 	static list<XMLNode*> o_lUsers; ///< Главный список разъёмов документа авторизации.
 	static QList<AuthorizationUnit> lst_AuthorizationUnits; ///< Список авторизованных пользователей.
 	bool bAutostart; ///< Флаг автозапуска.

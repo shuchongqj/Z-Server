@@ -17,7 +17,6 @@ QList<unsigned int> MainWindow::lst_uiConnectedClients;
 int MainWindow::iConnectionIndex = CONNECTION_SEL_ERROR;
 void* MainWindow::p_vLastReceivedDataBuffer = 0;
 int MainWindow::iLastReceivedDataCode = DATA_ACCESS_ERROR;
-tinyxml2::XMLDocument MainWindow::xmlDocUsers;
 QList<MainWindow::AuthorizationUnit> MainWindow::lst_AuthorizationUnits;
 list<XMLNode*> MainWindow::o_lUsers;
 
@@ -58,7 +57,11 @@ MainWindow::MainWindow(QWidget* p_parent) :
 	p_Server->SetClientDataArrivedCB(ClientDataArrivedCallback);
 	p_Server->SetClientRequestArrivedCB(ClientRequestArrivedCallback);
 	bInitOk = LoadUsersConfig();
-	if(!bInitOk) return;
+	if(!bInitOk)
+	{
+		LOG_P_0(LOG_CAT_E, "Cat`t load users data.");
+		return;
+	}
 	for(int iP = 0; iP < lst_AuthorizationUnits.length(); iP++)
 	{
 		p_ui->Users_listWidget->addItem(QString(lst_AuthorizationUnits.at(iP).m_chLogin) + "[offline]");
@@ -76,6 +79,11 @@ MainWindow::~MainWindow()
 {
 	if(p_Server->CheckReady()) ServerStopProcedures();
 	delete p_Server;
+	if(!SaveUsersConfig())
+	{
+		LOG_P_0(LOG_CAT_E, "Cat`t unload users data.");
+		RETVAL_SET(RETVAL_ERR);
+	}
 	if(RETVAL == RETVAL_OK)
 	{
 		LOG_P_0(LOG_CAT_I, "EXIT.");
@@ -101,6 +109,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 bool MainWindow::LoadUsersConfig()
 {
 	XMLError eResult;
+	tinyxml2::XMLDocument xmlDocUsers;
 	//
 	eResult = xmlDocUsers.LoadFile(S_USERS_CONF_PATH);
 	if (eResult != XML_SUCCESS)
@@ -189,6 +198,35 @@ bool MainWindow::LoadUsersConfig()
 		} PARSE_CHILDLIST_END(p_ListUsers);
 	}
 	return true;
+}
+
+// Сохранение конфигурации пользователей.
+bool MainWindow::SaveUsersConfig()
+{
+	XMLError eResult;
+	tinyxml2::XMLDocument xmlDocUsers;
+	XMLNode* p_NodeRoot;
+	XMLNode* p_NodeUsers;
+	XMLNode* p_NodeUser;
+	XMLNode* p_NodeInfoH;
+	//
+	xmlDocUsers.InsertEndChild(xmlDocUsers.NewDeclaration());
+	p_NodeRoot = xmlDocUsers.InsertEndChild(xmlDocUsers.NewElement("Root"));
+	p_NodeUsers = p_NodeRoot->InsertEndChild(xmlDocUsers.NewElement("Users"));
+	for(int iC=0; iC < lst_AuthorizationUnits.length(); iC++)
+	{
+		p_NodeUser = p_NodeUsers->InsertEndChild(xmlDocUsers.NewElement("User"));
+		p_NodeInfoH = p_NodeUser->InsertEndChild(xmlDocUsers.NewElement("Login"));
+		p_NodeInfoH->ToElement()->SetText(lst_AuthorizationUnits.at(iC).m_chLogin);
+		p_NodeInfoH = p_NodeUser->InsertEndChild(xmlDocUsers.NewElement("Password"));
+		p_NodeInfoH->ToElement()->SetText(lst_AuthorizationUnits.at(iC).m_chPassword);
+		p_NodeInfoH = p_NodeUser->InsertEndChild(xmlDocUsers.NewElement("Level"));
+		p_NodeInfoH->ToElement()->SetText(QString::number(lst_AuthorizationUnits.at(iC).chLevel).toStdString().c_str());
+	}
+	eResult = xmlDocUsers.SaveFile(S_USERS_CONF_PATH);
+	if (eResult != XML_SUCCESS)
+		return false;
+	else return true;
 }
 
 // Процедуры запуска сервера.
@@ -348,7 +386,7 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 										(int)p_ui->Chat_lineEdit->text().toStdString().length() + 1);
 				}
 			}
-			p_ui->Chat_textBrowser->insertPlainText("Server =>");
+			p_ui->Chat_textBrowser->insertPlainText("Server => ");
 			p_ui->Chat_textBrowser->insertPlainText(p_ui->Chat_lineEdit->text());
 			p_ui->Chat_textBrowser->insertPlainText("\n");
 		}

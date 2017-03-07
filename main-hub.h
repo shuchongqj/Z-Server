@@ -5,9 +5,9 @@
 #include <QFileInfo>
 
 //== МАКРОСЫ.
-#define S_CONF_PATH				"./settings/server.ini"
+#define S_CONF_PATH				"./settings/server.xml"
 #define S_UI_CONF_PATH			"./settings/ui.ini"
-#define S_USERS_CONF_PATH		"./settings/users.ini"
+#define S_USERS_CONF_PATH		"./settings/users.xml"
 
 //== ФУНКЦИИ.
 /// Проверка на наличие файла.
