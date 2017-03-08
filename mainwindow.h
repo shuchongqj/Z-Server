@@ -35,7 +35,7 @@ private:
 	{
 		char chLevel;
 		char m_chLogin[MAX_AUTH_LOGIN];
-		char m_chPassword[MAX_AUTH_LOGIN];
+		char m_chPassword[MAX_AUTH_PASSWORD];
 		int iConnectionIndex;
 	};
 

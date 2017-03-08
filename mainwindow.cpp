@@ -278,11 +278,9 @@ void MainWindow::ClientLoginProcedures(QList<AuthorizationUnit>& a_lst_Authoriza
 	CHAR_PTH;
 	QList<QListWidgetItem*> lstUsers;
 	//
-	memcpy(oAuthorizationUnitInt.m_chLogin, a_lst_AuthorizationUnits.at(iPosition).m_chLogin,
-		   sizeof(AuthorizationUnit::m_chLogin));
+	memcpy(oAuthorizationUnitInt.m_chLogin, a_lst_AuthorizationUnits.at(iPosition).m_chLogin, MAX_AUTH_LOGIN);
 	memcpy(oAuthorizationUnitInt.m_chPassword,
-		   a_lst_AuthorizationUnits.at(iPosition).m_chPassword,
-		   sizeof(AuthorizationUnit::m_chPassword));
+		   a_lst_AuthorizationUnits.at(iPosition).m_chPassword, MAX_AUTH_PASSWORD);
 	oAuthorizationUnitInt.chLevel = a_lst_AuthorizationUnits.at(iPosition).chLevel;
 	oAuthorizationUnitInt.iConnectionIndex = iIndex;
 	a_lst_AuthorizationUnits.removeAt(iPosition);
@@ -314,11 +312,9 @@ void MainWindow::ClientLogoutProcedures(QList<AuthorizationUnit>& a_lst_Authoriz
 	QList<QListWidgetItem*> lstUsers;
 	//
 	memcpy(oAuthorizationUnitInt.m_chLogin,
-		   a_lst_AuthorizationUnits.at(iPosition).m_chLogin,
-		   sizeof(AuthorizationUnit::m_chLogin));
+		   a_lst_AuthorizationUnits.at(iPosition).m_chLogin, MAX_AUTH_LOGIN);
 	memcpy(oAuthorizationUnitInt.m_chPassword,
-		   a_lst_AuthorizationUnits.at(iPosition).m_chPassword,
-		   sizeof(AuthorizationUnit::m_chPassword));
+		   a_lst_AuthorizationUnits.at(iPosition).m_chPassword, MAX_AUTH_PASSWORD);
 	oAuthorizationUnitInt.chLevel = a_lst_AuthorizationUnits.at(iPosition).chLevel;
 	oAuthorizationUnitInt.iConnectionIndex = CONNECTION_SEL_ERROR;
 	a_lst_AuthorizationUnits.removeAt(iPosition);
@@ -466,10 +462,8 @@ gTEx:					p_Server->ReleaseCurrentData();
 									}
 								}
 								oAuthorizationUnitInt.chLevel = 2;
-								memcpy(oAuthorizationUnitInt.m_chLogin, oPAuthorizationDataInt.m_chLogin,
-									   sizeof(AuthorizationUnit::m_chLogin));
-								memcpy(oAuthorizationUnitInt.m_chPassword, oPAuthorizationDataInt.m_chPassword,
-									   sizeof(AuthorizationUnit::m_chPassword));
+								memcpy(oAuthorizationUnitInt.m_chLogin, oPAuthorizationDataInt.m_chLogin, MAX_AUTH_LOGIN);
+								memcpy(oAuthorizationUnitInt.m_chPassword, oPAuthorizationDataInt.m_chPassword, MAX_AUTH_PASSWORD);
 								oAuthorizationUnitInt.iConnectionIndex = CONNECTION_SEL_ERROR;
 								lst_AuthorizationUnits.append(oAuthorizationUnitInt);
 								p_ui->Users_listWidget->addItem(QString(oAuthorizationUnitInt.m_chLogin) + OFFLINE_TAG);
