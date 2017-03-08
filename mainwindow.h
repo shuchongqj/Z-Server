@@ -4,17 +4,24 @@
 //== ВКЛЮЧЕНИЯ.
 #include <QMainWindow>
 #include <QSettings>
-#include <QTextCursor> // Для избежания ошибки при доступе к текстовому браузеру из другого потока.
-#include <QTextBlock> // Для избежания ошибки при доступе к текстовому браузеру из другого потока.
+// Для избежания ошибки при доступе к текстовому браузеру из другого потока.
+#include <QTextCursor>
+#include <QTextBlock>
+#include <QVector>
+//
 #include "Server/server.h"
+#include "main-hub.h"
 
 //== ПРОСТРАНСТВА ИМЁН.
 namespace Ui {
 	class MainWindow;
 }
 
-Q_DECLARE_METATYPE(QTextCursor) // Для избежания ошибки при доступе к текстовому браузеру из другого потока.
-Q_DECLARE_METATYPE(QTextBlock) // Для избежания ошибки при доступе к текстовому браузеру из другого потока.
+// Для избежания ошибки при доступе к текстовому браузеру из другого потока.
+Q_DECLARE_METATYPE(QTextCursor)
+Q_DECLARE_METATYPE(QTextBlock)
+Q_DECLARE_METATYPE(QVector<int>)
+//
 
 //== КЛАССЫ.
 /// Класс главного окна.
@@ -29,11 +36,11 @@ private:
 		char chLevel;
 		char m_chLogin[MAX_AUTH_LOGIN];
 		char m_chPassword[MAX_AUTH_LOGIN];
+		int iConnectionIndex;
 	};
 
 public:
 	bool bInitOk; ///< Признак успешной инициализации.
-	static int iConnectionIndex; ///< Индекс текущего соединения для работы или RETVAL_ERR при отсутствии выбранного.
 	static void* p_vLastReceivedDataBuffer; ///< Указатель на текущий запрошенный принятый пакет.
 	static int iLastReceivedDataCode; ///< Код текущего запрошенного принятого пакета.
 
@@ -59,10 +66,10 @@ public:
 
 private:
 	/// Загрузка конфигурации пользователей.
-	bool LoadUsersConfig();
+	static bool LoadUsersConfig();
 							///< \return true, при удаче.
 	/// Сохранение конфигурации пользователей.
-	bool SaveUsersConfig();
+	static bool SaveUsersConfig();
 							///< \return true, при удаче.
 	/// Процедуры запуска сервера.
 	void ServerStartProcedures();

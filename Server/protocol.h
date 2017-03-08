@@ -7,27 +7,32 @@
 //== МАКРОСЫ.
 #define _NMG					-32768		// !!! Текущий свободный номер _NMG-7 !!!
 // ============================ КОДЫ ПАКЕТОВ ==================================
-#define PROTO_O_TEXT_MSG			'T'
-#define PROTO_O_AUTHORITY_REQUEST	'a'
-#define PROTO_O_AUTHORITY_ANSWER	'A'
+#define PROTO_O_TEXT_MSG				'T'
+#define PROTO_O_AUTHORIZATION_REQUEST	'a'
+#define PROTO_O_AUTHORIZATION_ANSWER	'A'
 //========================== ИСПОЛЬЗУЕМЫЕ МАКРОСЫ =============================
 // Авторизация.
-#define MAX_AUTH_LOGIN					16
-#define MAX_AUTH_PASSWORD				24
-#define MAX_AUTH_REQUEST_REG			0
-#define MAX_AUTH_REQUEST_LOGIN			1
-#define MAX_AUTH_REQUEST_LOGOUT			2
-#define MAX_AUTH_REQUEST_PURGE			3
-#define MAX_AUTH_ANSWER_OK				0
-#define MAX_AUTH_ANSWER_USER_PRESENT	1
-#define MAX_AUTH_ANSWER_LOGIN_FAULT		2
+#define MAX_AUTH_LOGIN				16
+#define MAX_AUTH_PASSWORD			24
+#define AUTH_REQUEST_REG			0
+#define AUTH_REQUEST_LOGIN			1
+#define AUTH_REQUEST_LOGOUT			2
+#define AUTH_REQUEST_PURGE			3
+#define AUTH_ANSWER_OK				0
+#define AUTH_ANSWER_USER_PRESENT	1
+#define AUTH_ANSWER_LOGIN_FAULT		2
+#define AUTH_ANSWER_LOGOFF_FAULT	3
+#define AUTH_ANSWER_NOT_LOGGED		4
+#define AUTH_ANSWER_WRONG_REQUEST	5
+#define AUTH_ANSWER_ALREADY_LOGGED	6
+#define AUTH_ANSWER_ACCOUNT_IN_USE	7
 //========================== ИСПОЛЬЗУЕМЫЕ СТРУКТУРЫ ===========================
 /// Структура запросов авторизации.
 struct PAuthorizationData
 {
 	char chRequestCode;
 	char m_chLogin[MAX_AUTH_LOGIN];
-	char m_chPassword[MAX_AUTH_LOGIN];
+	char m_chPassword[MAX_AUTH_PASSWORD];
 };
 // ====================== ОБЪЯВЛЕНИЯ СТРУКТУР ПАКЕТОВ =========================
 ProtocolStorageClassInit
@@ -48,13 +53,13 @@ ProtocolStorageClassInit
 	(
 		AuthorizationRequest,
 		PAuthorizationData oPAuthorizationData,
-		TypeCode(PROTO_O_AUTHORITY_REQUEST);
+		TypeCode(PROTO_O_AUTHORIZATION_REQUEST);
 	);
 	ProtocolStorageDef
 	(
 		AuthorizationAnswer,
 		char chAnswer,
-		TypeCode(PROTO_O_AUTHORITY_ANSWER);
+		TypeCode(PROTO_O_AUTHORIZATION_ANSWER);
 	);
 ,
 // ====================== ЭЛЕМЕНТЫ КОНСТРУКТОРА ПАКЕТОВ =======================
@@ -73,7 +78,7 @@ ProtocolStorageClassInit
 	// ! Не забываем вносить пары в proto-parser.cpp в раздел // ОБРАБОТКА ПАКЕТОВ. !
 	ProtocolStorageAccessElement(PROTO_C_SEND_PASSW, Password);
 	ProtocolStorageAccessElement(PROTO_O_TEXT_MSG, TextMsg);
-	ProtocolStorageAccessElement(PROTO_O_AUTHORITY_REQUEST, AuthorizationRequest);
-	ProtocolStorageAccessElement(PROTO_O_AUTHORITY_ANSWER, AuthorizationAnswer);
+	ProtocolStorageAccessElement(PROTO_O_AUTHORIZATION_REQUEST, AuthorizationRequest);
+	ProtocolStorageAccessElement(PROTO_O_AUTHORIZATION_ANSWER, AuthorizationAnswer);
 )
 #endif // PROTOCOL_H
