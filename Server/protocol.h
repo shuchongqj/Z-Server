@@ -27,6 +27,12 @@
 #define AUTH_ANSWER_ALREADY_LOGGED	6
 #define AUTH_ANSWER_ACCOUNT_IN_USE	7
 //========================== ИСПОЛЬЗУЕМЫЕ СТРУКТУРЫ ===========================
+/// Структура текстового сообщения.
+struct PTextMessage
+{
+	char m_chLogin[MAX_AUTH_LOGIN];
+	char m_chMsg[MAX_MSG];
+};
 /// Структура запросов авторизации.
 struct PAuthorizationData
 {
@@ -46,7 +52,7 @@ ProtocolStorageClassInit
 	ProtocolStorageDef
 	(
 		TextMsg,
-		char m_chMsg[MAX_MSG],
+		PTextMessage oTextMessage,
 		TypeCode(PROTO_O_TEXT_MSG);
 	);
 	ProtocolStorageDef

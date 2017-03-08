@@ -75,7 +75,16 @@ private:
 	void ServerStartProcedures();
 	/// Процедуры остановки сервера.
 	void ServerStopProcedures();
-
+	/// Процедуры при логине клиента.
+	static void ClientLoginProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition, unsigned int iIndex);
+							///< \param[in] a_lst_AuthorizationUnits Ссыка на список авторизации.
+							///< \param[in] iPosition Позиция в списке
+							///< \param[in] iIndex Индекс соединения.
+	/// Процедуры при логауте клиента.
+	static void ClientLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition, bool bSend = true);
+							///< \param[in] a_lst_AuthorizationUnits Ссыка на список авторизации.
+							///< \param[in] iPosition Позиция в списке.
+							///< \param[in] bSend Отсылать ли клиенту ответ.
 private slots:
 	/// При нажатии на 'О программе'.
 	void on_About_action_triggered();

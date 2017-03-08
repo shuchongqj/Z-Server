@@ -418,7 +418,7 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 	LOG_P_1(LOG_CAT_I, "New connection accepted.");
 	FillConnectionData(mThreadDadas[iTPos].oConnectionData.iSocket, mThreadDadas[iTPos].oConnectionData);
 	FillIPAndPortNames(mThreadDadas[iTPos].oConnectionData, m_chIPNameBuffer, m_chPortNameBuffer);
-	LOG_P_1(LOG_CAT_I, "Connected with: " << m_chIPNameBuffer << " ID: " << iTPos);
+	LOG_P_1(LOG_CAT_I, "Connected with: " << m_chIPNameBuffer << ":" << m_chPortNameBuffer << " ID: " << iTPos);
 	if(mThreadDadas[iTPos].oConnectionData.iStatus == -1) // Если не вышло отправить...
 	{
 		pthread_mutex_lock(&ptConnMutex);
@@ -617,7 +617,7 @@ ec: if(bLocalExitSignal == false) // Если не было локального
 #else
 		closesocket(mThreadDadas[iTPos].oConnectionData.iSocket);
 #endif
-		LOG_P_2(LOG_CAT_I, "Closed ordinary: " << m_chIPNameBuffer << " ID: " << iTPos);
+		LOG_P_2(LOG_CAT_I, "Closed ordinary: " << m_chIPNameBuffer << ":" << m_chPortNameBuffer << " ID: " << iTPos);
 	}
 enc:if(iTPos != CONNECTION_SEL_ERROR)
 	{
@@ -672,6 +672,7 @@ void* Server::ServerThread(void *p_vPlug)
 	addrinfo* p_Res;
 	int iCurrPos = 0;
 	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
+	char m_chPortNameBuffer[PORTSTRLEN];
 #ifdef WIN32
 	WSADATA wsadata = WSADATA();
 #endif
@@ -834,22 +835,14 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 	{
 		if(mThreadDadas[iCurrPos].bInUse == true)
 		{
-#ifndef WIN32
-			getnameinfo(&mThreadDadas[iCurrPos].oConnectionData.ai_addr,
-						mThreadDadas[iCurrPos].oConnectionData.ai_addrlen,
-						m_chIPNameBuffer, sizeof(m_chIPNameBuffer), 0, 0, NI_NUMERICHOST);
-#else
-			getnameinfo(&mThreadDadas[iCurrPos].oConnectionData.ai_addr,
-						(socklen_t)mThreadDadas[iCurrPos].oConnectionData.ai_addrlen,
-						m_chIPNameBuffer, sizeof(m_chIPNameBuffer), 0, 0, NI_NUMERICHOST);
-#endif
+			FillIPAndPortNames(mThreadDadas[iCurrPos].oConnectionData, m_chIPNameBuffer, m_chPortNameBuffer);
 #ifndef WIN32
 			shutdown(mThreadDadas[iCurrPos].oConnectionData.iSocket, SHUT_RDWR);
 			close(mThreadDadas[iCurrPos].oConnectionData.iSocket);
 #else
 			closesocket(mThreadDadas[iCurrPos].oConnectionData.iSocket);
 #endif
-			LOG_P_1(LOG_CAT_I, "Socket closed internally: " << m_chIPNameBuffer);
+			LOG_P_1(LOG_CAT_I, "Socket closed internally: " << m_chIPNameBuffer << m_chPortNameBuffer);
 		}
 	}
 	pthread_mutex_unlock(&ptConnMutex);

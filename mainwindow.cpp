@@ -7,6 +7,7 @@
 #define LOG_NAME				"Z-Admin"
 #define ONLINE_TAG				"[V]"
 #define OFFLINE_TAG				"[x]"
+#define SERVER_NAME				"SERVER"
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL_INIT_INCLASS(MainWindow)
@@ -270,28 +271,96 @@ void MainWindow::ServerStopProcedures()
 	RETVAL_SET(RETVAL_ERR);
 }
 
+// Процедуры при логине клиента.
+void MainWindow::ClientLoginProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition, unsigned int iIndex)
+{
+	AuthorizationUnit oAuthorizationUnitInt;
+	CHAR_PTH;
+	QList<QListWidgetItem*> lstUsers;
+	//
+	memcpy(oAuthorizationUnitInt.m_chLogin, a_lst_AuthorizationUnits.at(iPosition).m_chLogin,
+		   sizeof(AuthorizationUnit::m_chLogin));
+	memcpy(oAuthorizationUnitInt.m_chPassword,
+		   a_lst_AuthorizationUnits.at(iPosition).m_chPassword,
+		   sizeof(AuthorizationUnit::m_chPassword));
+	oAuthorizationUnitInt.chLevel = a_lst_AuthorizationUnits.at(iPosition).chLevel;
+	oAuthorizationUnitInt.iConnectionIndex = iIndex;
+	a_lst_AuthorizationUnits.removeAt(iPosition);
+	a_lst_AuthorizationUnits.append(oAuthorizationUnitInt);
+	p_Server->SendToUser(
+				PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
+	LOG_P_0(LOG_CAT_I, "User is logged in: " <<
+			QString(oAuthorizationUnitInt.m_chLogin).toStdString());
+	lstUsers = p_ui->
+			Users_listWidget->findItems(QString(oAuthorizationUnitInt.m_chLogin) +
+									  OFFLINE_TAG, Qt::MatchExactly);
+	if(lstUsers.empty() & (lstUsers.length() > 1))
+	{
+		LOG_P_0(LOG_CAT_E, "Users list sinchronization fault.");
+		RETVAL_SET(RETVAL_ERR);
+	}
+	else
+	{
+		lstUsers.first()->
+				setText(QString(oAuthorizationUnitInt.m_chLogin) + ONLINE_TAG);
+	}
+}
+
+// Процедуры при логауте клиента.
+void MainWindow::ClientLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition, bool bSend)
+{
+	AuthorizationUnit oAuthorizationUnitInt;
+	CHAR_PTH;
+	QList<QListWidgetItem*> lstUsers;
+	//
+	memcpy(oAuthorizationUnitInt.m_chLogin,
+		   a_lst_AuthorizationUnits.at(iPosition).m_chLogin,
+		   sizeof(AuthorizationUnit::m_chLogin));
+	memcpy(oAuthorizationUnitInt.m_chPassword,
+		   a_lst_AuthorizationUnits.at(iPosition).m_chPassword,
+		   sizeof(AuthorizationUnit::m_chPassword));
+	oAuthorizationUnitInt.chLevel = a_lst_AuthorizationUnits.at(iPosition).chLevel;
+	oAuthorizationUnitInt.iConnectionIndex = CONNECTION_SEL_ERROR;
+	a_lst_AuthorizationUnits.removeAt(iPosition);
+	a_lst_AuthorizationUnits.append(oAuthorizationUnitInt);
+	if(bSend)
+	{
+		p_Server->SendToUser( PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
+	}
+	LOG_P_0(LOG_CAT_I, "User is logged out: " <<
+			QString(oAuthorizationUnitInt.m_chLogin).toStdString());
+	lstUsers = p_ui->Users_listWidget->
+			findItems(QString(oAuthorizationUnitInt.m_chLogin) +
+					  ONLINE_TAG, Qt::MatchExactly);
+	if(lstUsers.empty() & (lstUsers.length() > 1))
+	{
+		LOG_P_0(LOG_CAT_E, "Users list sinchronization fault.");
+		RETVAL_SET(RETVAL_ERR);
+	}
+	else
+	{
+		lstUsers.first()->
+				setText(QString(oAuthorizationUnitInt.m_chLogin) + OFFLINE_TAG);
+	}
+}
+
 // Кэлбэк обработки отслеживания статута клиентов.
 void MainWindow::ClientStatusChangedCallback(bool bConnected, unsigned int uiClientIndex)
 {
-	char m_chNameBuffer[INET6_ADDRSTRLEN];
-	char m_chPortBuffer[6];
+	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
+	char m_chPortNameBuffer[6];
 	QString strName;
 	QList<QListWidgetItem*> lst_MatchItems;
-	ConnectionData oConnectionData;
+	ConnectionData oConnectionDataInt;
 	//
 	LOG_P_0(LOG_CAT_I, "ID: " << uiClientIndex << " have status: " << bConnected);
-	oConnectionData = p_Server->GetConnectionData(uiClientIndex);
-	if(oConnectionData.iStatus != CONNECTION_SEL_ERROR)
+	oConnectionDataInt = p_Server->GetConnectionData(uiClientIndex);
+	if(oConnectionDataInt.iStatus != CONNECTION_SEL_ERROR)
 	{
-#ifndef WIN32
-		getnameinfo(&oConnectionData.ai_addr, oConnectionData.ai_addrlen, m_chNameBuffer, sizeof(m_chNameBuffer),
-					m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
-#else
-		getnameinfo(&oConnectionData.ai_addr, (socklen_t)oConnectionData.ai_addrlen,
-					m_chNameBuffer, sizeof(m_chNameBuffer), m_chPortBuffer, sizeof(m_chPortBuffer), NI_NUMERICHOST);
-#endif
-		LOG_P_0(LOG_CAT_I, "IP: " << m_chNameBuffer << " Port: " << m_chPortBuffer);
-		strName = QString::fromStdString(m_chNameBuffer) + ":" + QString::fromStdString(m_chPortBuffer) +
+		p_Server->FillIPAndPortNames(oConnectionDataInt,
+									 m_chIPNameBuffer, m_chPortNameBuffer);
+		LOG_P_0(LOG_CAT_I, "IP: " << m_chIPNameBuffer << " Port: " << m_chPortNameBuffer);
+		strName = QString::fromStdString(m_chIPNameBuffer) + ":" + QString::fromStdString(m_chPortNameBuffer) +
 				"[" + QString::number(uiClientIndex) + "]";
 		if(bConnected)
 		{
@@ -300,6 +369,13 @@ void MainWindow::ClientStatusChangedCallback(bool bConnected, unsigned int uiCli
 		}
 		else
 		{
+			for(int iC=0; iC < lst_AuthorizationUnits.length(); iC++)
+			{
+				if(lst_AuthorizationUnits.at(iC).iConnectionIndex == (int)uiClientIndex)
+				{
+					ClientLogoutProcedures(lst_AuthorizationUnits, iC, false);
+				}
+			}
 			lst_MatchItems = p_ui->Clients_listWidget->findItems(strName, Qt::MatchExactly);
 			for(int iNum = 0; iNum != lst_MatchItems.count(); iNum++)
 			{
@@ -323,6 +399,7 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 	char m_chPortNameBuffer[PORTSTRLEN];
 	PAuthorizationData oPAuthorizationDataInt;
 	AuthorizationUnit oAuthorizationUnitInt;
+
 	CHAR_PTH;
 	//
 	if(p_Server->SetCurrentConnection(uiClientIndex) == true)
@@ -337,11 +414,33 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 				{
 					case PROTO_O_TEXT_MSG:
 					{
-
+						PTextMessage oPTextMessage;
+						//
+						memcpy(oPTextMessage.m_chLogin, ((PTextMessage*)p_vLastReceivedDataBuffer)->m_chLogin, MAX_AUTH_LOGIN);
+						memcpy(oPTextMessage.m_chMsg, ((PTextMessage*)p_vLastReceivedDataBuffer)->m_chMsg, MAX_MSG);
+						for(int iC=0; iC < lst_AuthorizationUnits.length(); iC++)
+						{
+							if(lst_AuthorizationUnits.at(iC).iConnectionIndex == (int)uiClientIndex)
+							{
+								p_ui->Chat_textBrowser->insertPlainText(QString(oPTextMessage.m_chLogin) + " => " +
+														QString(oPTextMessage.m_chMsg) + "\n");
+								for(int iT=0; iT < lst_AuthorizationUnits.length(); iT++)
+								{
+									if((lst_AuthorizationUnits.at(iT).iConnectionIndex != (int)uiClientIndex) &
+									(lst_AuthorizationUnits.at(iT).iConnectionIndex != CONNECTION_SEL_ERROR))
+									{
+										p_Server->SetCurrentConnection(lst_AuthorizationUnits.at(iT).iConnectionIndex);
+										p_Server->SendToUser(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
+									}
+								}
+								p_Server->SetCurrentConnection(uiClientIndex);
+								goto gTEx;
+							}
+						}
 						p_Server->FillIPAndPortNames(oConnectionDataInt, m_chIPNameBuffer, m_chPortNameBuffer);
 						p_ui->Chat_textBrowser->insertPlainText(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
-																" => " + QString((char*)p_vLastReceivedDataBuffer) + "\n");
-						p_Server->ReleaseCurrentData();
+																" => " + QString(oPTextMessage.m_chMsg) + "\n");
+gTEx:					p_Server->ReleaseCurrentData();
 						break;
 					}
 					case PROTO_O_AUTHORIZATION_REQUEST:
@@ -396,32 +495,7 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 										{
 											if(lst_AuthorizationUnits.at(iC).iConnectionIndex == CONNECTION_SEL_ERROR)
 											{
-												memcpy(oAuthorizationUnitInt.m_chLogin, lst_AuthorizationUnits.at(iC).m_chLogin,
-													   sizeof(AuthorizationUnit::m_chLogin));
-												memcpy(oAuthorizationUnitInt.m_chPassword,
-													   lst_AuthorizationUnits.at(iC).m_chPassword,
-													   sizeof(AuthorizationUnit::m_chPassword));
-												oAuthorizationUnitInt.chLevel = lst_AuthorizationUnits.at(iC).chLevel;
-												oAuthorizationUnitInt.iConnectionIndex = uiClientIndex;
-												lst_AuthorizationUnits.removeAt(iC);
-												lst_AuthorizationUnits.append(oAuthorizationUnitInt);
-												p_Server->SendToUser(
-															PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
-												LOG_P_0(LOG_CAT_I, "User is logged in: " <<
-														QString(oPAuthorizationDataInt.m_chLogin).toStdString());
-												lstUsers = p_ui->
-														Users_listWidget->findItems(QString(oPAuthorizationDataInt.m_chLogin) +
-																				  OFFLINE_TAG, Qt::MatchExactly);
-												if(lstUsers.empty() & (lstUsers.length() > 1))
-												{
-													LOG_P_0(LOG_CAT_E, "Users list sinchronization fault.");
-													RETVAL_SET(RETVAL_ERR);
-												}
-												else
-												{
-													lstUsers.first()->
-															setText(QString(oPAuthorizationDataInt.m_chLogin) + ONLINE_TAG);
-												}
+												ClientLoginProcedures(lst_AuthorizationUnits, iC, uiClientIndex);
 												goto gLEx;
 											}
 											else
@@ -464,39 +538,13 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 																DEF_CHAR_PTH(AUTH_ANSWER_ACCOUNT_IN_USE), 1);
 													p_Server->FillIPAndPortNames(oConnectionDataInt,
 																				 m_chIPNameBuffer, m_chPortNameBuffer);
-													LOG_P_0(LOG_CAT_W, "Trying to access from another account: " <<
+													LOG_P_0(LOG_CAT_W, "Trying to access from the outside of account: " <<
 															QString(oPAuthorizationDataInt.m_chLogin).toStdString()
 															<< " " << QString(m_chIPNameBuffer).toStdString() + ":" +
 															QString(m_chPortNameBuffer).toStdString());
 													goto gLEx;
 												}
-												memcpy(oAuthorizationUnitInt.m_chLogin,
-													   lst_AuthorizationUnits.at(iC).m_chLogin,
-													   sizeof(AuthorizationUnit::m_chLogin));
-												memcpy(oAuthorizationUnitInt.m_chPassword,
-													   lst_AuthorizationUnits.at(iC).m_chPassword,
-													   sizeof(AuthorizationUnit::m_chPassword));
-												oAuthorizationUnitInt.chLevel = lst_AuthorizationUnits.at(iC).chLevel;
-												oAuthorizationUnitInt.iConnectionIndex = CONNECTION_SEL_ERROR;
-												lst_AuthorizationUnits.removeAt(iC);
-												lst_AuthorizationUnits.append(oAuthorizationUnitInt);
-												p_Server->SendToUser(
-															PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
-												LOG_P_0(LOG_CAT_I, "User is logged out: " <<
-														QString(oPAuthorizationDataInt.m_chLogin).toStdString());
-												lstUsers = p_ui->Users_listWidget->
-														findItems(QString(oPAuthorizationDataInt.m_chLogin) +
-																				  ONLINE_TAG, Qt::MatchExactly);
-												if(lstUsers.empty() & (lstUsers.length() > 1))
-												{
-													LOG_P_0(LOG_CAT_E, "Users list sinchronization fault.");
-													RETVAL_SET(RETVAL_ERR);
-												}
-												else
-												{
-													lstUsers.first()->
-															setText(QString(oPAuthorizationDataInt.m_chLogin) + OFFLINE_TAG);
-												}
+												ClientLogoutProcedures(lst_AuthorizationUnits, iC);
 												goto gLEx;
 											}
 											else
@@ -537,7 +585,7 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 															DEF_CHAR_PTH(AUTH_ANSWER_ACCOUNT_IN_USE), 1);
 												p_Server->FillIPAndPortNames(oConnectionDataInt,
 																			 m_chIPNameBuffer, m_chPortNameBuffer);
-												LOG_P_0(LOG_CAT_W, "Trying to access from another account: " <<
+												LOG_P_0(LOG_CAT_W, "Trying to access from the outside of account: " <<
 														QString(oPAuthorizationDataInt.m_chLogin).toStdString()
 														<< " " << QString(m_chIPNameBuffer).toStdString() + ":" +
 														QString(m_chPortNameBuffer).toStdString());
@@ -634,13 +682,14 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 			{
 				if(p_Server->SetCurrentConnection(lst_uiConnectedClients.at(iNum)))
 				{
-				   p_Server->SendToUser(PROTO_O_TEXT_MSG, (char*)p_ui->Chat_lineEdit->text().toStdString().c_str(),
-										(int)p_ui->Chat_lineEdit->text().toStdString().length() + 1);
+					PTextMessage oPTextMessage;
+					//
+					memcpy(oPTextMessage.m_chLogin, SERVER_NAME, MAX_AUTH_LOGIN);
+					memcpy(oPTextMessage.m_chMsg, (char*)p_ui->Chat_lineEdit->text().toStdString().c_str(), MAX_MSG);
+					p_Server->SendToUser(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
 				}
 			}
-			p_ui->Chat_textBrowser->insertPlainText("Server => ");
-			p_ui->Chat_textBrowser->insertPlainText(p_ui->Chat_lineEdit->text());
-			p_ui->Chat_textBrowser->insertPlainText("\n");
+			p_ui->Chat_textBrowser->insertPlainText(QString(SERVER_NAME) + " => " + p_ui->Chat_lineEdit->text() + "\n");
 		}
 	}
 	else
