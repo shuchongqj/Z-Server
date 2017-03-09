@@ -20,12 +20,13 @@
 #define AUTH_REQUEST_PURGE			3
 #define AUTH_ANSWER_OK				0
 #define AUTH_ANSWER_USER_PRESENT	1
-#define AUTH_ANSWER_LOGIN_FAULT		2
-#define AUTH_ANSWER_LOGOFF_FAULT	3
-#define AUTH_ANSWER_NOT_LOGGED		4
-#define AUTH_ANSWER_WRONG_REQUEST	5
-#define AUTH_ANSWER_ALREADY_LOGGED	6
-#define AUTH_ANSWER_ACCOUNT_IN_USE	7
+#define AUTH_ANSWER_INCORRECT_NAME	2
+#define AUTH_ANSWER_LOGIN_FAULT		3
+#define AUTH_ANSWER_LOGOFF_FAULT	4
+#define AUTH_ANSWER_NOT_LOGGED		5
+#define AUTH_ANSWER_WRONG_REQUEST	6
+#define AUTH_ANSWER_ALREADY_LOGGED	7
+#define AUTH_ANSWER_ACCOUNT_IN_USE	8
 //========================== ИСПОЛЬЗУЕМЫЕ СТРУКТУРЫ ===========================
 /// Структура текстового сообщения.
 struct PTextMessage

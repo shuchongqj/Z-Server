@@ -839,7 +839,9 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 	{
 		if(mThreadDadas[iCurrPos].bInUse == true)
 		{
+			pthread_mutex_unlock(&ptConnMutex);
 			FillIPAndPortNames(mThreadDadas[iCurrPos].oConnectionData, m_chIPNameBuffer, m_chPortNameBuffer);
+			pthread_mutex_lock(&ptConnMutex);
 #ifndef WIN32
 			shutdown(mThreadDadas[iCurrPos].oConnectionData.iSocket, SHUT_RDWR);
 			close(mThreadDadas[iCurrPos].oConnectionData.iSocket);

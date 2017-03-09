@@ -10,6 +10,7 @@
 #define SERVER_NAME				"SERVER"
 #define MSG_USERS_SINC_FAULT	"Users list sinchronization fault."
 #define MSG_CLIENTS_SINC_FAULT	"Clients list sinchronization fault."
+#define USER_LEVEL_TAG(Level)	QString("[" + QString::number(Level) + "]")
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL_INIT_INCLASS(MainWindow)
@@ -71,7 +72,8 @@ MainWindow::MainWindow(QWidget* p_parent) :
 	}
 	for(int iP = 0; iP < lst_AuthorizationUnits.length(); iP++)
 	{
-		p_ui->Users_listWidget->addItem(QString(lst_AuthorizationUnits.at(iP).m_chLogin) + OFFLINE_TAG);
+		p_ui->Users_listWidget->addItem(QString(lst_AuthorizationUnits.at(iP).m_chLogin) +
+										USER_LEVEL_TAG(lst_AuthorizationUnits.at(iP).chLevel));
 	}
 	if(bAutostart)
 	{
@@ -294,17 +296,6 @@ void MainWindow::ClientLoginProcedures(QList<AuthorizationUnit>& a_lst_Authoriza
 				PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
 	LOG_P_0(LOG_CAT_I, "User is logged in: " <<
 			QString(oAuthorizationUnitInt.m_chLogin).toStdString());
-	lstItems = p_ui->Users_listWidget->findItems(QString(oAuthorizationUnitInt.m_chLogin) + OFFLINE_TAG, Qt::MatchExactly);
-	if(lstItems.empty() & (lstItems.length() > 1))
-	{
-		LOG_P_0(LOG_CAT_E, MSG_USERS_SINC_FAULT);
-		RETVAL_SET(RETVAL_ERR);
-	}
-	else
-	{
-		lstItems.first()->
-				setText(QString(oAuthorizationUnitInt.m_chLogin) + ONLINE_TAG);
-	}
 	p_Server->FillIPAndPortNames(a_ConnectionData, m_chIPNameBuffer, m_chPortNameBuffer);
 	lstItems = p_ui->Clients_listWidget->findItems(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer), Qt::MatchExactly);
 	if(lstItems.empty() | (lstItems.length() > 1))
@@ -344,19 +335,6 @@ void MainWindow::ClientLogoutProcedures(QList<AuthorizationUnit>& a_lst_Authoriz
 	}
 	LOG_P_0(LOG_CAT_I, "User is logged out: " <<
 			QString(oAuthorizationUnitInt.m_chLogin).toStdString());
-	lstItems = p_ui->Users_listWidget->
-			findItems(QString(oAuthorizationUnitInt.m_chLogin) +
-					  ONLINE_TAG, Qt::MatchExactly);
-	if(lstItems.empty() | (lstItems.length() > 1))
-	{
-		LOG_P_0(LOG_CAT_E, MSG_USERS_SINC_FAULT);
-		RETVAL_SET(RETVAL_ERR);
-	}
-	else
-	{
-		lstItems.first()->
-				setText(QString(oAuthorizationUnitInt.m_chLogin) + OFFLINE_TAG);
-	}
 	p_Server->FillIPAndPortNames(a_ConnectionData, m_chIPNameBuffer, m_chPortNameBuffer);
 	lstItems = p_ui->Clients_listWidget->findItems(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
 												   "[" + oAuthorizationUnitInt.m_chLogin + "]", Qt::MatchExactly);
@@ -479,10 +457,20 @@ gTEx:					p_Server->ReleaseCurrentData();
 						{
 							case AUTH_REQUEST_REG:
 							{
+								if(QString(oPAuthorizationDataInt.m_chLogin) == QString(SERVER_NAME))
+								{
+									p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_INCORRECT_NAME), 1);
+									p_Server->FillIPAndPortNames(oConnectionDataInt,
+																 m_chIPNameBuffer, m_chPortNameBuffer);
+									LOG_P_0(LOG_CAT_W, "Client tries to register as server: " <<
+											QString(m_chIPNameBuffer).toStdString() + ":" +
+											QString(m_chPortNameBuffer).toStdString());
+									goto gLEx;
+								}
 								for(int iC=0; iC < lst_AuthorizationUnits.length(); iC++)
 								{
 									if(QString(lst_AuthorizationUnits.at(iC).m_chLogin)
-									   == QString((oPAuthorizationDataInt.m_chLogin)))
+									   == QString(oPAuthorizationDataInt.m_chLogin))
 									{
 
 										p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER,
@@ -492,7 +480,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 										goto gLEx;
 									}
 								}
-								oAuthorizationUnitInt.chLevel = 2;
+								oAuthorizationUnitInt.chLevel = 0;
 								memcpy(oAuthorizationUnitInt.m_chLogin, oPAuthorizationDataInt.m_chLogin, MAX_AUTH_LOGIN);
 								memcpy(oAuthorizationUnitInt.m_chPassword, oPAuthorizationDataInt.m_chPassword, MAX_AUTH_PASSWORD);
 								oAuthorizationUnitInt.iConnectionIndex = CONNECTION_SEL_ERROR;
