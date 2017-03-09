@@ -76,15 +76,20 @@ private:
 	/// Процедуры остановки сервера.
 	void ServerStopProcedures();
 	/// Процедуры при логине клиента.
-	static void ClientLoginProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition, unsigned int iIndex);
+	static void ClientLoginProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
+									  unsigned int iIndex, ConnectionData& a_ConnectionData);
 							///< \param[in] a_lst_AuthorizationUnits Ссыка на список авторизации.
 							///< \param[in] iPosition Позиция в списке
 							///< \param[in] iIndex Индекс соединения.
+							///< \param[in] a_ConnectionData Ссылка на данные по соединению.
 	/// Процедуры при логауте клиента.
-	static void ClientLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition, bool bSend = true);
+	static void ClientLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
+									   ConnectionData& a_ConnectionData, bool bSend = true);
 							///< \param[in] a_lst_AuthorizationUnits Ссыка на список авторизации.
 							///< \param[in] iPosition Позиция в списке.
-							///< \param[in] bSend Отсылать ли клиенту ответ.
+							///< \param[in] a_ConnectionData Индекс соединения.
+							///< \param[in] bSend Отсылать ли Ссылка на данные по соединению.
+
 private slots:
 	/// При нажатии на 'О программе'.
 	void on_About_action_triggered();

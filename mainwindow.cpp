@@ -8,6 +8,8 @@
 #define ONLINE_TAG				"[V]"
 #define OFFLINE_TAG				"[x]"
 #define SERVER_NAME				"SERVER"
+#define MSG_USERS_SINC_FAULT	"Users list sinchronization fault."
+#define MSG_CLIENTS_SINC_FAULT	"Clients list sinchronization fault."
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL_INIT_INCLASS(MainWindow)
@@ -272,11 +274,14 @@ void MainWindow::ServerStopProcedures()
 }
 
 // Процедуры при логине клиента.
-void MainWindow::ClientLoginProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition, unsigned int iIndex)
+void MainWindow::ClientLoginProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition, unsigned int iIndex,
+									   ConnectionData& a_ConnectionData)
 {
 	AuthorizationUnit oAuthorizationUnitInt;
 	CHAR_PTH;
-	QList<QListWidgetItem*> lstUsers;
+	QList<QListWidgetItem*> lstItems;
+	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
+	char m_chPortNameBuffer[PORTSTRLEN];
 	//
 	memcpy(oAuthorizationUnitInt.m_chLogin, a_lst_AuthorizationUnits.at(iPosition).m_chLogin, MAX_AUTH_LOGIN);
 	memcpy(oAuthorizationUnitInt.m_chPassword,
@@ -289,27 +294,41 @@ void MainWindow::ClientLoginProcedures(QList<AuthorizationUnit>& a_lst_Authoriza
 				PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
 	LOG_P_0(LOG_CAT_I, "User is logged in: " <<
 			QString(oAuthorizationUnitInt.m_chLogin).toStdString());
-	lstUsers = p_ui->
-			Users_listWidget->findItems(QString(oAuthorizationUnitInt.m_chLogin) +
-									  OFFLINE_TAG, Qt::MatchExactly);
-	if(lstUsers.empty() & (lstUsers.length() > 1))
+	lstItems = p_ui->Users_listWidget->findItems(QString(oAuthorizationUnitInt.m_chLogin) + OFFLINE_TAG, Qt::MatchExactly);
+	if(lstItems.empty() & (lstItems.length() > 1))
 	{
-		LOG_P_0(LOG_CAT_E, "Users list sinchronization fault.");
+		LOG_P_0(LOG_CAT_E, MSG_USERS_SINC_FAULT);
 		RETVAL_SET(RETVAL_ERR);
 	}
 	else
 	{
-		lstUsers.first()->
+		lstItems.first()->
 				setText(QString(oAuthorizationUnitInt.m_chLogin) + ONLINE_TAG);
+	}
+	p_Server->FillIPAndPortNames(a_ConnectionData, m_chIPNameBuffer, m_chPortNameBuffer);
+	lstItems = p_ui->Clients_listWidget->findItems(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer), Qt::MatchExactly);
+	if(lstItems.empty() | (lstItems.length() > 1))
+	{
+		LOG_P_0(LOG_CAT_E, MSG_CLIENTS_SINC_FAULT);
+		RETVAL_SET(RETVAL_ERR);
+	}
+	else
+	{
+		lstItems.first()->
+				setText(QString(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
+							"[" + QString(oAuthorizationUnitInt.m_chLogin) + "]"));
 	}
 }
 
 // Процедуры при логауте клиента.
-void MainWindow::ClientLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition, bool bSend)
+void MainWindow::ClientLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
+										ConnectionData& a_ConnectionData, bool bSend)
 {
 	AuthorizationUnit oAuthorizationUnitInt;
 	CHAR_PTH;
-	QList<QListWidgetItem*> lstUsers;
+	QList<QListWidgetItem*> lstItems;
+	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
+	char m_chPortNameBuffer[PORTSTRLEN];
 	//
 	memcpy(oAuthorizationUnitInt.m_chLogin,
 		   a_lst_AuthorizationUnits.at(iPosition).m_chLogin, MAX_AUTH_LOGIN);
@@ -325,18 +344,31 @@ void MainWindow::ClientLogoutProcedures(QList<AuthorizationUnit>& a_lst_Authoriz
 	}
 	LOG_P_0(LOG_CAT_I, "User is logged out: " <<
 			QString(oAuthorizationUnitInt.m_chLogin).toStdString());
-	lstUsers = p_ui->Users_listWidget->
+	lstItems = p_ui->Users_listWidget->
 			findItems(QString(oAuthorizationUnitInt.m_chLogin) +
 					  ONLINE_TAG, Qt::MatchExactly);
-	if(lstUsers.empty() & (lstUsers.length() > 1))
+	if(lstItems.empty() | (lstItems.length() > 1))
 	{
-		LOG_P_0(LOG_CAT_E, "Users list sinchronization fault.");
+		LOG_P_0(LOG_CAT_E, MSG_USERS_SINC_FAULT);
 		RETVAL_SET(RETVAL_ERR);
 	}
 	else
 	{
-		lstUsers.first()->
+		lstItems.first()->
 				setText(QString(oAuthorizationUnitInt.m_chLogin) + OFFLINE_TAG);
+	}
+	p_Server->FillIPAndPortNames(a_ConnectionData, m_chIPNameBuffer, m_chPortNameBuffer);
+	lstItems = p_ui->Clients_listWidget->findItems(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
+												   "[" + oAuthorizationUnitInt.m_chLogin + "]", Qt::MatchExactly);
+	if(lstItems.empty() | (lstItems.length() > 1))
+	{
+		LOG_P_0(LOG_CAT_E, MSG_CLIENTS_SINC_FAULT);
+		RETVAL_SET(RETVAL_ERR);
+	}
+	else
+	{
+		lstItems.first()->
+				setText(QString(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer)));
 	}
 }
 
@@ -344,20 +376,19 @@ void MainWindow::ClientLogoutProcedures(QList<AuthorizationUnit>& a_lst_Authoriz
 void MainWindow::ClientStatusChangedCallback(bool bConnected, unsigned int uiClientIndex)
 {
 	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
-	char m_chPortNameBuffer[6];
+	char m_chPortNameBuffer[PORTSTRLEN];
 	QString strName;
 	QList<QListWidgetItem*> lst_MatchItems;
 	ConnectionData oConnectionDataInt;
 	//
 	LOG_P_0(LOG_CAT_I, "ID: " << uiClientIndex << " have status: " << bConnected);
+
 	oConnectionDataInt = p_Server->GetConnectionData(uiClientIndex);
 	if(oConnectionDataInt.iStatus != CONNECTION_SEL_ERROR)
 	{
-		p_Server->FillIPAndPortNames(oConnectionDataInt,
-									 m_chIPNameBuffer, m_chPortNameBuffer);
+		p_Server->FillIPAndPortNames(oConnectionDataInt, m_chIPNameBuffer, m_chPortNameBuffer);
 		LOG_P_0(LOG_CAT_I, "IP: " << m_chIPNameBuffer << " Port: " << m_chPortNameBuffer);
-		strName = QString::fromStdString(m_chIPNameBuffer) + ":" + QString::fromStdString(m_chPortNameBuffer) +
-				"[" + QString::number(uiClientIndex) + "]";
+		strName = QString::fromStdString(m_chIPNameBuffer) + ":" + QString::fromStdString(m_chPortNameBuffer);
 		if(bConnected)
 		{
 			p_ui->Clients_listWidget->addItem(strName);
@@ -369,10 +400,10 @@ void MainWindow::ClientStatusChangedCallback(bool bConnected, unsigned int uiCli
 			{
 				if(lst_AuthorizationUnits.at(iC).iConnectionIndex == (int)uiClientIndex)
 				{
-					ClientLogoutProcedures(lst_AuthorizationUnits, iC, false);
+					ClientLogoutProcedures(lst_AuthorizationUnits, iC, oConnectionDataInt, false);
 				}
 			}
-			lst_MatchItems = p_ui->Clients_listWidget->findItems(strName, Qt::MatchExactly);
+			lst_MatchItems = p_ui->Clients_listWidget->findItems(strName, Qt::MatchStartsWith);
 			for(int iNum = 0; iNum != lst_MatchItems.count(); iNum++)
 			{
 				delete lst_MatchItems.at(iNum);
@@ -489,7 +520,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 										{
 											if(lst_AuthorizationUnits.at(iC).iConnectionIndex == CONNECTION_SEL_ERROR)
 											{
-												ClientLoginProcedures(lst_AuthorizationUnits, iC, uiClientIndex);
+												ClientLoginProcedures(lst_AuthorizationUnits, iC, uiClientIndex, oConnectionDataInt);
 												goto gLEx;
 											}
 											else
@@ -538,7 +569,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 															QString(m_chPortNameBuffer).toStdString());
 													goto gLEx;
 												}
-												ClientLogoutProcedures(lst_AuthorizationUnits, iC);
+												ClientLogoutProcedures(lst_AuthorizationUnits, iC, oConnectionDataInt);
 												goto gLEx;
 											}
 											else

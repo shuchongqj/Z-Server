@@ -314,6 +314,7 @@ ConnectionData Server::GetConnectionData(unsigned int uiIndex)
 void Server::FillConnectionData(int iSocket, ConnectionData& a_ConnectionData)
 {
 	a_ConnectionData.ai_addrlen = sizeof(sockaddr);
+	pthread_mutex_lock(&ptConnMutex);
 	a_ConnectionData.iSocket = iSocket;
 	a_ConnectionData.iStatus = 0;
 #ifndef WIN32
@@ -323,11 +324,13 @@ void Server::FillConnectionData(int iSocket, ConnectionData& a_ConnectionData)
 	getpeername(a_ConnectionData.iSocket, &a_ConnectionData.ai_addr,
 				(int*)&a_ConnectionData.ai_addrlen);
 #endif
+	pthread_mutex_unlock(&ptConnMutex);
 }
 
 // Заполнение буферов имён IP и порта.
 void Server::FillIPAndPortNames(ConnectionData& a_ConnectionData, char* p_chIP, char* p_chPort)
 {
+	pthread_mutex_lock(&ptConnMutex);
 #ifndef WIN32
 	getnameinfo(&a_ConnectionData.ai_addr,
 				a_ConnectionData.ai_addrlen,
@@ -337,6 +340,7 @@ void Server::FillIPAndPortNames(ConnectionData& a_ConnectionData, char* p_chIP, 
 				(socklen_t)a_ConnectionData.ai_addrlen,
 				p_chIP, INET6_ADDRSTRLEN, p_chPort, PORTSTRLEN, NI_NUMERICHOST);
 #endif
+	pthread_mutex_unlock(&ptConnMutex);
 }
 
 // Поток соединения.
