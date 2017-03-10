@@ -15,8 +15,8 @@
 #include "proto-parser.h"
 
 //== МАКРОСЫ.
-#define S_MAX_STORED_POCKETS	6
-#define C_MAX_STORED_POCKETS	4
+#define S_MAX_STORED_POCKETS	8
+#define C_MAX_STORED_POCKETS	8
 #define MAX_DATA				1024
 #define PORTSTRLEN				6
 #define SOCKET_ERROR_TOO_BIG	_NMG-1 // См. protocol.h для занятия нового свободного номера.
@@ -28,6 +28,7 @@
 #endif
 #define	DATA_ACCESS_ERROR		_NMG-2 // См. protocol.h для занятия нового свободного номера.
 #define	BUFFER_IS_EMPTY			_NMG-3 // См. protocol.h для занятия нового свободного номера.
+#define MSG_GOT_MERGED			"Merged pockets has been received."
 
 //== СТРУКТУРЫ.
 /// Сруктура для данных по соединению.

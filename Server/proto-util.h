@@ -3,7 +3,7 @@
 
 //== МАКРОСЫ.
 
-#define MAX_MSG							512
+#define MAX_MSG							128
 #define MAX_PASSW						16
 // Утиль.
 #define _PObjPointerNaming(name)		p_##name // Создаёт имя указателя добавлением 'p_' в начале.

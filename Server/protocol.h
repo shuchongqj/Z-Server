@@ -5,7 +5,7 @@
 #include "proto-util.h"
 
 //== МАКРОСЫ.
-#define _NMG					-32768		// !!! Текущий свободный номер _NMG-7 !!!
+#define _NMG					-32768		// !!! Текущий свободный номер _NMG-6 !!!
 // ============================ КОДЫ ПАКЕТОВ ==================================
 #define PROTO_O_TEXT_MSG				'T'
 #define PROTO_O_AUTHORIZATION_REQUEST	'a'

@@ -6,10 +6,9 @@
 
 //== МАКРОСЫ.
 #define PROTOPARSER_OK					0x00
-#define PROTOPARSER_OUT_OF_RANGE		_NMG-4 // См. protocol.h для занятия нового свободного номера.
-#define PROTOPARSER_UNKNOWN_COMMAND		_NMG-5 // См. protocol.h для занятия нового свободного номера.
+#define PROTOPARSER_UNKNOWN_COMMAND		_NMG-4 // См. protocol.h для занятия нового свободного номера.
 #define MSG_POCKET_OUT_OF_RANGE			"Pocket out of range."
-#define MSG_UNKNOWN_COMMAND					"Unknown command"
+#define MSG_UNKNOWN_COMMAND				"Unknown command"
 
 //== КЛАССЫ.
 /// Класс парсера протокола.
@@ -22,7 +21,8 @@ public:
 		bool bStored; ///< Признак сохранения в новую структуру.
 		int iRes; ///< Результат операции.
 		char chTypeCode; ///< Код принятого пакета (вне зависимости от статуса сохранения).
-		int iDataLength; ///< Длина пакета в байтах.
+		int iExtraDataLength; ///< Длина оставшегося пакета в байтах после возможного 'слипания' пакетов.
+		char* p_chExtraData; ///< Указатель на дополнительные данные после возможного 'слипания' пакетов.
 	};
 public:
 	/// Парсинг пакета в соответствующий член хранилища.

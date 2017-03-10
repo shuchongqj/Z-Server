@@ -481,7 +481,7 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 							{
 								strChatMsg = QString(oPTextMessage.m_chLogin) + " => " +
 										QString(oPTextMessage.m_chMsg);
-								memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), MAX_MSG);
+								memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), MAX_AUTH_LOGIN + 4 + MAX_MSG);
 								for(int iT=0; iT < lst_AuthorizationUnits.length(); iT++)
 								{
 									if((lst_AuthorizationUnits.at(iT).iConnectionIndex != (int)uiClientIndex) &
@@ -498,7 +498,7 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 						p_Server->FillIPAndPortNames(oConnectionDataInt, m_chIPNameBuffer, m_chPortNameBuffer);
 						strChatMsg = QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
 								" => " + QString(oPTextMessage.m_chMsg);
-						memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), MAX_MSG);
+						memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), INET6_ADDRSTRLEN + 1 + PORTSTRLEN + 4 + MAX_MSG);
 gTEx:					p_Server->ReleaseCurrentData();
 						break;
 					}
@@ -714,7 +714,6 @@ void MainWindow::on_About_action_triggered()
 void MainWindow::on_Chat_lineEdit_returnPressed()
 {
 	QString strChatMsg;
-	CHAR_PTH; // DEBUG
 	//
 	if(p_Server->CheckReady())
 	{
@@ -732,16 +731,11 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 					//
 					memcpy(oPTextMessage.m_chLogin, SERVER_NAME, MAX_AUTH_LOGIN);
 					memcpy(oPTextMessage.m_chMsg, (char*)p_ui->Chat_lineEdit->text().toStdString().c_str(), MAX_MSG);
-					//p_Server->SendToUser(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
-					// DEBUG
-					p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
-					p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
-					//
+					p_Server->SendToUser(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
 				}
 			}
 			strChatMsg = QString(SERVER_NAME) + " => " + p_ui->Chat_lineEdit->text();
-			memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), MAX_MSG);
-			p_ui->Chat_textBrowser->append(QString(SERVER_NAME) + " => " + p_ui->Chat_lineEdit->text());
+			memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), sizeof(SERVER_NAME) + 4 + MAX_MSG);
 		}
 	}
 	else

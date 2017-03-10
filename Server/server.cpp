@@ -359,6 +359,8 @@ void* Server::ConversationThread(void* p_vNum)
 	int iTempListener;
 	int iTempTPos;
 	ConnectionData oConnectionDataInt;
+	char* p_chData;
+	int iLength;
 	//
 	bKillListenerAccept = false;
 	bServerAlive = true;
@@ -438,15 +440,6 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
 	{
-		pthread_mutex_lock(&ptConnMutex);
-		if(mThreadDadas[iTPos].uiCurrentFreePocket >= S_MAX_STORED_POCKETS)
-		{
-			LOG_P_1(LOG_CAT_W, "Buffer is full for ID: " << iTPos);
-			mThreadDadas[iTPos].bFullOnServer = true;
-			SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_BUFFER_FULL);
-			mThreadDadas[iTPos].uiCurrentFreePocket = S_MAX_STORED_POCKETS - 1;
-		}
-		pthread_mutex_unlock(&ptConnMutex);
 		mThreadDadas[iTPos].oConnectionData.iStatus =  // Принимаем пакет в текущую позицию.
 				recv(mThreadDadas[iTPos].oConnectionData.iSocket,
 					 mThreadDadas[iTPos].m_chData,
@@ -462,12 +455,11 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 			LOG_P_2(LOG_CAT_I, "Reading socket has been stopped for ID: " << iTPos);
 			goto ecd;
 		}
-		p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentFreePocket];
-		oParsingResult = p_ProtoParser->ParsePocket(
-					mThreadDadas[iTPos].m_chData,
-					mThreadDadas[iTPos].oConnectionData.iStatus,
-					p_CurrentData->oProtocolStorage,
-					mThreadDadas[iTPos].bFullOnServer);
+		p_chData = mThreadDadas[iTPos].m_chData;
+		iLength = mThreadDadas[iTPos].oConnectionData.iStatus;
+		//
+gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentFreePocket];
+		oParsingResult = p_ProtoParser->ParsePocket(p_chData, iLength, p_CurrentData->oProtocolStorage, mThreadDadas[iTPos].bFullOnServer);
 		switch(oParsingResult.iRes)
 		{
 			case PROTOPARSER_OK:
@@ -536,16 +528,6 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 							mThreadDadas[iTPos].uiCurrentFreePocket--;
 						}
 					}
-					else
-					{
-						if((oParsingResult.chTypeCode != PROTO_C_REQUEST_LEAVING) &
-						   (oParsingResult.chTypeCode != PROTO_C_SEND_PASSW) &
-						   (oParsingResult.chTypeCode != PROTO_C_BUFFER_FULL) &
-						   (oParsingResult.chTypeCode != PROTO_A_BUFFER_READY))
-						{
-							LOG_P_1(LOG_CAT_W, "Reject data from ID: " << iTPos << " (overflowed)");
-						}
-					}
 				}
 				// Блок взаимодействия.
 gI:				switch(oParsingResult.chTypeCode)
@@ -582,13 +564,6 @@ gI:				switch(oParsingResult.chTypeCode)
 				}
 				break;
 			}
-			case PROTOPARSER_OUT_OF_RANGE:
-			{
-				SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_OUT_OF_RANGE);
-				LOG_P_0(LOG_CAT_E, (char*)MSG_POCKET_OUT_OF_RANGE << " from ID: " <<
-					  iTPos << " - " << oParsingResult.iDataLength);
-				break;
-			}
 			case PROTOPARSER_UNKNOWN_COMMAND:
 			{
 				SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_UNKNOWN_COMMAND);
@@ -600,6 +575,20 @@ gI:				switch(oParsingResult.chTypeCode)
 		if(oParsingResult.bStored)
 		{
 			mThreadDadas[iTPos].uiCurrentFreePocket++;
+		}
+		if(mThreadDadas[iTPos].uiCurrentFreePocket >= S_MAX_STORED_POCKETS)
+		{
+			LOG_P_1(LOG_CAT_W, "Buffer is full for ID: " << iTPos);
+			mThreadDadas[iTPos].bFullOnServer = true;
+			SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_BUFFER_FULL);
+			mThreadDadas[iTPos].uiCurrentFreePocket = S_MAX_STORED_POCKETS - 1;
+		}
+		if(oParsingResult.p_chExtraData != 0)
+		{
+			LOG_P_2(LOG_CAT_I, MSG_GOT_MERGED);
+			p_chData = oParsingResult.p_chExtraData;
+			iLength = oParsingResult.iExtraDataLength;
+			goto gDp;
 		}
 		pthread_mutex_unlock(&ptConnMutex);
 	}

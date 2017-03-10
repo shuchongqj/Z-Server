@@ -4,13 +4,11 @@
 
 //== МАКРОСЫ.
 // Утиль.
-#define _PPControlSize(name)			if((int)sizeof(ProtocolStorage::name) < oParseResult.iDataLength)						\
+#define _PPControlSize(name)			if((int)sizeof(ProtocolStorage::name) < iCurrentLength)									\
 										{																						\
-											oParseResult.iDataLength = (int)sizeof(ProtocolStorage::name);						\
-											oParseResult.iRes = PROTOPARSER_OUT_OF_RANGE;										\
-											break;																				\
-										}																						\
-										else oParseResult.iRes = PROTOPARSER_OK;
+											iCurrentLength = (int)sizeof(ProtocolStorage::name);								\
+											bOutOfRange = true;																	\
+										} // Если зашкалило, то длина ставится по нормальной длине первого элемента.
 // _FillNewStructure(имя структуры в протоколе)
 // - копирует данные в новую структуру, проверяя совпадение размера и доверяя любому содержимому (именование по шаблону).
 #define _FillNewStructure(name)			_PPControlSize(name);																	\
@@ -28,7 +26,7 @@
 										_CaseCommand(PROTO_S_SHUTDOWN_INFO); _CaseCommand(PROTO_S_BUFFER_FULL);					\
 										_CaseCommand(PROTO_C_BUFFER_FULL); _CaseCommand(PROTO_A_BUFFER_READY);					\
 										_CaseCommand(PROTO_S_UNSECURED);
-#define CasePocket(typecode, name)		case typecode: _FillNewStructure(name); oParseResult.iRes = PROTOPARSER_OK; break
+#define CasePocket(typecode, name)		case typecode: oParseResult.iRes = PROTOPARSER_OK; _FillNewStructure(name); break
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс парсера протокола.
@@ -41,11 +39,14 @@ ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength,
 	oParseResult.iRes = PROTOPARSER_UNKNOWN_COMMAND;
 	oParseResult.bStored = false;
 	bDoNotStore = bDoNotStore;
+	int iCurrentLength;
+	bool bOutOfRange;
 	//
+	bOutOfRange = false;
 	p_chCurrPos = p_chData;
 	oParseResult.chTypeCode = *p_chCurrPos;
 	p_chCurrPos++; // Команда уже обработана.
-	oParseResult.iDataLength = iLength - 1;
+	iCurrentLength = iLength - 1; // Длина всего остального, кроме первого кода.
 	switch(oParseResult.chTypeCode)
 	{
 		CaseCommandHub;
@@ -56,5 +57,16 @@ ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength,
 		CasePocket(PROTO_O_AUTHORIZATION_ANSWER, AuthorizationAnswer);
 	}
 	if(oParseResult.bStored == true) aProtocolStorage.chTypeCode = oParseResult.chTypeCode;
+	// Если зашкалило...
+	if(bOutOfRange == true)
+	{
+		oParseResult.p_chExtraData = p_chData + iCurrentLength;
+		oParseResult.iExtraDataLength = iLength - iCurrentLength;
+	}
+	else
+	{
+		oParseResult.p_chExtraData = 0;
+		oParseResult.iExtraDataLength = 0;
+	}
 	return oParseResult;
 }
