@@ -4,9 +4,8 @@
 //== ВКЛЮЧЕНИЯ.
 #include <QMainWindow>
 #include <QSettings>
-// Для избежания ошибки при доступе к текстовому браузеру из другого потока.
-#include <QTextCursor>
-#include <QTextBlock>
+#include <QTimer>
+// Для избежания ошибки при доступе из другого потока.
 #include <QVector>
 //
 #include "Server/server.h"
@@ -17,9 +16,7 @@ namespace Ui {
 	class MainWindow;
 }
 
-// Для избежания ошибки при доступе к текстовому браузеру из другого потока.
-Q_DECLARE_METATYPE(QTextCursor)
-Q_DECLARE_METATYPE(QTextBlock)
+// Для избежания ошибки при доступе из другого потока.
 Q_DECLARE_METATYPE(QVector<int>)
 //
 
@@ -101,6 +98,10 @@ private:
 							///< \param[in] bLogout Нужны ли процедуры логаута бывшего пользователя.
 							///< \return Новый номер текущего элемента в листе авторизации после замены параметров.
 
+public slots:
+	/// Обновление GUI.
+	void slot_UpdateChat();
+
 private slots:
 	/// При нажатии на 'О программе'.
 	void on_About_action_triggered();
@@ -114,8 +115,9 @@ private slots:
 	/// При переключении кнопки 'Автостарт'.
 	void on_Autostart_action_triggered(bool checked);
 							///< \param[in] checked - Позиция переключателя.
-
+	/// При нажатии ПКМ на элементе списка пользователей.
 	void on_Users_listWidget_customContextMenuRequested(const QPoint &pos);
+							///< \param[in] pos Ссылка на координаты точки указателя в виджете
 
 private:
 	static Ui::MainWindow *p_ui; ///< Указатель на UI.
@@ -126,6 +128,8 @@ private:
 	static list<XMLNode*> o_lUsers; ///< Главный список разъёмов документа авторизации.
 	static QList<AuthorizationUnit> lst_AuthorizationUnits; ///< Список авторизованных пользователей.
 	bool bAutostart; ///< Флаг автозапуска.
+	static QTimer* p_ChatTimer; ///< Указатель на таймер обновления GUI.
+	static char m_chTextChatBuffer[MAX_MSG]; ///< Буфер обмена с виджетом чата.
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD
 };

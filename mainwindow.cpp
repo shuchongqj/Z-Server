@@ -25,6 +25,8 @@ void* MainWindow::p_vLastReceivedDataBuffer = 0;
 int MainWindow::iLastReceivedDataCode = DATA_ACCESS_ERROR;
 QList<MainWindow::AuthorizationUnit> MainWindow::lst_AuthorizationUnits;
 list<XMLNode*> MainWindow::o_lUsers;
+QTimer* MainWindow::p_ChatTimer;
+char MainWindow::m_chTextChatBuffer[MAX_MSG];
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс главного окна.
@@ -32,16 +34,13 @@ list<XMLNode*> MainWindow::o_lUsers;
 MainWindow::MainWindow(QWidget* p_parent) :
 	QMainWindow(p_parent)
 {
+	// Для избежания ошибки при доступе из другого потока.
+	qRegisterMetaType<QVector<int>>("QVector<int>");
 	//
 	LOG_CTRL_INIT;
 	LOG_P_0(LOG_CAT_I, "START.");
 	bInitOk = true;
 	bAutostart = false;
-	// Для избежания ошибки при доступе к текстовому браузеру из другого потока.
-	qRegisterMetaType<QTextCursor>("QTextCursor");
-	qRegisterMetaType<QTextBlock>("QTextBlock");
-	qRegisterMetaType<QVector<int>>("QVector<int>");
-	//
 	p_UISettings = new QSettings(cp_chUISettingsName, QSettings::IniFormat);
 	p_ui->setupUi(this);
 	if(IsFileExists((char*)cp_chUISettingsName))
@@ -61,6 +60,11 @@ MainWindow::MainWindow(QWidget* p_parent) :
 	{
 		LOG_P_0(LOG_CAT_W, "ui.ini is missing and will be created by default at the exit from program.");
 	}
+	memset(m_chTextChatBuffer, 0, MAX_MSG);
+	p_ChatTimer = new QTimer(this);
+	p_ChatTimer->setInterval(250);
+	p_ChatTimer->start();
+	connect(p_ChatTimer, SIGNAL(timeout()), this, SLOT(slot_UpdateChat()));
 	p_Server = new Server(S_CONF_PATH, LOG_MUTEX);
 	p_Server->SetClientStatusChangedCB(ClientStatusChangedCallback);
 	p_Server->SetClientDataArrivedCB(ClientDataArrivedCallback);
@@ -91,6 +95,7 @@ MainWindow::~MainWindow()
 {
 	if(p_Server->CheckReady()) ServerStopProcedures();
 	delete p_Server;
+	delete p_ChatTimer;
 	if(RETVAL == RETVAL_OK)
 	{
 		LOG_P_0(LOG_CAT_I, "EXIT.");
@@ -451,7 +456,6 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 	char m_chPortNameBuffer[PORTSTRLEN];
 	PAuthorizationData oPAuthorizationDataInt;
 	AuthorizationUnit oAuthorizationUnitInt;
-
 	CHAR_PTH;
 	//
 	if(p_Server->SetCurrentConnection(uiClientIndex) == true)
@@ -467,6 +471,7 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 					case PROTO_O_TEXT_MSG:
 					{
 						PTextMessage oPTextMessage;
+						QString strChatMsg;
 						//
 						memcpy(oPTextMessage.m_chLogin, ((PTextMessage*)p_vLastReceivedDataBuffer)->m_chLogin, MAX_AUTH_LOGIN);
 						memcpy(oPTextMessage.m_chMsg, ((PTextMessage*)p_vLastReceivedDataBuffer)->m_chMsg, MAX_MSG);
@@ -474,8 +479,9 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 						{
 							if(lst_AuthorizationUnits.at(iC).iConnectionIndex == (int)uiClientIndex)
 							{ // BUG
-								p_ui->Chat_textBrowser->append(QString(oPTextMessage.m_chLogin) + " => " +
-														QString(oPTextMessage.m_chMsg));
+								strChatMsg = QString(oPTextMessage.m_chLogin) + " => " +
+										QString(oPTextMessage.m_chMsg);
+								memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), MAX_MSG);
 								for(int iT=0; iT < lst_AuthorizationUnits.length(); iT++)
 								{
 									if((lst_AuthorizationUnits.at(iT).iConnectionIndex != (int)uiClientIndex) &
@@ -491,8 +497,9 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 						}
 						p_Server->FillIPAndPortNames(oConnectionDataInt, m_chIPNameBuffer, m_chPortNameBuffer);
 						// BUG
-						p_ui->Chat_textBrowser->append(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
-																" => " + QString(oPTextMessage.m_chMsg));
+						strChatMsg = QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
+								" => " + QString(oPTextMessage.m_chMsg);
+						memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), MAX_MSG);
 gTEx:					p_Server->ReleaseCurrentData();
 						break;
 					}
@@ -707,11 +714,13 @@ void MainWindow::on_About_action_triggered()
 // При завершении ввода строки чата.
 void MainWindow::on_Chat_lineEdit_returnPressed()
 {
+	QString strChatMsg;
+	//
 	if(p_Server->CheckReady())
 	{
 		if(lst_uiConnectedClients.isEmpty())
 		{
-			p_ui->Chat_textBrowser->append("[Ошибка]: нет клиентов.");
+			memcpy(m_chTextChatBuffer, "[Ошибка]: нет клиентов.", MAX_MSG);
 		}
 		else
 		{
@@ -726,12 +735,14 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 					p_Server->SendToUser(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
 				}
 			}
+			strChatMsg = QString(SERVER_NAME) + " => " + p_ui->Chat_lineEdit->text();
+			memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), MAX_MSG);
 			p_ui->Chat_textBrowser->append(QString(SERVER_NAME) + " => " + p_ui->Chat_lineEdit->text());
 		}
 	}
 	else
 	{
-		p_ui->Chat_textBrowser->append("[Ошибка]: сервер выключен.");
+		memcpy(m_chTextChatBuffer, "[Ошибка]: сервер выключен.", MAX_MSG);
 	}
 	p_ui->Chat_lineEdit->clear();
 }
@@ -759,6 +770,7 @@ void MainWindow::on_Autostart_action_triggered(bool checked)
 	p_UISettings->setValue("Autostart", bAutostart);
 }
 
+// При нажатии ПКМ на элементе списка пользователей.
 void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &pos)
 {
 	QPoint oGlobalPos;
@@ -805,5 +817,14 @@ void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &po
 				}
 			}
 		}
+	}
+}
+
+void MainWindow::slot_UpdateChat()
+{
+	if(m_chTextChatBuffer[0] != 0)
+	{
+		p_ui->Chat_textBrowser->append(QString(m_chTextChatBuffer));
+		m_chTextChatBuffer[0] = 0;
 	}
 }
