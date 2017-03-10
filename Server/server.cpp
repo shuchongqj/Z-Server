@@ -585,14 +585,14 @@ gI:				switch(oParsingResult.chTypeCode)
 			case PROTOPARSER_OUT_OF_RANGE:
 			{
 				SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_OUT_OF_RANGE);
-				LOG_P_0(LOG_CAT_E, (char*)POCKET_OUT_OF_RANGE << " from ID: " <<
+				LOG_P_0(LOG_CAT_E, (char*)MSG_POCKET_OUT_OF_RANGE << " from ID: " <<
 					  iTPos << " - " << oParsingResult.iDataLength);
 				break;
 			}
 			case PROTOPARSER_UNKNOWN_COMMAND:
 			{
 				SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_UNKNOWN_COMMAND);
-				LOG_P_0(LOG_CAT_W, (char*)UNKNOWN_COMMAND  << ": '" << oParsingResult.chTypeCode << "'"
+				LOG_P_0(LOG_CAT_W, (char*)MSG_UNKNOWN_COMMAND  << ": '" << oParsingResult.chTypeCode << "'"
 					  << " from ID: " << iTPos);
 				break;
 			}

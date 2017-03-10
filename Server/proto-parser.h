@@ -8,8 +8,8 @@
 #define PROTOPARSER_OK					0x00
 #define PROTOPARSER_OUT_OF_RANGE		_NMG-4 // См. protocol.h для занятия нового свободного номера.
 #define PROTOPARSER_UNKNOWN_COMMAND		_NMG-5 // См. protocol.h для занятия нового свободного номера.
-#define POCKET_OUT_OF_RANGE				"Pocket out of range."
-#define UNKNOWN_COMMAND					"Unknown command"
+#define MSG_POCKET_OUT_OF_RANGE			"Pocket out of range."
+#define MSG_UNKNOWN_COMMAND					"Unknown command"
 
 //== КЛАССЫ.
 /// Класс парсера протокола.
