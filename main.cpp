@@ -9,14 +9,15 @@ int main(int argc, char *argv[])
 							///< \param[in] argv Заглушка.
 							///< \return Общий результат работы.
 {
-	int iExecResult = -1;
+	int iExecResult;
 	QApplication oApplication(argc, argv);
 	MainWindow wMainWindow;
 	//
-	if(wMainWindow.bInitOk)
+	if(wMainWindow.iInitRes == RETVAL_OK)
 	{
 		wMainWindow.show();
 		iExecResult = oApplication.exec();
 	}
+	else iExecResult = RETVAL_ERR;
 	return iExecResult;
 }

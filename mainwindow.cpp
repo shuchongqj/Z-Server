@@ -21,8 +21,6 @@ Server* MainWindow::p_Server;
 const char* MainWindow::cp_chUISettingsName = S_UI_CONF_PATH;
 Ui::MainWindow* MainWindow::p_ui = new Ui::MainWindow;
 QList<unsigned int> MainWindow::lst_uiConnectedClients;
-void* MainWindow::p_vLastReceivedDataBuffer = 0;
-int MainWindow::iLastReceivedDataCode = DATA_ACCESS_ERROR;
 QList<MainWindow::AuthorizationUnit> MainWindow::lst_AuthorizationUnits;
 list<XMLNode*> MainWindow::o_lUsers;
 QTimer* MainWindow::p_ChatTimer;
@@ -39,7 +37,7 @@ MainWindow::MainWindow(QWidget* p_parent) :
 	//
 	LOG_CTRL_INIT;
 	LOG_P_0(LOG_CAT_I, "START.");
-	bInitOk = true;
+	iInitRes = RETVAL_OK;
 	bAutostart = false;
 	p_UISettings = new QSettings(cp_chUISettingsName, QSettings::IniFormat);
 	p_ui->setupUi(this);
@@ -69,10 +67,17 @@ MainWindow::MainWindow(QWidget* p_parent) :
 	p_Server->SetClientStatusChangedCB(ClientStatusChangedCallback);
 	p_Server->SetClientDataArrivedCB(ClientDataArrivedCallback);
 	p_Server->SetClientRequestArrivedCB(ClientRequestArrivedCallback);
-	bInitOk = LoadUsersConfig();
-	if(!bInitOk)
+	if(!LoadUsersCatalogue())
 	{
-		LOG_P_0(LOG_CAT_E, "Cat`t load users data.");
+		iInitRes = RETVAL_ERR;
+		LOG_P_0(LOG_CAT_E, "Cat`t load users catalogue.");
+		RETVAL_SET(RETVAL_ERR);
+		return;
+	}
+	if(!LoadBansCatalogue())
+	{
+		iInitRes = RETVAL_ERR;
+		LOG_P_0(LOG_CAT_E, "Cat`t load bans catalogue.");
 		RETVAL_SET(RETVAL_ERR);
 		return;
 	}
@@ -117,8 +122,20 @@ void MainWindow::closeEvent(QCloseEvent *event)
 	QMainWindow::closeEvent(event);
 }
 
-// Загрузка конфигурации пользователей.
-bool MainWindow::LoadUsersConfig()
+// Загрузка каталога банов.
+bool MainWindow::LoadBansCatalogue()
+{
+	return true;
+}
+
+// Сохранение каталога банов.
+bool MainWindow::SaveBansCatalogue()
+{
+	return true;
+}
+
+// Загрузка каталога пользователей.
+bool MainWindow::LoadUsersCatalogue()
 {
 	XMLError eResult;
 	tinyxml2::XMLDocument xmlDocUsers;
@@ -219,8 +236,8 @@ bool MainWindow::LoadUsersConfig()
 	return true;
 }
 
-// Сохранение конфигурации пользователей.
-bool MainWindow::SaveUsersConfig()
+// Сохранение каталога пользователей.
+bool MainWindow::SaveUsersCatalogue()
 {
 	XMLError eResult;
 	tinyxml2::XMLDocument xmlDocUsers;
@@ -394,7 +411,7 @@ int MainWindow::UserPurgeProcedures(QList<AuthorizationUnit>& a_lst_Authorizatio
 	LOG_P_0(LOG_CAT_I, "User is purged: " <<
 			QString(a_lst_AuthorizationUnits.at(iPosition).m_chLogin).toStdString());
 	a_lst_AuthorizationUnits.removeAt(iPosition);
-	if(!SaveUsersConfig())
+	if(!SaveUsersCatalogue())
 	{
 		LOG_P_0(LOG_CAT_E, MSG_CANNOT_SAVE_USERS);
 		RETVAL_SET(RETVAL_ERR);
@@ -456,6 +473,8 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 	char m_chPortNameBuffer[PORTSTRLEN];
 	PAuthorizationData oPAuthorizationDataInt;
 	AuthorizationUnit oAuthorizationUnitInt;
+	int iLastReceivedDataCode;
+	void* p_vLastReceivedDataBuffer;
 	CHAR_PTH;
 	//
 	if(p_Server->SetCurrentConnection(uiClientIndex) == true)
@@ -542,7 +561,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 								p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
 								LOG_P_0(LOG_CAT_I, "User has been registered successfully: " <<
 										QString(oPAuthorizationDataInt.m_chLogin).toStdString());
-								if(!SaveUsersConfig())
+								if(!SaveUsersCatalogue())
 								{
 									LOG_P_0(LOG_CAT_E, MSG_CANNOT_SAVE_USERS);
 									RETVAL_SET(RETVAL_ERR);
@@ -818,6 +837,7 @@ void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &po
 	}
 }
 
+// Обновление чата.
 void MainWindow::slot_UpdateChat()
 {
 	if(m_chTextChatBuffer[0] != 0)

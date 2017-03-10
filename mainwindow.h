@@ -37,9 +37,7 @@ private:
 	};
 
 public:
-	bool bInitOk; ///< Признак успешной инициализации.
-	static void* p_vLastReceivedDataBuffer; ///< Указатель на текущий запрошенный принятый пакет.
-	static int iLastReceivedDataCode; ///< Код текущего запрошенного принятого пакета.
+	int iInitRes; ///< Результат инициализации.
 
 public:
 	/// Конструктор.
@@ -62,11 +60,17 @@ public:
 	static void ClientRequestArrivedCallback(unsigned int uiClientIndex, char chRequest);
 
 private:
-	/// Загрузка конфигурации пользователей.
-	static bool LoadUsersConfig();
+	/// Загрузка каталога банов.
+	static bool LoadBansCatalogue();
 							///< \return true, при удаче.
-	/// Сохранение конфигурации пользователей.
-	static bool SaveUsersConfig();
+	/// Сохранение каталога банов.
+	static bool SaveBansCatalogue();
+							///< \return true, при удаче.
+	/// Загрузка каталога пользователей.
+	static bool LoadUsersCatalogue();
+							///< \return true, при удаче.
+	/// Сохранение каталога пользователей.
+	static bool SaveUsersCatalogue();
 							///< \return true, при удаче.
 	/// Процедуры запуска сервера.
 	void ServerStartProcedures();
@@ -99,7 +103,7 @@ private:
 							///< \return Новый номер текущего элемента в листе авторизации после замены параметров.
 
 public slots:
-	/// Обновление GUI.
+	/// Обновление чата.
 	void slot_UpdateChat();
 
 private slots:

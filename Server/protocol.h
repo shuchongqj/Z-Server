@@ -33,15 +33,15 @@
 /// Структура текстового сообщения.
 struct PTextMessage
 {
-	char m_chLogin[MAX_AUTH_LOGIN];
-	char m_chMsg[MAX_MSG];
+	char m_chLogin[MAX_AUTH_LOGIN]; ///< Буфер ника.
+	char m_chMsg[MAX_MSG]; ///< Буфер сообщения.
 };
 /// Структура запросов авторизации.
 struct PAuthorizationData
 {
-	char chRequestCode;
-	char m_chLogin[MAX_AUTH_LOGIN];
-	char m_chPassword[MAX_AUTH_PASSWORD];
+	char chRequestCode; ///< Код запроса.
+	char m_chLogin[MAX_AUTH_LOGIN]; ///< Буфер ника.
+	char m_chPassword[MAX_AUTH_PASSWORD]; ///< Буфер ароля.
 };
 // ====================== ОБЪЯВЛЕНИЯ СТРУКТУР ПАКЕТОВ =========================
 ProtocolStorageClassInit

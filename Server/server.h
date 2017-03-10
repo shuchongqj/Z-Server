@@ -73,7 +73,7 @@ private:
 public:
 	/// Конструктор.
 	Server(const char* cp_chSettingsPathIn, pthread_mutex_t ptLogMutex);
-								///< \param[in] cp_chSettingsPath Ссылка на строку с путём к установкам сервера.
+								///< \param[in] cp_chSettingsPathIn Ссылка на строку с путём к установкам сервера.
 								///< \param[in] ptLogMutex Инициализатор мьютекса лога.
 	/// Деструктор.
 	~Server();
