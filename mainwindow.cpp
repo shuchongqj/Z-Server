@@ -9,6 +9,7 @@
 #define MSG_USERS_SINC_FAULT	"Users list sinchronization fault."
 #define MSG_CLIENTS_SINC_FAULT	"Clients list sinchronization fault."
 #define MSG_CANNOT_SAVE_USERS	"Cat`t save users data."
+#define MSG_USERS_AUTH_EMPTY	"Users authorization list is empty."
 #define USER_LEVEL_TAG(Level)	QString("[" + QString::number(Level) + "]")
 // Тексты меню.
 #define MENU_TEXT_USERS_DELETE	"Удалить"
@@ -314,7 +315,7 @@ void MainWindow::UserLoginProcedures(QList<AuthorizationUnit>& a_lst_Authorizati
 }
 
 // Процедуры при логауте пользователя.
-void MainWindow::UserLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
+int MainWindow::UserLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
 										ConnectionData& a_ConnectionData, char chAnswer, bool bSend)
 {
 	AuthorizationUnit oAuthorizationUnitInt;
@@ -323,6 +324,11 @@ void MainWindow::UserLogoutProcedures(QList<AuthorizationUnit>& a_lst_Authorizat
 	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
 	char m_chPortNameBuffer[PORTSTRLEN];
 	//
+	if(a_lst_AuthorizationUnits.empty())
+	{
+		LOG_P_0(LOG_CAT_E, MSG_USERS_AUTH_EMPTY);
+		RETVAL_SET(RETVAL_ERR);
+	}
 	memcpy(oAuthorizationUnitInt.m_chLogin,
 		   a_lst_AuthorizationUnits.at(iPosition).m_chLogin, MAX_AUTH_LOGIN);
 	memcpy(oAuthorizationUnitInt.m_chPassword,
@@ -333,7 +339,7 @@ void MainWindow::UserLogoutProcedures(QList<AuthorizationUnit>& a_lst_Authorizat
 	a_lst_AuthorizationUnits.append(oAuthorizationUnitInt);
 	if(bSend)
 	{
-		p_Server->SendToUser( PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(chAnswer), 1);
+		p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(chAnswer), 1);
 	}
 	LOG_P_0(LOG_CAT_I, "User is logged out: " <<
 			QString(oAuthorizationUnitInt.m_chLogin).toStdString());
@@ -350,16 +356,24 @@ void MainWindow::UserLogoutProcedures(QList<AuthorizationUnit>& a_lst_Authorizat
 		lstItems.first()->
 				setText(QString(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer)));
 	}
+	return a_lst_AuthorizationUnits.count() - 1;
 }
 
 /// Процедуры при удалении пользователя.
-void MainWindow::UserPurgeProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
+int MainWindow::UserPurgeProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
 									   ConnectionData* p_ConnectionData, char chAnswer, bool bLogout)
 {
 	QList<QListWidgetItem*> lstItems;
 	//
+	if(a_lst_AuthorizationUnits.empty())
+	{
+		LOG_P_0(LOG_CAT_E, MSG_USERS_AUTH_EMPTY);
+		RETVAL_SET(RETVAL_ERR);
+	}
 	if(bLogout)
-		UserLogoutProcedures(a_lst_AuthorizationUnits, iPosition, *p_ConnectionData, chAnswer);
+	{
+		iPosition = UserLogoutProcedures(a_lst_AuthorizationUnits, iPosition, *p_ConnectionData, chAnswer);
+	}
 	lstItems = p_ui->Users_listWidget->
 			findItems(QString(a_lst_AuthorizationUnits.at(iPosition).m_chLogin) +
 					  USER_LEVEL_TAG(a_lst_AuthorizationUnits.at(iPosition).chLevel), Qt::MatchExactly);
@@ -380,6 +394,7 @@ void MainWindow::UserPurgeProcedures(QList<AuthorizationUnit>& a_lst_Authorizati
 		LOG_P_0(LOG_CAT_E, MSG_CANNOT_SAVE_USERS);
 		RETVAL_SET(RETVAL_ERR);
 	}
+	return a_lst_AuthorizationUnits.count() - 1;
 }
 
 // Кэлбэк обработки отслеживания статута клиентов.
@@ -458,9 +473,9 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 						for(int iC=0; iC < lst_AuthorizationUnits.length(); iC++)
 						{
 							if(lst_AuthorizationUnits.at(iC).iConnectionIndex == (int)uiClientIndex)
-							{
-								//p_ui->Chat_textBrowser->insertPlainText(QString(oPTextMessage.m_chLogin) + " => " +
-								//						QString(oPTextMessage.m_chMsg) + "\n");
+							{ // BUG
+								p_ui->Chat_textBrowser->append(QString(oPTextMessage.m_chLogin) + " => " +
+														QString(oPTextMessage.m_chMsg));
 								for(int iT=0; iT < lst_AuthorizationUnits.length(); iT++)
 								{
 									if((lst_AuthorizationUnits.at(iT).iConnectionIndex != (int)uiClientIndex) &
@@ -475,8 +490,9 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 							}
 						}
 						p_Server->FillIPAndPortNames(oConnectionDataInt, m_chIPNameBuffer, m_chPortNameBuffer);
-						//p_ui->Chat_textBrowser->insertPlainText(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
-						//										" => " + QString(oPTextMessage.m_chMsg) + "\n");
+						// BUG
+						p_ui->Chat_textBrowser->append(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
+																" => " + QString(oPTextMessage.m_chMsg));
 gTEx:					p_Server->ReleaseCurrentData();
 						break;
 					}
@@ -695,7 +711,7 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 	{
 		if(lst_uiConnectedClients.isEmpty())
 		{
-			p_ui->Chat_textBrowser->insertPlainText("[Ошибка]: нет клиентов.\n");
+			p_ui->Chat_textBrowser->append("[Ошибка]: нет клиентов.");
 		}
 		else
 		{
@@ -710,12 +726,12 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 					p_Server->SendToUser(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
 				}
 			}
-			p_ui->Chat_textBrowser->insertPlainText(QString(SERVER_NAME) + " => " + p_ui->Chat_lineEdit->text() + "\n");
+			p_ui->Chat_textBrowser->append(QString(SERVER_NAME) + " => " + p_ui->Chat_lineEdit->text());
 		}
 	}
 	else
 	{
-		p_ui->Chat_textBrowser->insertPlainText("[Ошибка]: сервер выключен.\n");
+		p_ui->Chat_textBrowser->append("[Ошибка]: сервер выключен.");
 	}
 	p_ui->Chat_lineEdit->clear();
 }
@@ -763,17 +779,26 @@ void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &po
 			{
 				for(int iC = 0; iC < lst_AuthorizationUnits.count(); iC++)
 				{
+					LOG_P_2(LOG_CAT_I, "Found: " <<
+							QString(lst_AuthorizationUnits.at(iC).m_chLogin).toStdString() +
+							USER_LEVEL_TAG(lst_AuthorizationUnits.at(iC).chLevel).toStdString());
 					if(QString(lst_AuthorizationUnits.at(iC).m_chLogin) + USER_LEVEL_TAG(lst_AuthorizationUnits.at(iC).chLevel) ==
 					   p_ListWidgetItem->text())
 					{
+						LOG_P_2(LOG_CAT_I, "Got: " <<
+								QString(lst_AuthorizationUnits.at(iC).m_chLogin).toStdString() +
+								USER_LEVEL_TAG(lst_AuthorizationUnits.at(iC).chLevel).toStdString() << " Connction: " <<
+								QString::number(iC).toStdString());
 						if(lst_AuthorizationUnits.at(iC).iConnectionIndex != CONNECTION_SEL_ERROR)
 						{
 							oConnectionDataInt = p_Server->GetConnectionData(lst_AuthorizationUnits.at(iC).iConnectionIndex);
 							UserPurgeProcedures(lst_AuthorizationUnits, iC, &oConnectionDataInt, AUTH_ANSWER_ACCOUNT_ERASED);
+							LOG_P_2(LOG_CAT_I, "Erased online");
 						}
 						else
 						{
 							UserPurgeProcedures(lst_AuthorizationUnits, iC, 0, 0, false);
+							LOG_P_2(LOG_CAT_I, "Erased offline");
 						}
 						break;
 					}

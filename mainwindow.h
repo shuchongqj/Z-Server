@@ -83,21 +83,23 @@ private:
 							///< \param[in] iIndex Индекс соединения.
 							///< \param[in] a_ConnectionData Ссылка на данные по соединению.
 	/// Процедуры при логауте пользователя.
-	static void UserLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
+	static int UserLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
 									   ConnectionData& a_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bSend = true);
 							///< \param[in] a_lst_AuthorizationUnits Ссыка на список авторизации.
 							///< \param[in] iPosition Позиция в списке.
 							///< \param[in] a_ConnectionData Ссылка на данные по соединению.
 							///< \param[in] chAnswer Ответ пользователю.
 							///< \param[in] bSend Отсылать ли отчёт.
+							///< \return Новый номер текущего элемента в листе авторизации после замены параметров.
 	/// Процедуры при удалении пользователя.
-	static void UserPurgeProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
+	static int UserPurgeProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
 										ConnectionData* p_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bLogout = true);
 							///< \param[in] a_lst_AuthorizationUnits Ссыка на список авторизации.
 							///< \param[in] iPosition Позиция в списке.
 							///< \param[in] p_ConnectionData Указатель на данные по соединению (не используется если не нужен логаут).
 							///< \param[in] chAnswer Ответ пользователю.
 							///< \param[in] bLogout Нужны ли процедуры логаута бывшего пользователя.
+							///< \return Новый номер текущего элемента в листе авторизации после замены параметров.
 
 private slots:
 	/// При нажатии на 'О программе'.
