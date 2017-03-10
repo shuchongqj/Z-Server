@@ -5,12 +5,13 @@
 
 //== МАКРОСЫ.
 #define LOG_NAME				"Z-Admin"
-#define ONLINE_TAG				"[V]"
-#define OFFLINE_TAG				"[x]"
 #define SERVER_NAME				"SERVER"
 #define MSG_USERS_SINC_FAULT	"Users list sinchronization fault."
 #define MSG_CLIENTS_SINC_FAULT	"Clients list sinchronization fault."
+#define MSG_CANNOT_SAVE_USERS	"Cat`t save users data."
 #define USER_LEVEL_TAG(Level)	QString("[" + QString::number(Level) + "]")
+// Тексты меню.
+#define MENU_TEXT_USERS_DELETE	"Удалить"
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL_INIT_INCLASS(MainWindow)
@@ -80,6 +81,7 @@ MainWindow::MainWindow(QWidget* p_parent) :
 		LOG_P_0(LOG_CAT_I, "Autostart server.");
 		ServerStartProcedures();
 		p_ui->StartStop_action->toggle();
+		p_ui->Autostart_action->toggle();
 	}
 }
 
@@ -275,8 +277,8 @@ void MainWindow::ServerStopProcedures()
 	RETVAL_SET(RETVAL_ERR);
 }
 
-// Процедуры при логине клиента.
-void MainWindow::ClientLoginProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition, unsigned int iIndex,
+// Процедуры при логине пользователя.
+void MainWindow::UserLoginProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition, unsigned int iIndex,
 									   ConnectionData& a_ConnectionData)
 {
 	AuthorizationUnit oAuthorizationUnitInt;
@@ -311,9 +313,9 @@ void MainWindow::ClientLoginProcedures(QList<AuthorizationUnit>& a_lst_Authoriza
 	}
 }
 
-// Процедуры при логауте клиента.
-void MainWindow::ClientLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
-										ConnectionData& a_ConnectionData, bool bSend)
+// Процедуры при логауте пользователя.
+void MainWindow::UserLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
+										ConnectionData& a_ConnectionData, char chAnswer, bool bSend)
 {
 	AuthorizationUnit oAuthorizationUnitInt;
 	CHAR_PTH;
@@ -331,7 +333,7 @@ void MainWindow::ClientLogoutProcedures(QList<AuthorizationUnit>& a_lst_Authoriz
 	a_lst_AuthorizationUnits.append(oAuthorizationUnitInt);
 	if(bSend)
 	{
-		p_Server->SendToUser( PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
+		p_Server->SendToUser( PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(chAnswer), 1);
 	}
 	LOG_P_0(LOG_CAT_I, "User is logged out: " <<
 			QString(oAuthorizationUnitInt.m_chLogin).toStdString());
@@ -347,6 +349,36 @@ void MainWindow::ClientLogoutProcedures(QList<AuthorizationUnit>& a_lst_Authoriz
 	{
 		lstItems.first()->
 				setText(QString(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer)));
+	}
+}
+
+/// Процедуры при удалении пользователя.
+void MainWindow::UserPurgeProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
+									   ConnectionData* p_ConnectionData, char chAnswer, bool bLogout)
+{
+	QList<QListWidgetItem*> lstItems;
+	//
+	if(bLogout)
+		UserLogoutProcedures(a_lst_AuthorizationUnits, iPosition, *p_ConnectionData, chAnswer);
+	lstItems = p_ui->Users_listWidget->
+			findItems(QString(a_lst_AuthorizationUnits.at(iPosition).m_chLogin) +
+					  USER_LEVEL_TAG(a_lst_AuthorizationUnits.at(iPosition).chLevel), Qt::MatchExactly);
+	if(lstItems.empty() & (lstItems.length() > 1))
+	{
+		LOG_P_0(LOG_CAT_E, "Users list sinchronization fault.");
+		RETVAL_SET(RETVAL_ERR);
+	}
+	else
+	{
+		delete lstItems.first();
+	}
+	LOG_P_0(LOG_CAT_I, "User is purged: " <<
+			QString(a_lst_AuthorizationUnits.at(iPosition).m_chLogin).toStdString());
+	a_lst_AuthorizationUnits.removeAt(iPosition);
+	if(!SaveUsersConfig())
+	{
+		LOG_P_0(LOG_CAT_E, MSG_CANNOT_SAVE_USERS);
+		RETVAL_SET(RETVAL_ERR);
 	}
 }
 
@@ -378,7 +410,7 @@ void MainWindow::ClientStatusChangedCallback(bool bConnected, unsigned int uiCli
 			{
 				if(lst_AuthorizationUnits.at(iC).iConnectionIndex == (int)uiClientIndex)
 				{
-					ClientLogoutProcedures(lst_AuthorizationUnits, iC, oConnectionDataInt, false);
+					UserLogoutProcedures(lst_AuthorizationUnits, iC, oConnectionDataInt, false);
 				}
 			}
 			lst_MatchItems = p_ui->Clients_listWidget->findItems(strName, Qt::MatchStartsWith);
@@ -427,8 +459,8 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 						{
 							if(lst_AuthorizationUnits.at(iC).iConnectionIndex == (int)uiClientIndex)
 							{
-								p_ui->Chat_textBrowser->insertPlainText(QString(oPTextMessage.m_chLogin) + " => " +
-														QString(oPTextMessage.m_chMsg) + "\n");
+								//p_ui->Chat_textBrowser->insertPlainText(QString(oPTextMessage.m_chLogin) + " => " +
+								//						QString(oPTextMessage.m_chMsg) + "\n");
 								for(int iT=0; iT < lst_AuthorizationUnits.length(); iT++)
 								{
 									if((lst_AuthorizationUnits.at(iT).iConnectionIndex != (int)uiClientIndex) &
@@ -443,15 +475,13 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 							}
 						}
 						p_Server->FillIPAndPortNames(oConnectionDataInt, m_chIPNameBuffer, m_chPortNameBuffer);
-						p_ui->Chat_textBrowser->insertPlainText(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
-																" => " + QString(oPTextMessage.m_chMsg) + "\n");
+						//p_ui->Chat_textBrowser->insertPlainText(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
+						//										" => " + QString(oPTextMessage.m_chMsg) + "\n");
 gTEx:					p_Server->ReleaseCurrentData();
 						break;
 					}
 					case PROTO_O_AUTHORIZATION_REQUEST:
 					{
-						QList<QListWidgetItem*> lstUsers;
-						//
 						oPAuthorizationDataInt = *((PAuthorizationData*)p_vLastReceivedDataBuffer);
 						switch (oPAuthorizationDataInt.chRequestCode)
 						{
@@ -485,13 +515,14 @@ gTEx:					p_Server->ReleaseCurrentData();
 								memcpy(oAuthorizationUnitInt.m_chPassword, oPAuthorizationDataInt.m_chPassword, MAX_AUTH_PASSWORD);
 								oAuthorizationUnitInt.iConnectionIndex = CONNECTION_SEL_ERROR;
 								lst_AuthorizationUnits.append(oAuthorizationUnitInt);
-								p_ui->Users_listWidget->addItem(QString(oAuthorizationUnitInt.m_chLogin) + OFFLINE_TAG);
+								p_ui->Users_listWidget->addItem(QString(oAuthorizationUnitInt.m_chLogin) +
+																USER_LEVEL_TAG(oAuthorizationUnitInt.chLevel));
 								p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
 								LOG_P_0(LOG_CAT_I, "User has been registered successfully: " <<
 										QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 								if(!SaveUsersConfig())
 								{
-									LOG_P_0(LOG_CAT_E, "Cat`t save users data.");
+									LOG_P_0(LOG_CAT_E, MSG_CANNOT_SAVE_USERS);
 									RETVAL_SET(RETVAL_ERR);
 								}
 								break;
@@ -508,7 +539,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 										{
 											if(lst_AuthorizationUnits.at(iC).iConnectionIndex == CONNECTION_SEL_ERROR)
 											{
-												ClientLoginProcedures(lst_AuthorizationUnits, iC, uiClientIndex, oConnectionDataInt);
+												UserLoginProcedures(lst_AuthorizationUnits, iC, uiClientIndex, oConnectionDataInt);
 												goto gLEx;
 											}
 											else
@@ -557,7 +588,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 															QString(m_chPortNameBuffer).toStdString());
 													goto gLEx;
 												}
-												ClientLogoutProcedures(lst_AuthorizationUnits, iC, oConnectionDataInt);
+												UserLogoutProcedures(lst_AuthorizationUnits, iC, oConnectionDataInt);
 												goto gLEx;
 											}
 											else
@@ -604,30 +635,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 														QString(m_chPortNameBuffer).toStdString());
 												goto gLEx;
 											}
-											lst_AuthorizationUnits.removeAt(iC);
-											p_Server->SendToUser(
-														PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
-											LOG_P_0(LOG_CAT_I, "User is purged: " <<
-													QString(oPAuthorizationDataInt.m_chLogin).toStdString());
-											lstUsers = p_ui->Users_listWidget->
-													findItems(QString(oPAuthorizationDataInt.m_chLogin) +
-															  ONLINE_TAG, Qt::MatchExactly);
-											if(lstUsers.empty() & (lstUsers.length() > 1))
-											{
-												lstUsers = p_ui->Users_listWidget->
-														findItems(QString(oPAuthorizationDataInt.m_chLogin) +
-																  OFFLINE_TAG, Qt::MatchExactly);
-												if(lstUsers.empty() & (lstUsers.length() > 1))
-												{
-													LOG_P_0(LOG_CAT_E, "Users list sinchronization fault.");
-													RETVAL_SET(RETVAL_ERR);
-												}
-												else goto gDl;
-											}
-											else
-											{
-gDl:											delete lstUsers.first();
-											}
+											UserPurgeProcedures(lst_AuthorizationUnits, iC, &oConnectionDataInt);
 											goto gLEx;
 										}
 										p_Server->SendToUser(
@@ -726,4 +734,51 @@ void MainWindow::on_Chat_textBrowser_textChanged()
 	//
 	p_ScrollBar = p_ui->Chat_textBrowser->verticalScrollBar();
 	p_ScrollBar->setValue(p_ScrollBar->maximum());
+}
+
+// При переключении кнопки 'Автостарт'.
+void MainWindow::on_Autostart_action_triggered(bool checked)
+{
+	bAutostart = checked;
+	p_UISettings->setValue("Autostart", bAutostart);
+}
+
+void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &pos)
+{
+	QPoint oGlobalPos;
+	QMenu oMenu;
+	QAction* p_SelectedMenuItem;
+	QListWidgetItem* p_ListWidgetItem;
+	ConnectionData oConnectionDataInt;
+	//
+	p_ListWidgetItem = p_ui->Users_listWidget->itemAt(pos);
+	if(p_ListWidgetItem != 0)
+	{
+		oGlobalPos = p_ui->Users_listWidget->mapToGlobal(pos);
+		oMenu.addAction(MENU_TEXT_USERS_DELETE);
+		p_SelectedMenuItem = oMenu.exec(oGlobalPos);
+		if(p_SelectedMenuItem != 0)
+		{
+			if(p_SelectedMenuItem->text() == MENU_TEXT_USERS_DELETE)
+			{
+				for(int iC = 0; iC < lst_AuthorizationUnits.count(); iC++)
+				{
+					if(QString(lst_AuthorizationUnits.at(iC).m_chLogin) + USER_LEVEL_TAG(lst_AuthorizationUnits.at(iC).chLevel) ==
+					   p_ListWidgetItem->text())
+					{
+						if(lst_AuthorizationUnits.at(iC).iConnectionIndex != CONNECTION_SEL_ERROR)
+						{
+							oConnectionDataInt = p_Server->GetConnectionData(lst_AuthorizationUnits.at(iC).iConnectionIndex);
+							UserPurgeProcedures(lst_AuthorizationUnits, iC, &oConnectionDataInt, AUTH_ANSWER_ACCOUNT_ERASED);
+						}
+						else
+						{
+							UserPurgeProcedures(lst_AuthorizationUnits, iC, 0, 0, false);
+						}
+						break;
+					}
+				}
+			}
+		}
+	}
 }

@@ -27,6 +27,8 @@
 #define AUTH_ANSWER_WRONG_REQUEST	6
 #define AUTH_ANSWER_ALREADY_LOGGED	7
 #define AUTH_ANSWER_ACCOUNT_IN_USE	8
+#define AUTH_ANSWER_ACCOUNT_ERASED	9
+#define AUTH_ANSWER_BAN				10
 //========================== ИСПОЛЬЗУЕМЫЕ СТРУКТУРЫ ===========================
 /// Структура текстового сообщения.
 struct PTextMessage

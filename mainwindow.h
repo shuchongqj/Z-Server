@@ -61,7 +61,7 @@ public:
 	/// Кэлбэк обработки приходящих пакетов данных.
 	static void ClientDataArrivedCallback(unsigned int uiClientIndex);
 							///< \param[in] uiClientIndex Индекс клиента.
-	// Кэлбэк обработки приходящих запросов.
+	/// Кэлбэк обработки приходящих запросов.
 	static void ClientRequestArrivedCallback(unsigned int uiClientIndex, char chRequest);
 
 private:
@@ -75,31 +75,45 @@ private:
 	void ServerStartProcedures();
 	/// Процедуры остановки сервера.
 	void ServerStopProcedures();
-	/// Процедуры при логине клиента.
-	static void ClientLoginProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
+	/// Процедуры при логине пользователя.
+	static void UserLoginProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
 									  unsigned int iIndex, ConnectionData& a_ConnectionData);
 							///< \param[in] a_lst_AuthorizationUnits Ссыка на список авторизации.
 							///< \param[in] iPosition Позиция в списке
 							///< \param[in] iIndex Индекс соединения.
 							///< \param[in] a_ConnectionData Ссылка на данные по соединению.
-	/// Процедуры при логауте клиента.
-	static void ClientLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
-									   ConnectionData& a_ConnectionData, bool bSend = true);
+	/// Процедуры при логауте пользователя.
+	static void UserLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
+									   ConnectionData& a_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bSend = true);
 							///< \param[in] a_lst_AuthorizationUnits Ссыка на список авторизации.
 							///< \param[in] iPosition Позиция в списке.
-							///< \param[in] a_ConnectionData Индекс соединения.
-							///< \param[in] bSend Отсылать ли Ссылка на данные по соединению.
+							///< \param[in] a_ConnectionData Ссылка на данные по соединению.
+							///< \param[in] chAnswer Ответ пользователю.
+							///< \param[in] bSend Отсылать ли отчёт.
+	/// Процедуры при удалении пользователя.
+	static void UserPurgeProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
+										ConnectionData* p_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bLogout = true);
+							///< \param[in] a_lst_AuthorizationUnits Ссыка на список авторизации.
+							///< \param[in] iPosition Позиция в списке.
+							///< \param[in] p_ConnectionData Указатель на данные по соединению (не используется если не нужен логаут).
+							///< \param[in] chAnswer Ответ пользователю.
+							///< \param[in] bLogout Нужны ли процедуры логаута бывшего пользователя.
 
 private slots:
 	/// При нажатии на 'О программе'.
 	void on_About_action_triggered();
 	/// При завершении ввода строки чата.
 	void on_Chat_lineEdit_returnPressed();
-	// При переключении кнопки 'Пуск/Стоп'.
+	/// При переключении кнопки 'Пуск/Стоп'.
 	void on_StartStop_action_triggered(bool checked);
 							///< \param[in] checked - Позиция переключателя.
-	// При изменении текста чата.
+	/// При изменении текста чата.
 	void on_Chat_textBrowser_textChanged();
+	/// При переключении кнопки 'Автостарт'.
+	void on_Autostart_action_triggered(bool checked);
+							///< \param[in] checked - Позиция переключателя.
+
+	void on_Users_listWidget_customContextMenuRequested(const QPoint &pos);
 
 private:
 	static Ui::MainWindow *p_ui; ///< Указатель на UI.
