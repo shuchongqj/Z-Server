@@ -26,7 +26,7 @@ list<XMLNode*> MainWindow::o_lUserBans;
 list<XMLNode*> MainWindow::o_lIPBans;
 QList<MainWindow::AuthorizationUnit> MainWindow::lst_AuthorizationUnits;
 QList<MainWindow::UserBanUnit> MainWindow::lst_UserBanUnits;
-QList<MainWindow::IPBanUnit> MainWindow::lst_IPBanUnits;
+vector<Server::IPBanUnit> MainWindow::vec_IPBanUnits;
 QTimer* MainWindow::p_ChatTimer;
 char MainWindow::m_chTextChatBuffer[MAX_MSG];
 
@@ -67,10 +67,6 @@ MainWindow::MainWindow(QWidget* p_parent) :
 	p_ChatTimer->setInterval(250);
 	p_ChatTimer->start();
 	connect(p_ChatTimer, SIGNAL(timeout()), this, SLOT(slot_UpdateChat()));
-	p_Server = new Server(S_CONF_PATH, LOG_MUTEX);
-	p_Server->SetClientStatusChangedCB(ClientStatusChangedCallback);
-	p_Server->SetClientDataArrivedCB(ClientDataArrivedCallback);
-	p_Server->SetClientRequestArrivedCB(ClientRequestArrivedCallback);
 	if(!LoadUsersCatalogue())
 	{
 		iInitRes = RETVAL_ERR;
@@ -94,10 +90,14 @@ MainWindow::MainWindow(QWidget* p_parent) :
 	{
 		p_ui->U_Bans_listWidget->addItem(QString(lst_UserBanUnits.at(iP).m_chLogin));
 	}
-	for(int iP = 0; iP < lst_IPBanUnits.length(); iP++)
+	for(unsigned int uiP = 0; uiP < vec_IPBanUnits.size(); uiP++)
 	{
-		p_ui->C_Bans_listWidget->addItem(QString(lst_IPBanUnits.at(iP).m_chIP));
+		p_ui->C_Bans_listWidget->addItem(QString(vec_IPBanUnits.at(uiP).m_chIP));
 	}
+	p_Server = new Server(S_CONF_PATH, LOG_MUTEX, &vec_IPBanUnits);
+	p_Server->SetClientStatusChangedCB(ClientStatusChangedCallback);
+	p_Server->SetClientDataArrivedCB(ClientDataArrivedCallback);
+	p_Server->SetClientRequestArrivedCB(ClientRequestArrivedCallback);
 	if(bAutostart)
 	{
 		LOG_P_0(LOG_CAT_I, "Autostart server.");
@@ -140,7 +140,7 @@ bool MainWindow::LoadBansCatalogue()
 	XMLError eResult;
 	tinyxml2::XMLDocument xmlDocBans;
 	UserBanUnit oUserBanUnit;
-	IPBanUnit oIPBanUnit;
+	Server::IPBanUnit oIPBanUnit;
 	QString strHelper;
 	//
 	eResult = xmlDocBans.LoadFile(S_BANS_CAT_PATH);
@@ -194,7 +194,7 @@ bool MainWindow::LoadBansCatalogue()
 				memcpy(oIPBanUnit.m_chIP,
 					   strHelper.toStdString().c_str(), strHelper.toStdString().length() + 1);
 			}
-			lst_IPBanUnits.append(oIPBanUnit);
+			vec_IPBanUnits.push_back(oIPBanUnit);
 		} PARSE_CHILDLIST_END(p_ListIPs);
 	}
 	return true;
@@ -220,10 +220,10 @@ bool MainWindow::SaveBansCatalogue()
 		p_NodeLogin->ToElement()->SetText(lst_UserBanUnits.at(iC).m_chLogin);
 	}
 	p_NodeIPBans = p_NodeRoot->InsertEndChild(xmlDocBans.NewElement("IPBans"));
-	for(int iC=0; iC < lst_IPBanUnits.length(); iC++)
+	for(unsigned int uiC=0; uiC < vec_IPBanUnits.size(); uiC++)
 	{
 		p_NodeIP = p_NodeIPBans->InsertEndChild(xmlDocBans.NewElement("IP"));
-		p_NodeIP->ToElement()->SetText(lst_IPBanUnits.at(iC).m_chIP);
+		p_NodeIP->ToElement()->SetText(vec_IPBanUnits.at(uiC).m_chIP);
 	}
 	eResult = xmlDocBans.SaveFile(S_USERS_CAT_PATH);
 	if (eResult != XML_SUCCESS)
@@ -635,6 +635,22 @@ gTEx:					p_Server->ReleaseCurrentData();
 											QString(m_chPortNameBuffer).toStdString());
 									goto gLEx;
 								}
+								else
+								{
+									for(int iN = 0; iN < lst_UserBanUnits.length(); iN++)
+									{
+										if(QString(oPAuthorizationDataInt.m_chLogin) == QString(lst_UserBanUnits.at(iN).m_chLogin))
+										{
+											p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_BAN), 1);
+											p_Server->FillIPAndPortNames(oConnectionDataInt,
+																		 m_chIPNameBuffer, m_chPortNameBuffer);
+											LOG_P_0(LOG_CAT_W, "Client tries to register with banned login: " <<
+													QString(m_chIPNameBuffer).toStdString() + ":" +
+													QString(m_chPortNameBuffer).toStdString());
+											goto gLEx;
+										}
+									}
+								}
 								for(int iC=0; iC < lst_AuthorizationUnits.length(); iC++)
 								{
 									if(QString(lst_AuthorizationUnits.at(iC).m_chLogin)
@@ -677,6 +693,20 @@ gTEx:					p_Server->ReleaseCurrentData();
 										{
 											if(lst_AuthorizationUnits.at(iC).iConnectionIndex == CONNECTION_SEL_ERROR)
 											{
+												for(int iN = 0; iN < lst_UserBanUnits.length(); iN++)
+												{
+													if(QString(oPAuthorizationDataInt.m_chLogin) ==
+													   QString(lst_UserBanUnits.at(iN).m_chLogin))
+													{
+														p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_BAN), 1);
+														p_Server->FillIPAndPortNames(oConnectionDataInt,
+																					 m_chIPNameBuffer, m_chPortNameBuffer);
+														LOG_P_0(LOG_CAT_W, "Client tries to login with ban: " <<
+																QString(m_chIPNameBuffer).toStdString() + ":" +
+																QString(m_chPortNameBuffer).toStdString()); // TODO Add to IP ban auto.
+														goto gLEx;
+													}
+												}
 												UserLoginProcedures(lst_AuthorizationUnits, iC, uiClientIndex, oConnectionDataInt);
 												goto gLEx;
 											}

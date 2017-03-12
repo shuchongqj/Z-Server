@@ -33,7 +33,7 @@
 #define PROTO_C_SEND_PASSW			'H'
 #define PROTO_S_PASSW_OK			'P'
 #define PROTO_S_PASSW_ERR			'p'
-#define PROTO_S_OUT_OF_RANGE		'|'
+#define PROTO_S_BAN					'-'
 #define PROTO_S_UNSECURED			'!'
 #define PROTO_S_UNKNOWN_COMMAND		'?'
 #define PROTO_C_REQUEST_LEAVING		'L'

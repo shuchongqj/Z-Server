@@ -40,11 +40,6 @@ private:
 	{
 		char m_chLogin[MAX_AUTH_LOGIN]; ///< Ник пользователя.
 	};
-	/// Структура бана по адресу.
-	struct IPBanUnit
-	{
-		char m_chIP[INET6_ADDRSTRLEN]; ///< Адрес пользователя.
-	};
 
 public:
 	int iInitRes; ///< Результат инициализации.
@@ -144,7 +139,7 @@ private:
 	static list<XMLNode*> o_lIPBans; ///< Главный список разъёмов документа банов по адресам.
 	static QList<AuthorizationUnit> lst_AuthorizationUnits; ///< Список авторизованных пользователей.
 	static QList<UserBanUnit> lst_UserBanUnits; ///< Список банов по никам.
-	static QList<IPBanUnit> lst_IPBanUnits; ///< Список банов по адресам.
+	static vector<Server::IPBanUnit> vec_IPBanUnits; ///< Список банов по адресам.
 	bool bAutostart; ///< Флаг автозапуска.
 	static QTimer* p_ChatTimer; ///< Указатель на таймер обновления GUI.
 	static char m_chTextChatBuffer[MAX_MSG]; ///< Буфер обмена с виджетом чата.

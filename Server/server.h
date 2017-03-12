@@ -38,6 +38,13 @@ typedef void (*CBClientStatusChanged)(bool bConnected, unsigned int uiClientInde
 /// Класс сервера.
 class Server
 {
+public:
+	/// Структура бана по адресу.
+	struct IPBanUnit
+	{
+		char m_chIP[INET6_ADDRSTRLEN]; ///< Адрес пользователя.
+	};
+
 private:
 	/// Структура описания данных потока соединения.
 	struct ConversationThreadData
@@ -52,6 +59,7 @@ private:
 		bool bFullOnClient; ///< Флаг переполнения буфера на клиенте.
 		bool bSecured; ///< Флаг защищённого соединения.
 	};
+
 private:
 	static bool bServerAlive; ///< Признак жизни потока сервера.
 	static bool bExitSignal; ///< Сигнал на общее завершение.
@@ -68,11 +76,13 @@ private:
 	static CBClientDataArrived pf_CBClientDataArrived; ///< Указатель на кэлбэк приёма пакетов.
 	static CBClientStatusChanged pf_CBClientStatusChanged; ///< Указатель на кэлбэк отслеживания статута клиентов.
 	static pthread_t p_ThreadOverrunned; ///< Указатель на рабочий поток при переполнении.
+	static vector<IPBanUnit>* p_vec_IPBansInt; ///< Внутреннй указатель на список с банами по IP.
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD
+
 public:
 	/// Конструктор.
-	Server(const char* cp_chSettingsPathIn, pthread_mutex_t ptLogMutex);
+	Server(const char* cp_chSettingsPathIn, pthread_mutex_t ptLogMutex, vector<IPBanUnit>* p_vec_IPBans = 0);
 								///< \param[in] cp_chSettingsPathIn Ссылка на строку с путём к установкам сервера.
 								///< \param[in] ptLogMutex Инициализатор мьютекса лога.
 	/// Деструктор.

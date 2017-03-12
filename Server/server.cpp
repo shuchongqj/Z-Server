@@ -22,15 +22,17 @@ CBClientRequestArrived Server::pf_CBClientRequestArrived = 0;
 CBClientDataArrived Server::pf_CBClientDataArrived = 0;
 CBClientStatusChanged Server::pf_CBClientStatusChanged = 0;
 pthread_t Server::p_ThreadOverrunned;
+vector<Server::IPBanUnit>* Server::p_vec_IPBansInt = 0;
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс сервера.
 // Конструктор.
-Server::Server(const char* cp_chSettingsPathIn, pthread_mutex_t ptLogMutex)
+Server::Server(const char* cp_chSettingsPathIn, pthread_mutex_t ptLogMutex, vector<IPBanUnit>* p_vec_IPBans)
 {
 	LOG_CTRL_BIND_EXT_MUTEX(ptLogMutex);
 	LOG_CTRL_INIT;
 	p_chSettingsPath = (char*)cp_chSettingsPathIn;
+	p_vec_IPBansInt = p_vec_IPBans;
 }
 
 // Деструктор.
@@ -367,7 +369,7 @@ void* Server::ConversationThread(void* p_vNum)
 	bLocalExitSignal = false;
 	iTempTPos = CONNECTION_SEL_ERROR;
 	iTPos = *((int*)p_vNum); // Получили номер в массиве.
-	if(iTPos != CONNECTION_SEL_ERROR)
+gBA:if(iTPos != CONNECTION_SEL_ERROR)
 	{
 		mThreadDadas[iTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
 #ifndef WIN32
@@ -395,7 +397,7 @@ gAG:	iTempListener = (int)accept(iListener, NULL, NULL); // Ждём перег�
 #else
 			closesocket(iTempListener);
 #endif
-			LOG_P_2(LOG_CAT_I, "Connection rejected for: " << m_chIPNameBuffer);
+			LOG_P_2(LOG_CAT_W, "Connection rejected for: " << m_chIPNameBuffer);
 			if(bExitSignal) goto gOE;
 			goto gAG;
 		}
@@ -420,10 +422,29 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 			goto enc;
 		}
 	}
-	mThreadDadas[iTPos].bInUse = true; // Флаг занятости структуры.
-	LOG_P_1(LOG_CAT_I, "New connection accepted.");
 	FillConnectionData(mThreadDadas[iTPos].oConnectionData.iSocket, mThreadDadas[iTPos].oConnectionData);
 	FillIPAndPortNames(mThreadDadas[iTPos].oConnectionData, m_chIPNameBuffer, m_chPortNameBuffer);
+	if(p_vec_IPBansInt != 0) // Обработка банов.
+	{
+		for(unsigned int uiN = 0; uiN < (*p_vec_IPBansInt).size(); uiN++)
+		{
+			if(!strcmp((*p_vec_IPBansInt).at(uiN).m_chIP, m_chIPNameBuffer))
+			{
+				LOG_P_0(LOG_CAT_W, "Connection rejected due ban for: " << m_chIPNameBuffer);
+				SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_BAN);
+				MSleep(WAITING_FOR_CLIENT_DSC);
+#ifndef WIN32
+				shutdown(mThreadDadas[iTPos].oConnectionData.iSocket, SHUT_RDWR);
+				close(mThreadDadas[iTPos].oConnectionData.iSocket);
+#else
+				closesocket(mThreadDadas[iTPos].oConnectionData.iSocket);
+#endif
+				goto gBA;
+			}
+		}
+	}
+	LOG_P_1(LOG_CAT_I, "New connection accepted.");
+	mThreadDadas[iTPos].bInUse = true; // Флаг занятости структуры.
 	LOG_P_1(LOG_CAT_I, "Connected with: " << m_chIPNameBuffer << ":" << m_chPortNameBuffer << " ID: " << iTPos);
 	if(mThreadDadas[iTPos].oConnectionData.iStatus == -1) // Если не вышло отправить...
 	{
