@@ -6,6 +6,7 @@
 #ifdef WIN32
 #include "../dlfcn-win32/dlfcn.h"
 #include <WinSock2.h>
+#include <vector>
 #else
 #include <dlfcn.h>
 #include <sys/socket.h>
