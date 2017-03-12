@@ -21,8 +21,12 @@ Server* MainWindow::p_Server;
 const char* MainWindow::cp_chUISettingsName = S_UI_CONF_PATH;
 Ui::MainWindow* MainWindow::p_ui = new Ui::MainWindow;
 QList<unsigned int> MainWindow::lst_uiConnectedClients;
-QList<MainWindow::AuthorizationUnit> MainWindow::lst_AuthorizationUnits;
 list<XMLNode*> MainWindow::o_lUsers;
+list<XMLNode*> MainWindow::o_lUserBans;
+list<XMLNode*> MainWindow::o_lIPBans;
+QList<MainWindow::AuthorizationUnit> MainWindow::lst_AuthorizationUnits;
+QList<MainWindow::UserBanUnit> MainWindow::lst_UserBanUnits;
+QList<MainWindow::IPBanUnit> MainWindow::lst_IPBanUnits;
 QTimer* MainWindow::p_ChatTimer;
 char MainWindow::m_chTextChatBuffer[MAX_MSG];
 
@@ -74,6 +78,11 @@ MainWindow::MainWindow(QWidget* p_parent) :
 		RETVAL_SET(RETVAL_ERR);
 		return;
 	}
+	for(int iP = 0; iP < lst_AuthorizationUnits.length(); iP++)
+	{
+		p_ui->Users_listWidget->addItem(QString(lst_AuthorizationUnits.at(iP).m_chLogin) +
+										USER_LEVEL_TAG(lst_AuthorizationUnits.at(iP).chLevel));
+	}
 	if(!LoadBansCatalogue())
 	{
 		iInitRes = RETVAL_ERR;
@@ -81,10 +90,13 @@ MainWindow::MainWindow(QWidget* p_parent) :
 		RETVAL_SET(RETVAL_ERR);
 		return;
 	}
-	for(int iP = 0; iP < lst_AuthorizationUnits.length(); iP++)
+	for(int iP = 0; iP < lst_UserBanUnits.length(); iP++)
 	{
-		p_ui->Users_listWidget->addItem(QString(lst_AuthorizationUnits.at(iP).m_chLogin) +
-										USER_LEVEL_TAG(lst_AuthorizationUnits.at(iP).chLevel));
+		p_ui->U_Bans_listWidget->addItem(QString(lst_UserBanUnits.at(iP).m_chLogin));
+	}
+	for(int iP = 0; iP < lst_IPBanUnits.length(); iP++)
+	{
+		p_ui->C_Bans_listWidget->addItem(QString(lst_IPBanUnits.at(iP).m_chIP));
 	}
 	if(bAutostart)
 	{
@@ -125,13 +137,98 @@ void MainWindow::closeEvent(QCloseEvent *event)
 // Загрузка каталога банов.
 bool MainWindow::LoadBansCatalogue()
 {
+	XMLError eResult;
+	tinyxml2::XMLDocument xmlDocBans;
+	UserBanUnit oUserBanUnit;
+	IPBanUnit oIPBanUnit;
+	QString strHelper;
+	//
+	eResult = xmlDocBans.LoadFile(S_BANS_CAT_PATH);
+	if (eResult != XML_SUCCESS)
+	{
+		LOG_P_0(LOG_CAT_E, "Can`t open bans coatalogue file:" << S_BANS_CAT_PATH);
+		return false;
+	}
+	else
+	{
+		LOG_P_1(LOG_CAT_I, "Bans coatalogue has been loaded.");
+		if(!FindChildNodes(xmlDocBans.LastChild(), o_lUserBans,
+						   "LoginBans", FCN_ONE_LEVEL, FCN_FIRST_ONLY))
+		{
+			LOG_P_0(LOG_CAT_E, "Bans catalogue file is corrupt. 'LoginBans' node is absend.");
+			return false;
+		}
+		if(!FindChildNodes(xmlDocBans.LastChild(), o_lIPBans,
+						   "IPBans", FCN_ONE_LEVEL, FCN_FIRST_ONLY))
+		{
+			LOG_P_0(LOG_CAT_E, "Bans catalogue file is corrupt. 'IPBans' node is absend.");
+			return false;
+		}
+		PARSE_CHILDLIST(o_lUserBans.front(), p_ListLogins, "Login",
+						FCN_ONE_LEVEL, p_NodeLogin)
+		{
+			strHelper = QString(p_NodeLogin->FirstChild()->Value());
+			if(strHelper.isEmpty())
+			{
+				LOG_P_2(LOG_CAT_I, "Bans catalogue file is corrupt. 'Login' node is empty.");
+				return false;
+			}
+			else
+			{
+				memcpy(oUserBanUnit.m_chLogin,
+					   strHelper.toStdString().c_str(), strHelper.toStdString().length() + 1);
+			}
+			lst_UserBanUnits.append(oUserBanUnit);
+		} PARSE_CHILDLIST_END(p_ListLogins);
+		PARSE_CHILDLIST(o_lIPBans.front(), p_ListIPs, "IP",
+						FCN_ONE_LEVEL, p_NodeIP)
+		{
+			strHelper = QString(p_NodeIP->FirstChild()->Value());
+			if(strHelper.isEmpty())
+			{
+				LOG_P_2(LOG_CAT_I, "Bans catalogue file is corrupt. 'IP' node is empty.");
+				return false;
+			}
+			else
+			{
+				memcpy(oIPBanUnit.m_chIP,
+					   strHelper.toStdString().c_str(), strHelper.toStdString().length() + 1);
+			}
+			lst_IPBanUnits.append(oIPBanUnit);
+		} PARSE_CHILDLIST_END(p_ListIPs);
+	}
 	return true;
 }
 
 // Сохранение каталога банов.
 bool MainWindow::SaveBansCatalogue()
 {
-	return true;
+	XMLError eResult;
+	tinyxml2::XMLDocument xmlDocBans;
+	XMLNode* p_NodeRoot;
+	XMLNode* p_NodeLoginBans;
+	XMLNode* p_NodeLogin;
+	XMLNode* p_NodeIPBans;
+	XMLNode* p_NodeIP;
+	//
+	xmlDocBans.InsertEndChild(xmlDocBans.NewDeclaration());
+	p_NodeRoot = xmlDocBans.InsertEndChild(xmlDocBans.NewElement("Root"));
+	p_NodeLoginBans = p_NodeRoot->InsertEndChild(xmlDocBans.NewElement("LoginBans"));
+	for(int iC=0; iC < lst_UserBanUnits.length(); iC++)
+	{
+		p_NodeLogin = p_NodeLoginBans->InsertEndChild(xmlDocBans.NewElement("Login"));
+		p_NodeLogin->ToElement()->SetText(lst_UserBanUnits.at(iC).m_chLogin);
+	}
+	p_NodeIPBans = p_NodeRoot->InsertEndChild(xmlDocBans.NewElement("IPBans"));
+	for(int iC=0; iC < lst_IPBanUnits.length(); iC++)
+	{
+		p_NodeIP = p_NodeIPBans->InsertEndChild(xmlDocBans.NewElement("IP"));
+		p_NodeIP->ToElement()->SetText(lst_IPBanUnits.at(iC).m_chIP);
+	}
+	eResult = xmlDocBans.SaveFile(S_USERS_CAT_PATH);
+	if (eResult != XML_SUCCESS)
+		return false;
+	else return true;
 }
 
 // Загрузка каталога пользователей.
@@ -139,38 +236,38 @@ bool MainWindow::LoadUsersCatalogue()
 {
 	XMLError eResult;
 	tinyxml2::XMLDocument xmlDocUsers;
+	bool bName = false;
+	bool bPassword = false;
+	bool bLevel = false;
+	AuthorizationUnit oAuthorizationUnitInt;
+	QString strHelper;
 	//
-	eResult = xmlDocUsers.LoadFile(S_USERS_CONF_PATH);
+	eResult = xmlDocUsers.LoadFile(S_USERS_CAT_PATH);
 	if (eResult != XML_SUCCESS)
 	{
-		LOG_P_0(LOG_CAT_E, "Can`t open users configuration file:" << S_USERS_CONF_PATH);
+		LOG_P_0(LOG_CAT_E, "Can`t open users catalogue file:" << S_USERS_CAT_PATH);
 		return false;
 	}
 	else
 	{
-		LOG_P_1(LOG_CAT_I, "Users configuration loaded.");
+		LOG_P_1(LOG_CAT_I, "Users catalogue has been loaded.");
 		if(!FindChildNodes(xmlDocUsers.LastChild(), o_lUsers,
 						   "Users", FCN_ONE_LEVEL, FCN_FIRST_ONLY))
 		{
-			return true;
+			LOG_P_0(LOG_CAT_E, "Users catalogue file is corrupt. 'Users' node is absend.");
+			return false;
 		}
 		PARSE_CHILDLIST(o_lUsers.front(), p_ListUsers, "User",
 						FCN_ONE_LEVEL, p_NodeUser)
 		{
-			bool bName = false;
-			bool bPassword = false;
-			bool bLevel = false;
-			AuthorizationUnit oAuthorizationUnitInt;
-			QString strHelper;
-			//
-			FIND_IN_CHILDLIST(p_NodeUser, p_ListNames,
-							  "Login", FCN_ONE_LEVEL, p_NodeName)
+			FIND_IN_CHILDLIST(p_NodeUser, p_ListLogins,
+							  "Login", FCN_ONE_LEVEL, p_NodeLogin)
 			{
-				strHelper = QString(p_NodeName->FirstChild()->Value());
+				strHelper = QString(p_NodeLogin->FirstChild()->Value());
 				if(strHelper.isEmpty())
 				{
 					LOG_P_0(LOG_CAT_E,
-							"Users configuration file is corrupt! 'User' node format incorrect - wrong 'Login' node.");
+							"Users catalogue file is corrupt. 'User' node format incorrect - wrong 'Login' node.");
 					return false;
 				}
 				else
@@ -179,10 +276,10 @@ bool MainWindow::LoadUsersCatalogue()
 						   strHelper.toStdString().c_str(), strHelper.toStdString().length() + 1);
 				}
 				bName = true;
-			} FIND_IN_CHILDLIST_END(p_ListNames);
+			} FIND_IN_CHILDLIST_END(p_ListLogins);
 			if(!bName)
 			{
-				LOG_P_0(LOG_CAT_E, "Users configuration file is corrupt! 'User' node format incorrect - missing 'Login' node.");
+				LOG_P_0(LOG_CAT_E, "Users catalogue file is corrupt. 'User' node format incorrect - missing 'Login' node.");
 				return false;
 			}
 			FIND_IN_CHILDLIST(p_NodeUser, p_ListPasswords,
@@ -192,7 +289,7 @@ bool MainWindow::LoadUsersCatalogue()
 				if(strHelper.isEmpty())
 				{
 					LOG_P_0(LOG_CAT_E,
-							"Users configuration file is corrupt! 'User' node format incorrect - wrong 'Password' node.");
+							"Users catalogue file is corrupt. 'User' node format incorrect - wrong 'Password' node.");
 					return false;
 				}
 				else
@@ -205,7 +302,7 @@ bool MainWindow::LoadUsersCatalogue()
 			if(!bPassword)
 			{
 				LOG_P_0(LOG_CAT_E,
-						"Users configuration file is corrupt! 'User' node format incorrect - missing 'Password' node.");
+						"Users catalogue file is corrupt. 'User' node format incorrect - missing 'Password' node.");
 				return false;
 			}
 			FIND_IN_CHILDLIST(p_NodeUser, p_ListLevels,
@@ -215,7 +312,7 @@ bool MainWindow::LoadUsersCatalogue()
 				if(strHelper.isEmpty())
 				{
 					LOG_P_0(LOG_CAT_E,
-							"Users configuration file is corrupt! 'User' node format incorrect - wrong 'Level' node.");
+							"Users catalogue file is corrupt. 'User' node format incorrect - wrong 'Level' node.");
 					return false;
 				}
 				else
@@ -226,7 +323,7 @@ bool MainWindow::LoadUsersCatalogue()
 			} FIND_IN_CHILDLIST_END(p_ListLevels);
 			if(!bLevel)
 			{
-				LOG_P_0(LOG_CAT_E, "Users configuration file is corrupt! 'User' node format incorrect - missing 'Level' node.");
+				LOG_P_0(LOG_CAT_E, "Users catalogue file is corrupt. 'User' node format incorrect - missing 'Level' node.");
 				return false;
 			}
 			oAuthorizationUnitInt.iConnectionIndex = CONNECTION_SEL_ERROR;
@@ -259,7 +356,7 @@ bool MainWindow::SaveUsersCatalogue()
 		p_NodeInfoH = p_NodeUser->InsertEndChild(xmlDocUsers.NewElement("Level"));
 		p_NodeInfoH->ToElement()->SetText(QString::number(lst_AuthorizationUnits.at(iC).chLevel).toStdString().c_str());
 	}
-	eResult = xmlDocUsers.SaveFile(S_USERS_CONF_PATH);
+	eResult = xmlDocUsers.SaveFile(S_USERS_CAT_PATH);
 	if (eResult != XML_SUCCESS)
 		return false;
 	else return true;

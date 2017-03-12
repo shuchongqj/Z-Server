@@ -30,10 +30,20 @@ private:
 	/// Структура авторизации.
 	struct AuthorizationUnit
 	{
-		char chLevel;
-		char m_chLogin[MAX_AUTH_LOGIN];
-		char m_chPassword[MAX_AUTH_PASSWORD];
-		int iConnectionIndex;
+		char chLevel; ///< Уровень пользователя.
+		char m_chLogin[MAX_AUTH_LOGIN]; ///< Ник пользователя.
+		char m_chPassword[MAX_AUTH_PASSWORD]; ///< Пароль пользователя.
+		int iConnectionIndex; ///< Текущее соединение или
+	};
+	/// Структура бана по нику.
+	struct UserBanUnit
+	{
+		char m_chLogin[MAX_AUTH_LOGIN]; ///< Ник пользователя.
+	};
+	/// Структура бана по адресу.
+	struct IPBanUnit
+	{
+		char m_chIP[INET6_ADDRSTRLEN]; ///< Адрес пользователя.
 	};
 
 public:
@@ -130,7 +140,11 @@ private:
 	static Server* p_Server; ///< Ссылка на объект сервера.
 	static QList<unsigned int> lst_uiConnectedClients; ///< Список присоединённых клиентов.
 	static list<XMLNode*> o_lUsers; ///< Главный список разъёмов документа авторизации.
+	static list<XMLNode*> o_lUserBans; ///< Главный список разъёмов документа банов по никам.
+	static list<XMLNode*> o_lIPBans; ///< Главный список разъёмов документа банов по адресам.
 	static QList<AuthorizationUnit> lst_AuthorizationUnits; ///< Список авторизованных пользователей.
+	static QList<UserBanUnit> lst_UserBanUnits; ///< Список банов по никам.
+	static QList<IPBanUnit> lst_IPBanUnits; ///< Список банов по адресам.
 	bool bAutostart; ///< Флаг автозапуска.
 	static QTimer* p_ChatTimer; ///< Указатель на таймер обновления GUI.
 	static char m_chTextChatBuffer[MAX_MSG]; ///< Буфер обмена с виджетом чата.
