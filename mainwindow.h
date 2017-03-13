@@ -82,25 +82,31 @@ private:
 	/// Процедуры остановки сервера.
 	void ServerStopProcedures();
 	/// Процедуры при логине пользователя.
-	static void UserLoginProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
+	static void UserLoginProcedures(int iPosition,
 									  unsigned int iIndex, ConnectionData& a_ConnectionData);
-							///< \param[in] a_lst_AuthorizationUnits Ссыка на список авторизации.
 							///< \param[in] iPosition Позиция в списке
 							///< \param[in] iIndex Индекс соединения.
 							///< \param[in] a_ConnectionData Ссылка на данные по соединению.
 	/// Процедуры при логауте пользователя.
-	static int UserLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
-									   ConnectionData& a_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bSend = true);
-							///< \param[in] a_lst_AuthorizationUnits Ссыка на список авторизации.
+	static int UserLogoutProcedures(int iPosition,
+									   ConnectionData& a_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bSend = false);
 							///< \param[in] iPosition Позиция в списке.
 							///< \param[in] a_ConnectionData Ссылка на данные по соединению.
 							///< \param[in] chAnswer Ответ пользователю.
 							///< \param[in] bSend Отсылать ли отчёт.
 							///< \return Новый номер текущего элемента в листе авторизации после замены параметров.
 	/// Процедуры при удалении пользователя.
-	static int UserPurgeProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
+	static int UserPurgeProcedures(int iPosition,
 										ConnectionData* p_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bLogout = true);
-							///< \param[in] a_lst_AuthorizationUnits Ссыка на список авторизации.
+							///< \param[in] iPosition Позиция в списке.
+							///< \param[in] p_ConnectionData Указатель на данные по соединению (не используется если не нужен логаут).
+							///< \param[in] chAnswer Ответ пользователю.
+							///< \param[in] bLogout Нужны ли процедуры логаута бывшего пользователя.
+							///< \return Новый номер текущего элемента в листе авторизации после замены параметров.
+
+	/// Процедуры при блокировке пользователя.
+	static int UserBanProcedures(int iPosition,
+										ConnectionData* p_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bLogout = true);
 							///< \param[in] iPosition Позиция в списке.
 							///< \param[in] p_ConnectionData Указатель на данные по соединению (не используется если не нужен логаут).
 							///< \param[in] chAnswer Ответ пользователю.
@@ -126,7 +132,10 @@ private slots:
 							///< \param[in] checked - Позиция переключателя.
 	/// При нажатии ПКМ на элементе списка пользователей.
 	void on_Users_listWidget_customContextMenuRequested(const QPoint &pos);
-							///< \param[in] pos Ссылка на координаты точки указателя в виджете
+							///< \param[in] pos Ссылка на координаты точки указателя в виджете.
+	/// При нажатии ПКМ на элементе списка банов.
+	void on_U_Bans_listWidget_customContextMenuRequested(const QPoint &pos);
+							///< \param[in] pos Ссылка на координаты точки указателя в виджете.
 
 private:
 	static Ui::MainWindow *p_ui; ///< Указатель на UI.

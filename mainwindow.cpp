@@ -9,10 +9,13 @@
 #define MSG_USERS_SINC_FAULT	"Users list sinchronization fault."
 #define MSG_CLIENTS_SINC_FAULT	"Clients list sinchronization fault."
 #define MSG_CANNOT_SAVE_USERS	"Cat`t save users data."
+#define MSG_CANNOT_SAVE_BANS	"Cat`t save bans data."
 #define MSG_USERS_AUTH_EMPTY	"Users authorization list is empty."
 #define USER_LEVEL_TAG(Level)	QString("[" + QString::number(Level) + "]")
 // Тексты меню.
 #define MENU_TEXT_USERS_DELETE	"Удалить"
+#define MENU_TEXT_USERS_BAN		"Блокировать"
+#define MENU_TEXT_USERS_PARDON	"Восстановить"
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL_INIT_INCLASS(MainWindow)
@@ -225,7 +228,7 @@ bool MainWindow::SaveBansCatalogue()
 		p_NodeIP = p_NodeIPBans->InsertEndChild(xmlDocBans.NewElement("IP"));
 		p_NodeIP->ToElement()->SetText(vec_IPBanUnits.at(uiC).m_chIP);
 	}
-	eResult = xmlDocBans.SaveFile(S_USERS_CAT_PATH);
+	eResult = xmlDocBans.SaveFile(S_BANS_CAT_PATH);
 	if (eResult != XML_SUCCESS)
 		return false;
 	else return true;
@@ -398,8 +401,7 @@ void MainWindow::ServerStopProcedures()
 }
 
 // Процедуры при логине пользователя.
-void MainWindow::UserLoginProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition, unsigned int iIndex,
-									   ConnectionData& a_ConnectionData)
+void MainWindow::UserLoginProcedures(int iPosition, unsigned int iIndex, ConnectionData& a_ConnectionData)
 {
 	AuthorizationUnit oAuthorizationUnitInt;
 	CHAR_PTH;
@@ -407,13 +409,13 @@ void MainWindow::UserLoginProcedures(QList<AuthorizationUnit>& a_lst_Authorizati
 	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
 	char m_chPortNameBuffer[PORTSTRLEN];
 	//
-	memcpy(oAuthorizationUnitInt.m_chLogin, a_lst_AuthorizationUnits.at(iPosition).m_chLogin, MAX_AUTH_LOGIN);
+	memcpy(oAuthorizationUnitInt.m_chLogin, lst_AuthorizationUnits.at(iPosition).m_chLogin, MAX_AUTH_LOGIN);
 	memcpy(oAuthorizationUnitInt.m_chPassword,
-		   a_lst_AuthorizationUnits.at(iPosition).m_chPassword, MAX_AUTH_PASSWORD);
-	oAuthorizationUnitInt.chLevel = a_lst_AuthorizationUnits.at(iPosition).chLevel;
+		   lst_AuthorizationUnits.at(iPosition).m_chPassword, MAX_AUTH_PASSWORD);
+	oAuthorizationUnitInt.chLevel = lst_AuthorizationUnits.at(iPosition).chLevel;
 	oAuthorizationUnitInt.iConnectionIndex = iIndex;
-	a_lst_AuthorizationUnits.removeAt(iPosition);
-	a_lst_AuthorizationUnits.append(oAuthorizationUnitInt);
+	lst_AuthorizationUnits.removeAt(iPosition);
+	lst_AuthorizationUnits.append(oAuthorizationUnitInt);
 	p_Server->SendToUser(
 				PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
 	LOG_P_0(LOG_CAT_I, "User is logged in: " <<
@@ -434,8 +436,7 @@ void MainWindow::UserLoginProcedures(QList<AuthorizationUnit>& a_lst_Authorizati
 }
 
 // Процедуры при логауте пользователя.
-int MainWindow::UserLogoutProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
-										ConnectionData& a_ConnectionData, char chAnswer, bool bSend)
+int MainWindow::UserLogoutProcedures(int iPosition, ConnectionData& a_ConnectionData, char chAnswer, bool bSend)
 {
 	AuthorizationUnit oAuthorizationUnitInt;
 	CHAR_PTH;
@@ -443,59 +444,61 @@ int MainWindow::UserLogoutProcedures(QList<AuthorizationUnit>& a_lst_Authorizati
 	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
 	char m_chPortNameBuffer[PORTSTRLEN];
 	//
-	if(a_lst_AuthorizationUnits.empty())
+	if(lst_AuthorizationUnits.empty())
 	{
 		LOG_P_0(LOG_CAT_E, MSG_USERS_AUTH_EMPTY);
 		RETVAL_SET(RETVAL_ERR);
 	}
 	memcpy(oAuthorizationUnitInt.m_chLogin,
-		   a_lst_AuthorizationUnits.at(iPosition).m_chLogin, MAX_AUTH_LOGIN);
+		   lst_AuthorizationUnits.at(iPosition).m_chLogin, MAX_AUTH_LOGIN);
 	memcpy(oAuthorizationUnitInt.m_chPassword,
-		   a_lst_AuthorizationUnits.at(iPosition).m_chPassword, MAX_AUTH_PASSWORD);
-	oAuthorizationUnitInt.chLevel = a_lst_AuthorizationUnits.at(iPosition).chLevel;
+		   lst_AuthorizationUnits.at(iPosition).m_chPassword, MAX_AUTH_PASSWORD);
+	oAuthorizationUnitInt.chLevel = lst_AuthorizationUnits.at(iPosition).chLevel;
 	oAuthorizationUnitInt.iConnectionIndex = CONNECTION_SEL_ERROR;
-	a_lst_AuthorizationUnits.removeAt(iPosition);
-	a_lst_AuthorizationUnits.append(oAuthorizationUnitInt);
-	if(bSend)
-	{
-		p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(chAnswer), 1);
-	}
+	lst_AuthorizationUnits.removeAt(iPosition);
+	lst_AuthorizationUnits.append(oAuthorizationUnitInt);
 	LOG_P_0(LOG_CAT_I, "User is logged out: " <<
 			QString(oAuthorizationUnitInt.m_chLogin).toStdString());
-	p_Server->FillIPAndPortNames(a_ConnectionData, m_chIPNameBuffer, m_chPortNameBuffer);
-	lstItems = p_ui->Clients_listWidget->findItems(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
-												   "[" + oAuthorizationUnitInt.m_chLogin + "]", Qt::MatchExactly);
-	if(lstItems.empty() | (lstItems.length() > 1))
+	if(bSend)
 	{
-		LOG_P_0(LOG_CAT_E, MSG_CLIENTS_SINC_FAULT);
-		RETVAL_SET(RETVAL_ERR);
+		// Если был запрос на отсыл ответа, значит пользователь был онлайн. Иначе - строка будет стёрта в любом случае.
+		p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(chAnswer), 1);
+		// Убираем метку онлайн.
+		p_Server->FillIPAndPortNames(a_ConnectionData, m_chIPNameBuffer, m_chPortNameBuffer);
+		lstItems = p_ui->Clients_listWidget->findItems(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
+													   "[" + oAuthorizationUnitInt.m_chLogin + "]", Qt::MatchExactly);
+		if(lstItems.empty() | (lstItems.length() > 1))
+		{
+			LOG_P_0(LOG_CAT_E, MSG_CLIENTS_SINC_FAULT);
+			RETVAL_SET(RETVAL_ERR);
+		}
+		else
+		{
+			lstItems.first()->
+					setText(QString(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer)));
+		}
 	}
-	else
-	{
-		lstItems.first()->
-				setText(QString(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer)));
-	}
-	return a_lst_AuthorizationUnits.count() - 1;
+	return lst_AuthorizationUnits.count() - 1;
 }
 
 /// Процедуры при удалении пользователя.
-int MainWindow::UserPurgeProcedures(QList<AuthorizationUnit>& a_lst_AuthorizationUnits, int iPosition,
+int MainWindow::UserPurgeProcedures(int iPosition,
 									   ConnectionData* p_ConnectionData, char chAnswer, bool bLogout)
 {
 	QList<QListWidgetItem*> lstItems;
 	//
-	if(a_lst_AuthorizationUnits.empty())
+	if(lst_AuthorizationUnits.empty())
 	{
 		LOG_P_0(LOG_CAT_E, MSG_USERS_AUTH_EMPTY);
 		RETVAL_SET(RETVAL_ERR);
 	}
 	if(bLogout)
 	{
-		iPosition = UserLogoutProcedures(a_lst_AuthorizationUnits, iPosition, *p_ConnectionData, chAnswer);
+		iPosition = UserLogoutProcedures(iPosition, *p_ConnectionData, chAnswer, true);
 	}
 	lstItems = p_ui->Users_listWidget->
-			findItems(QString(a_lst_AuthorizationUnits.at(iPosition).m_chLogin) +
-					  USER_LEVEL_TAG(a_lst_AuthorizationUnits.at(iPosition).chLevel), Qt::MatchExactly);
+			findItems(QString(lst_AuthorizationUnits.at(iPosition).m_chLogin) +
+					  USER_LEVEL_TAG(lst_AuthorizationUnits.at(iPosition).chLevel), Qt::MatchExactly);
 	if(lstItems.empty() & (lstItems.length() > 1))
 	{
 		LOG_P_0(LOG_CAT_E, "Users list sinchronization fault.");
@@ -506,14 +509,46 @@ int MainWindow::UserPurgeProcedures(QList<AuthorizationUnit>& a_lst_Authorizatio
 		delete lstItems.first();
 	}
 	LOG_P_0(LOG_CAT_I, "User is purged: " <<
-			QString(a_lst_AuthorizationUnits.at(iPosition).m_chLogin).toStdString());
-	a_lst_AuthorizationUnits.removeAt(iPosition);
+			QString(lst_AuthorizationUnits.at(iPosition).m_chLogin).toStdString());
+	lst_AuthorizationUnits.removeAt(iPosition);
 	if(!SaveUsersCatalogue())
 	{
 		LOG_P_0(LOG_CAT_E, MSG_CANNOT_SAVE_USERS);
 		RETVAL_SET(RETVAL_ERR);
 	}
-	return a_lst_AuthorizationUnits.count() - 1;
+	return lst_AuthorizationUnits.count() - 1;
+}
+
+// Процедуры при блокировке пользователя.
+int MainWindow::UserBanProcedures(int iPosition,
+									   ConnectionData* p_ConnectionData, char chAnswer, bool bLogout)
+{
+	QList<QListWidgetItem*> lstItems;
+	UserBanUnit oUserBanUnit;
+	//
+	if(lst_AuthorizationUnits.empty())
+	{
+		LOG_P_0(LOG_CAT_E, MSG_USERS_AUTH_EMPTY);
+		RETVAL_SET(RETVAL_ERR);
+	}
+	if(bLogout)
+	{
+		iPosition = UserLogoutProcedures(iPosition, *p_ConnectionData, chAnswer, true);
+	}
+	p_ui->U_Bans_listWidget->addItem(QString(lst_AuthorizationUnits.at(iPosition).m_chLogin));
+	lstItems = p_ui->Users_listWidget->
+			findItems(QString(lst_AuthorizationUnits.at(iPosition).m_chLogin) +
+					  USER_LEVEL_TAG(lst_AuthorizationUnits.at(iPosition).chLevel), Qt::MatchExactly);
+	LOG_P_0(LOG_CAT_I, "User is banned: " <<
+			QString(lst_AuthorizationUnits.at(iPosition).m_chLogin).toStdString());
+	memcpy(oUserBanUnit.m_chLogin, lst_AuthorizationUnits.at(iPosition).m_chLogin, sizeof(UserBanUnit));
+	lst_UserBanUnits.append(oUserBanUnit);
+	if(!SaveBansCatalogue())
+	{
+		LOG_P_0(LOG_CAT_E, MSG_CANNOT_SAVE_BANS);
+		RETVAL_SET(RETVAL_ERR);
+	}
+	return lst_UserBanUnits.count() - 1;
 }
 
 // Кэлбэк обработки отслеживания статута клиентов.
@@ -544,7 +579,8 @@ void MainWindow::ClientStatusChangedCallback(bool bConnected, unsigned int uiCli
 			{
 				if(lst_AuthorizationUnits.at(iC).iConnectionIndex == (int)uiClientIndex)
 				{
-					UserLogoutProcedures(lst_AuthorizationUnits, iC, oConnectionDataInt, false);
+					UserLogoutProcedures(iC, oConnectionDataInt);
+					break;
 				}
 			}
 			lst_MatchItems = p_ui->Clients_listWidget->findItems(strName, Qt::MatchStartsWith);
@@ -707,7 +743,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 														goto gLEx;
 													}
 												}
-												UserLoginProcedures(lst_AuthorizationUnits, iC, uiClientIndex, oConnectionDataInt);
+												UserLoginProcedures(iC, uiClientIndex, oConnectionDataInt);
 												goto gLEx;
 											}
 											else
@@ -756,7 +792,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 															QString(m_chPortNameBuffer).toStdString());
 													goto gLEx;
 												}
-												UserLogoutProcedures(lst_AuthorizationUnits, iC, oConnectionDataInt);
+												UserLogoutProcedures(iC, oConnectionDataInt, AUTH_ANSWER_OK, true);
 												goto gLEx;
 											}
 											else
@@ -803,7 +839,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 														QString(m_chPortNameBuffer).toStdString());
 												goto gLEx;
 											}
-											UserPurgeProcedures(lst_AuthorizationUnits, iC, &oConnectionDataInt);
+											UserPurgeProcedures(iC, &oConnectionDataInt);
 											goto gLEx;
 										}
 										p_Server->SendToUser(
@@ -848,6 +884,16 @@ gLEx:					p_Server->ReleaseCurrentData();
 void MainWindow::ClientRequestArrivedCallback(unsigned int uiClientIndex, char chRequest)
 {
 	LOG_P_2(LOG_CAT_I, "Client: " << uiClientIndex << " request: " << chRequest);
+}
+
+// Обновление чата.
+void MainWindow::slot_UpdateChat()
+{
+	if(m_chTextChatBuffer[0] != 0)
+	{
+		p_ui->Chat_textBrowser->append(QString(m_chTextChatBuffer));
+		m_chTextChatBuffer[0] = 0;
+	}
 }
 
 // При нажатии на 'О программе'.
@@ -928,6 +974,7 @@ void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &po
 	{
 		oGlobalPos = p_ui->Users_listWidget->mapToGlobal(pos);
 		oMenu.addAction(MENU_TEXT_USERS_DELETE);
+		oMenu.addAction(MENU_TEXT_USERS_BAN);
 		p_SelectedMenuItem = oMenu.exec(oGlobalPos);
 		if(p_SelectedMenuItem != 0)
 		{
@@ -935,26 +982,41 @@ void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &po
 			{
 				for(int iC = 0; iC < lst_AuthorizationUnits.count(); iC++)
 				{
-					LOG_P_2(LOG_CAT_I, "Found: " <<
-							QString(lst_AuthorizationUnits.at(iC).m_chLogin).toStdString() +
-							USER_LEVEL_TAG(lst_AuthorizationUnits.at(iC).chLevel).toStdString());
 					if(QString(lst_AuthorizationUnits.at(iC).m_chLogin) + USER_LEVEL_TAG(lst_AuthorizationUnits.at(iC).chLevel) ==
 					   p_ListWidgetItem->text())
 					{
-						LOG_P_2(LOG_CAT_I, "Got: " <<
-								QString(lst_AuthorizationUnits.at(iC).m_chLogin).toStdString() +
-								USER_LEVEL_TAG(lst_AuthorizationUnits.at(iC).chLevel).toStdString() << " Connction: " <<
-								QString::number(iC).toStdString());
 						if(lst_AuthorizationUnits.at(iC).iConnectionIndex != CONNECTION_SEL_ERROR)
 						{
 							oConnectionDataInt = p_Server->GetConnectionData(lst_AuthorizationUnits.at(iC).iConnectionIndex);
-							UserPurgeProcedures(lst_AuthorizationUnits, iC, &oConnectionDataInt, AUTH_ANSWER_ACCOUNT_ERASED);
-							LOG_P_2(LOG_CAT_I, "Erased online");
+							LOG_P_2(LOG_CAT_I, "Erased online.");
+							UserPurgeProcedures(iC, &oConnectionDataInt, AUTH_ANSWER_ACCOUNT_ERASED);
 						}
 						else
 						{
-							UserPurgeProcedures(lst_AuthorizationUnits, iC, 0, 0, false);
-							LOG_P_2(LOG_CAT_I, "Erased offline");
+							LOG_P_2(LOG_CAT_I, "Erased offline.");
+							UserPurgeProcedures(iC, 0, 0, false);
+						}
+						break;
+					}
+				}
+			}
+			else if (p_SelectedMenuItem->text() == MENU_TEXT_USERS_BAN)
+			{
+				for(int iC = 0; iC < lst_AuthorizationUnits.count(); iC++)
+				{
+					if(QString(lst_AuthorizationUnits.at(iC).m_chLogin) + USER_LEVEL_TAG(lst_AuthorizationUnits.at(iC).chLevel) ==
+					   p_ListWidgetItem->text())
+					{
+						if(lst_AuthorizationUnits.at(iC).iConnectionIndex != CONNECTION_SEL_ERROR)
+						{
+							oConnectionDataInt = p_Server->GetConnectionData(lst_AuthorizationUnits.at(iC).iConnectionIndex);
+							UserBanProcedures(iC, &oConnectionDataInt, AUTH_ANSWER_BAN);
+							LOG_P_0(LOG_CAT_I, "Banned online.");
+						}
+						else
+						{
+							UserBanProcedures(iC, 0, 0, false);
+							LOG_P_0(LOG_CAT_I, "Banned offline.");
 						}
 						break;
 					}
@@ -964,12 +1026,49 @@ void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &po
 	}
 }
 
-// Обновление чата.
-void MainWindow::slot_UpdateChat()
+// При нажатии ПКМ на элементе списка банов.
+void MainWindow::on_U_Bans_listWidget_customContextMenuRequested(const QPoint &pos)
 {
-	if(m_chTextChatBuffer[0] != 0)
+	QPoint oGlobalPos;
+	QMenu oMenu;
+	QAction* p_SelectedMenuItem;
+	QListWidgetItem* p_ListWidgetItem;
+	//
+	p_ListWidgetItem = p_ui->U_Bans_listWidget->itemAt(pos);
+	if(p_ListWidgetItem != 0)
 	{
-		p_ui->Chat_textBrowser->append(QString(m_chTextChatBuffer));
-		m_chTextChatBuffer[0] = 0;
+		oGlobalPos = p_ui->U_Bans_listWidget->mapToGlobal(pos);
+		oMenu.addAction(MENU_TEXT_USERS_PARDON);
+		p_SelectedMenuItem = oMenu.exec(oGlobalPos);
+		if(p_SelectedMenuItem != 0)
+		{
+			if(p_SelectedMenuItem->text() == MENU_TEXT_USERS_PARDON)
+			{
+				bool bFound = false;
+				QString strMem = p_ListWidgetItem->text();
+				//
+				for(int iC = 0; iC < lst_UserBanUnits.count(); iC++)
+				{
+					if(QString(lst_UserBanUnits.at(iC).m_chLogin) == p_ListWidgetItem->text())
+					{
+						lst_UserBanUnits.removeAt(iC);
+						bFound = true;
+						break;
+					}
+				}
+				if(bFound == false)
+				{
+					LOG_P_0(LOG_CAT_E, "Bans list sinchronization fault.");
+					RETVAL_SET(RETVAL_ERR);
+				}
+				delete p_ListWidgetItem;
+				LOG_P_0(LOG_CAT_I, "Pardon complete: " << strMem.toStdString());
+				if(!SaveBansCatalogue())
+				{
+					LOG_P_0(LOG_CAT_E, MSG_CANNOT_SAVE_BANS);
+					RETVAL_SET(RETVAL_ERR);
+				}
+			}
+		}
 	}
 }
