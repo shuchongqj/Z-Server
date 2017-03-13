@@ -549,7 +549,7 @@ int MainWindow::UserBanProcedures(int iPosition,
 		LOG_P_0(LOG_CAT_E, MSG_CANNOT_SAVE_BANS);
 		RETVAL_SET(RETVAL_ERR);
 	}
-	p_Server->KickClient(lst_AuthorizationUnits.at(iPosition).iConnectionIndex);
+	if(bLogout) p_Server->KickClient(lst_AuthorizationUnits.at(iPosition).iConnectionIndex);
 	return lst_UserBanUnits.count() - 1;
 }
 
