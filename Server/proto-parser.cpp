@@ -25,7 +25,7 @@
 										_CaseCommand(PROTO_C_REQUEST_LEAVING); _CaseCommand(PROTO_S_ACCEPT_LEAVING);			\
 										_CaseCommand(PROTO_S_SHUTDOWN_INFO); _CaseCommand(PROTO_S_BUFFER_FULL);					\
 										_CaseCommand(PROTO_C_BUFFER_FULL); _CaseCommand(PROTO_A_BUFFER_READY);					\
-										_CaseCommand(PROTO_S_UNSECURED); _CaseCommand(PROTO_S_BAN)
+										_CaseCommand(PROTO_S_UNSECURED); _CaseCommand(PROTO_S_BAN); _CaseCommand(PROTO_S_KICK)
 #define CasePocket(typecode, name)		case typecode: oParseResult.iRes = PROTOPARSER_OK; _FillNewStructure(name); break
 
 //== ФУНКЦИИ КЛАССОВ.

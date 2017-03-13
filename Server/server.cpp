@@ -263,6 +263,26 @@ int Server::AccessCurrentData(void** pp_vDataBuffer)
 	return iRes;
 }
 
+// Принудительное отключение клиента.
+void Server::KickClient(unsigned int uiIndex)
+{
+	pthread_mutex_lock(&ptConnMutex);
+	mThreadDadas[uiIndex].bKick = true;
+	if(SendToClient(mThreadDadas[uiIndex].oConnectionData, PROTO_S_KICK, mThreadDadas[uiIndex].bFullOnClient))
+	{
+		pthread_mutex_unlock(&ptConnMutex);
+		MSleep(WAITING_FOR_CLIENT_DSC);
+		pthread_mutex_lock(&ptConnMutex);
+	}
+#ifndef WIN32
+	shutdown(mThreadDadas[uiIndex].oConnectionData.iSocket, SHUT_RDWR);
+	close(mThreadDadas[uiIndex].oConnectionData.iSocket);
+#else
+	closesocket(mThreadDadas[uiIndex].oConnectionData.iSocket);
+#endif
+	pthread_mutex_unlock(&ptConnMutex);
+}
+
 // Очистка позиции данных потока.
 void Server::CleanThrDadaPos(unsigned int uiPos)
 {
@@ -369,7 +389,8 @@ void* Server::ConversationThread(void* p_vNum)
 	bLocalExitSignal = false;
 	iTempTPos = CONNECTION_SEL_ERROR;
 	iTPos = *((int*)p_vNum); // Получили номер в массиве.
-gBA:if(iTPos != CONNECTION_SEL_ERROR)
+gBA:mThreadDadas[iTPos].bKick = false;
+	if(iTPos != CONNECTION_SEL_ERROR)
 	{
 		mThreadDadas[iTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
 #ifndef WIN32
@@ -620,7 +641,14 @@ ec: if(bLocalExitSignal == false) // Если не было локального
 	{
 		if(bExitSignal == false)
 		{
-			LOG_P_0(LOG_CAT_W, "Closed by client absence: " << m_chIPNameBuffer << " ID: " << iTPos);
+			if(mThreadDadas[iTPos].bKick)
+			{
+				LOG_P_1(LOG_CAT_W, "Closed due kicking out: " << m_chIPNameBuffer << " ID: " << iTPos);
+			}
+			else
+			{
+				LOG_P_0(LOG_CAT_W, "Closed by client absence: " << m_chIPNameBuffer << " ID: " << iTPos);
+			}
 		}
 	}
 	else // При локальном - закрываем здесь.

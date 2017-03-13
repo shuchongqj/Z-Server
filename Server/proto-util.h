@@ -34,6 +34,7 @@
 #define PROTO_S_PASSW_OK			'P'
 #define PROTO_S_PASSW_ERR			'p'
 #define PROTO_S_BAN					'-'
+#define PROTO_S_KICK				'*'
 #define PROTO_S_UNSECURED			'!'
 #define PROTO_S_UNKNOWN_COMMAND		'?'
 #define PROTO_C_REQUEST_LEAVING		'L'

@@ -58,6 +58,7 @@ private:
 		bool bFullOnServer; ///< Флаг переполнения буфера на сервере.
 		bool bFullOnClient; ///< Флаг переполнения буфера на клиенте.
 		bool bSecured; ///< Флаг защищённого соединения.
+		bool bKick; ///< Флаг команды на выброс клиента.
 	};
 
 private:
@@ -132,6 +133,9 @@ public:
 								///< \param[in] a_ConnectionData Ссылка на структуру описания соединения.
 								///< \param[in,out] p_chIP Указатель на буфер имени IP.
 								///< \param[in,out] p_chPort Указатель на буфер имени порта.
+	/// Принудительное отключение клиента.
+	static void KickClient(unsigned int uiIndex);
+								///< \param[in] uiIndex Индекс соединения.
 
 private:
 	/// Функция отправки пакета клиенту.

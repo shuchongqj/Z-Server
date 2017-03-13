@@ -133,8 +133,11 @@ private slots:
 	/// При нажатии ПКМ на элементе списка пользователей.
 	void on_Users_listWidget_customContextMenuRequested(const QPoint &pos);
 							///< \param[in] pos Ссылка на координаты точки указателя в виджете.
-	/// При нажатии ПКМ на элементе списка банов.
+	/// При нажатии ПКМ на элементе списка банов по пользователям.
 	void on_U_Bans_listWidget_customContextMenuRequested(const QPoint &pos);
+							///< \param[in] pos Ссылка на координаты точки указателя в виджете.
+	/// При нажатии ПКМ на элементе списка соединений.
+	void on_Clients_listWidget_customContextMenuRequested(const QPoint &pos);
 							///< \param[in] pos Ссылка на координаты точки указателя в виджете.
 
 private:

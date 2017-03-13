@@ -16,6 +16,7 @@
 #define MENU_TEXT_USERS_DELETE	"Удалить"
 #define MENU_TEXT_USERS_BAN		"Блокировать"
 #define MENU_TEXT_USERS_PARDON	"Восстановить"
+#define MENU_TEXT_USERS_KICK	"Отключить"
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL_INIT_INCLASS(MainWindow)
@@ -548,6 +549,7 @@ int MainWindow::UserBanProcedures(int iPosition,
 		LOG_P_0(LOG_CAT_E, MSG_CANNOT_SAVE_BANS);
 		RETVAL_SET(RETVAL_ERR);
 	}
+	p_Server->KickClient(lst_AuthorizationUnits.at(iPosition).iConnectionIndex);
 	return lst_UserBanUnits.count() - 1;
 }
 
@@ -673,6 +675,11 @@ gTEx:					p_Server->ReleaseCurrentData();
 								}
 								else
 								{
+									if(QString(oPAuthorizationDataInt.m_chLogin).isEmpty())
+									{
+										p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_INCORRECT_NAME), 1);
+										goto gLEx;
+									}
 									for(int iN = 0; iN < lst_UserBanUnits.length(); iN++)
 									{
 										if(QString(oPAuthorizationDataInt.m_chLogin) == QString(lst_UserBanUnits.at(iN).m_chLogin))
@@ -1026,7 +1033,7 @@ void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &po
 	}
 }
 
-// При нажатии ПКМ на элементе списка банов.
+// При нажатии ПКМ на элементе списка банов по пользователям.
 void MainWindow::on_U_Bans_listWidget_customContextMenuRequested(const QPoint &pos)
 {
 	QPoint oGlobalPos;
@@ -1068,6 +1075,69 @@ void MainWindow::on_U_Bans_listWidget_customContextMenuRequested(const QPoint &p
 					LOG_P_0(LOG_CAT_E, MSG_CANNOT_SAVE_BANS);
 					RETVAL_SET(RETVAL_ERR);
 				}
+			}
+		}
+	}
+}
+
+// При нажатии ПКМ на элементе списка соединений.
+void MainWindow::on_Clients_listWidget_customContextMenuRequested(const QPoint &pos)
+{
+	QPoint oGlobalPos;
+	QMenu oMenu;
+	QAction* p_SelectedMenuItem;
+	QListWidgetItem* p_ListWidgetItem;
+	ConnectionData oConnectionDataInt;
+	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
+	char m_chPortNameBuffer[PORTSTRLEN];
+	//
+	p_ListWidgetItem = p_ui->Clients_listWidget->itemAt(pos);
+	if(p_ListWidgetItem != 0)
+	{
+		oGlobalPos = p_ui->Clients_listWidget->mapToGlobal(pos);
+		oMenu.addAction(MENU_TEXT_USERS_KICK);
+		oMenu.addAction(MENU_TEXT_USERS_BAN);
+		p_SelectedMenuItem = oMenu.exec(oGlobalPos);
+		if(p_SelectedMenuItem != 0)
+		{
+			if(p_SelectedMenuItem->text() == MENU_TEXT_USERS_KICK)
+			{
+				for(int iC = 0; iC < MAX_CONN; iC++)
+				{
+					oConnectionDataInt = p_Server->GetConnectionData(iC);
+					if(oConnectionDataInt.iStatus != CONNECTION_SEL_ERROR)
+					{
+						p_Server->FillIPAndPortNames(oConnectionDataInt,
+													 m_chIPNameBuffer, m_chPortNameBuffer);
+						if(p_ListWidgetItem->text().contains(m_chIPNameBuffer))
+						{
+							LOG_P_0(LOG_CAT_I, "Kicking off: " << p_ListWidgetItem->text().toStdString());
+							p_Server->KickClient(iC);
+						}
+					}
+				}
+			}
+			else if (p_SelectedMenuItem->text() == MENU_TEXT_USERS_BAN)
+			{
+//				for(int iC = 0; iC < lst_AuthorizationUnits.count(); iC++)
+//				{
+//					if(QString(lst_AuthorizationUnits.at(iC).m_chLogin) + USER_LEVEL_TAG(lst_AuthorizationUnits.at(iC).chLevel) ==
+//					   p_ListWidgetItem->text())
+//					{
+//						if(lst_AuthorizationUnits.at(iC).iConnectionIndex != CONNECTION_SEL_ERROR)
+//						{
+//							oConnectionDataInt = p_Server->GetConnectionData(lst_AuthorizationUnits.at(iC).iConnectionIndex);
+//							UserBanProcedures(iC, &oConnectionDataInt, AUTH_ANSWER_BAN);
+//							LOG_P_0(LOG_CAT_I, "Banned online.");
+//						}
+//						else
+//						{
+//							UserBanProcedures(iC, 0, 0, false);
+//							LOG_P_0(LOG_CAT_I, "Banned offline.");
+//						}
+//						break;
+//					}
+//				}
 			}
 		}
 	}
