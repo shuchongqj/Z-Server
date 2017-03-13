@@ -11,6 +11,7 @@ CONFIG += no_batch
 
 unix {
 LIBS += -ldl -lX11 -lXtst
+QMAKE_CXX = /usr/bin/gcc
 }
 
 win32 {
