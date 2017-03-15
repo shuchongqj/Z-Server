@@ -84,13 +84,13 @@ private:
 	/// Процедуры при логине пользователя.
 	static void UserLoginProcedures(int iPosition,
 									  unsigned int iIndex, ConnectionData& a_ConnectionData);
-							///< \param[in] iPosition Позиция в списке
+							///< \param[in] iPosition Позиция в списке автоизации.
 							///< \param[in] iIndex Индекс соединения.
 							///< \param[in] a_ConnectionData Ссылка на данные по соединению.
 	/// Процедуры при логауте пользователя.
 	static int UserLogoutProcedures(int iPosition,
 									   ConnectionData& a_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bSend = false);
-							///< \param[in] iPosition Позиция в списке.
+							///< \param[in] iPosition Позиция в списке автоизации.
 							///< \param[in] a_ConnectionData Ссылка на данные по соединению.
 							///< \param[in] chAnswer Ответ пользователю.
 							///< \param[in] bSend Отсылать ли отчёт.
@@ -98,7 +98,7 @@ private:
 	/// Процедуры при удалении пользователя.
 	static int UserPurgeProcedures(int iPosition,
 										ConnectionData* p_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bLogout = true);
-							///< \param[in] iPosition Позиция в списке.
+							///< \param[in] iPosition Позиция в списке автоизации.
 							///< \param[in] p_ConnectionData Указатель на данные по соединению (не используется если не нужен логаут).
 							///< \param[in] chAnswer Ответ пользователю.
 							///< \param[in] bLogout Нужны ли процедуры логаута бывшего пользователя.
@@ -138,6 +138,9 @@ private slots:
 							///< \param[in] pos Ссылка на координаты точки указателя в виджете.
 	/// При нажатии ПКМ на элементе списка соединений.
 	void on_Clients_listWidget_customContextMenuRequested(const QPoint &pos);
+							///< \param[in] pos Ссылка на координаты точки указателя в виджете.
+	/// При нажатии ПКМ на элементе списка банов по адресам.
+	void on_C_Bans_listWidget_customContextMenuRequested(const QPoint &pos);
 							///< \param[in] pos Ссылка на координаты точки указателя в виджете.
 
 private:
