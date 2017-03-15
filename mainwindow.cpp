@@ -182,7 +182,7 @@ bool MainWindow::LoadBansCatalogue()
 			else
 			{
 				memcpy(oUserBanUnit.m_chLogin,
-					   strHelper.toStdString().c_str(), strHelper.toStdString().length() + 1);
+					   strHelper.toStdString().c_str(), SizeOfChars(strHelper.toStdString().length() + 1));
 			}
 			lst_UserBanUnits.append(oUserBanUnit);
 		} PARSE_CHILDLIST_END(p_ListLogins);
@@ -198,7 +198,7 @@ bool MainWindow::LoadBansCatalogue()
 			else
 			{
 				memcpy(oIPBanUnit.m_chIP,
-					   strHelper.toStdString().c_str(), strHelper.toStdString().length() + 1);
+					   strHelper.toStdString().c_str(), SizeOfChars(strHelper.toStdString().length() + 1));
 			}
 			vec_IPBanUnits.push_back(oIPBanUnit);
 		} PARSE_CHILDLIST_END(p_ListIPs);
@@ -283,7 +283,7 @@ bool MainWindow::LoadUsersCatalogue()
 				else
 				{
 					memcpy(oAuthorizationUnitInt.m_chLogin,
-						   strHelper.toStdString().c_str(), strHelper.toStdString().length() + 1);
+						   strHelper.toStdString().c_str(), SizeOfChars(strHelper.toStdString().length() + 1));
 				}
 				bName = true;
 			} FIND_IN_CHILDLIST_END(p_ListLogins);
@@ -305,7 +305,7 @@ bool MainWindow::LoadUsersCatalogue()
 				else
 				{
 					memcpy(oAuthorizationUnitInt.m_chPassword, strHelper.toStdString().c_str(),
-						   strHelper.toStdString().length() + 1);
+						   SizeOfChars(strHelper.toStdString().length() + 1));
 				}
 				bPassword = true;
 			} FIND_IN_CHILDLIST_END(p_ListPasswords);
@@ -420,9 +420,9 @@ void MainWindow::UserLoginProcedures(int iPosition, unsigned int iIndex, Connect
 	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
 	char m_chPortNameBuffer[PORTSTRLEN];
 	//
-	memcpy(oAuthorizationUnitInt.m_chLogin, lst_AuthorizationUnits.at(iPosition).m_chLogin, MAX_AUTH_LOGIN);
+	memcpy(oAuthorizationUnitInt.m_chLogin, lst_AuthorizationUnits.at(iPosition).m_chLogin, SizeOfChars(MAX_AUTH_LOGIN));
 	memcpy(oAuthorizationUnitInt.m_chPassword,
-		   lst_AuthorizationUnits.at(iPosition).m_chPassword, MAX_AUTH_PASSWORD);
+		   lst_AuthorizationUnits.at(iPosition).m_chPassword, SizeOfChars(MAX_AUTH_PASSWORD));
 	oAuthorizationUnitInt.chLevel = lst_AuthorizationUnits.at(iPosition).chLevel;
 	oAuthorizationUnitInt.iConnectionIndex = iIndex;
 	lst_AuthorizationUnits.removeAt(iPosition);
@@ -461,9 +461,9 @@ int MainWindow::UserLogoutProcedures(int iPosition, ConnectionData& a_Connection
 		RETVAL_SET(RETVAL_ERR);
 	}
 	memcpy(oAuthorizationUnitInt.m_chLogin,
-		   lst_AuthorizationUnits.at(iPosition).m_chLogin, MAX_AUTH_LOGIN);
+		   lst_AuthorizationUnits.at(iPosition).m_chLogin, SizeOfChars(MAX_AUTH_LOGIN));
 	memcpy(oAuthorizationUnitInt.m_chPassword,
-		   lst_AuthorizationUnits.at(iPosition).m_chPassword, MAX_AUTH_PASSWORD);
+		   lst_AuthorizationUnits.at(iPosition).m_chPassword, SizeOfChars(MAX_AUTH_PASSWORD));
 	oAuthorizationUnitInt.chLevel = lst_AuthorizationUnits.at(iPosition).chLevel;
 	oAuthorizationUnitInt.iConnectionIndex = CONNECTION_SEL_ERROR;
 	lst_AuthorizationUnits.removeAt(iPosition);
@@ -631,15 +631,15 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 						PTextMessage oPTextMessage;
 						QString strChatMsg;
 						//
-						memcpy(oPTextMessage.m_chLogin, ((PTextMessage*)p_vLastReceivedDataBuffer)->m_chLogin, MAX_AUTH_LOGIN);
-						memcpy(oPTextMessage.m_chMsg, ((PTextMessage*)p_vLastReceivedDataBuffer)->m_chMsg, MAX_MSG);
+						memcpy(oPTextMessage.m_chLogin, ((PTextMessage*)p_vLastReceivedDataBuffer)->m_chLogin, SizeOfChars(MAX_AUTH_LOGIN));
+						memcpy(oPTextMessage.m_chMsg, ((PTextMessage*)p_vLastReceivedDataBuffer)->m_chMsg, SizeOfChars(MAX_MSG));
 						for(int iC=0; iC < lst_AuthorizationUnits.length(); iC++)
 						{
 							if(lst_AuthorizationUnits.at(iC).iConnectionIndex == (int)uiClientIndex)
 							{
 								strChatMsg = QString(oPTextMessage.m_chLogin) + " => " +
 										QString(oPTextMessage.m_chMsg);
-								memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), MAX_AUTH_LOGIN + 4 + MAX_MSG);
+								memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), SizeOfChars(MAX_AUTH_LOGIN) + 4 + SizeOfChars(MAX_MSG));
 								for(int iT=0; iT < lst_AuthorizationUnits.length(); iT++)
 								{
 									if((lst_AuthorizationUnits.at(iT).iConnectionIndex != (int)uiClientIndex) &
@@ -656,7 +656,8 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 						p_Server->FillIPAndPortNames(oConnectionDataInt, m_chIPNameBuffer, m_chPortNameBuffer);
 						strChatMsg = QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
 								" => " + QString(oPTextMessage.m_chMsg);
-						memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), INET6_ADDRSTRLEN + 1 + PORTSTRLEN + 4 + MAX_MSG);
+						memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), SizeOfChars(INET6_ADDRSTRLEN) +
+							   1 + SizeOfChars(PORTSTRLEN) + 4 + SizeOfChars(MAX_MSG));
 gTEx:					p_Server->ReleaseCurrentData();
 						break;
 					}
@@ -712,8 +713,8 @@ gTEx:					p_Server->ReleaseCurrentData();
 									}
 								}
 								oAuthorizationUnitInt.chLevel = 0;
-								memcpy(oAuthorizationUnitInt.m_chLogin, oPAuthorizationDataInt.m_chLogin, MAX_AUTH_LOGIN);
-								memcpy(oAuthorizationUnitInt.m_chPassword, oPAuthorizationDataInt.m_chPassword, MAX_AUTH_PASSWORD);
+								memcpy(oAuthorizationUnitInt.m_chLogin, oPAuthorizationDataInt.m_chLogin, SizeOfChars(MAX_AUTH_LOGIN));
+								memcpy(oAuthorizationUnitInt.m_chPassword, oPAuthorizationDataInt.m_chPassword, SizeOfChars(MAX_AUTH_PASSWORD));
 								oAuthorizationUnitInt.iConnectionIndex = CONNECTION_SEL_ERROR;
 								lst_AuthorizationUnits.append(oAuthorizationUnitInt);
 								p_ui->Users_listWidget->addItem(QString(oAuthorizationUnitInt.m_chLogin) +
@@ -922,7 +923,7 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 	{
 		if(lst_uiConnectedClients.isEmpty())
 		{
-			memcpy(m_chTextChatBuffer, "[Ошибка]: нет клиентов.", MAX_MSG);
+			memcpy(m_chTextChatBuffer, "[Ошибка]: нет клиентов.", SizeOfChars(MAX_MSG));
 		}
 		else
 		{
@@ -932,18 +933,18 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 				{
 					PTextMessage oPTextMessage;
 					//
-					memcpy(oPTextMessage.m_chLogin, SERVER_NAME, MAX_AUTH_LOGIN);
-					memcpy(oPTextMessage.m_chMsg, (char*)p_ui->Chat_lineEdit->text().toStdString().c_str(), MAX_MSG);
+					memcpy(oPTextMessage.m_chLogin, SERVER_NAME, SizeOfChars(MAX_AUTH_LOGIN));
+					memcpy(oPTextMessage.m_chMsg, (char*)p_ui->Chat_lineEdit->text().toStdString().c_str(), SizeOfChars(MAX_MSG));
 					p_Server->SendToUser(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
 				}
 			}
 			strChatMsg = QString(SERVER_NAME) + " => " + p_ui->Chat_lineEdit->text();
-			memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), sizeof(SERVER_NAME) + 4 + MAX_MSG);
+			memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), sizeof(SERVER_NAME) + 4 + SizeOfChars(MAX_MSG));
 		}
 	}
 	else
 	{
-		memcpy(m_chTextChatBuffer, "[Ошибка]: сервер выключен.", MAX_MSG);
+		memcpy(m_chTextChatBuffer, "[Ошибка]: сервер выключен.", SizeOfChars(MAX_MSG));
 	}
 	p_ui->Chat_lineEdit->clear();
 }
@@ -1132,7 +1133,7 @@ void MainWindow::on_Clients_listWidget_customContextMenuRequested(const QPoint &
 							LOG_P_0(LOG_CAT_I, MSG_KICKING << p_ListWidgetItem->text().toStdString());
 							p_Server->KickClient(iC);
 							p_ui->C_Bans_listWidget->addItem(m_chIPNameBuffer);
-							memcpy(oIPBanUnit.m_chIP, m_chIPNameBuffer, sizeof(Server::IPBanUnit::m_chIP));
+							memcpy(oIPBanUnit.m_chIP, m_chIPNameBuffer, SizeOfChars(INET6_ADDRSTRLEN));
 							vec_IPBanUnits.push_back(oIPBanUnit);
 							LOG_P_0(LOG_CAT_I, "Client has been banned and kicked out.");
 							SaveBansCatalogue();

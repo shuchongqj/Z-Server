@@ -22,6 +22,7 @@
 #define PORTSTRLEN				6
 #define SOCKET_ERROR_TOO_BIG	_NMG-1 // См. protocol.h для занятия нового свободного номера.
 #define RETURN_THREAD			pthread_exit(0); return 0;
+#define SizeOfChars(num)		(sizeof(char) * num)
 #ifndef WIN32
 #define MSleep(val)				usleep(val * 1000)
 #else
