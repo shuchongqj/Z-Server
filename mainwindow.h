@@ -103,15 +103,13 @@ private:
 							///< \param[in] chAnswer Ответ пользователю.
 							///< \param[in] bLogout Нужны ли процедуры логаута бывшего пользователя.
 							///< \return Новый номер текущего элемента в листе авторизации после замены параметров.
-
 	/// Процедуры при блокировке пользователя.
-	static int UserBanProcedures(int iPosition,
-										ConnectionData* p_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bLogout = true);
+	static int UserBanProcedures(int iPosition);
 							///< \param[in] iPosition Позиция в списке.
-							///< \param[in] p_ConnectionData Указатель на данные по соединению (не используется если не нужен логаут).
-							///< \param[in] chAnswer Ответ пользователю.
-							///< \param[in] bLogout Нужны ли процедуры логаута бывшего пользователя.
 							///< \return Новый номер текущего элемента в листе авторизации после замены параметров.
+	/// Блокировка и отключение по имени адреса.
+	static void BanAndKickByAdressWithMenuProcedures(QString& a_strAddrName);
+							///< \param[in] a_strAddrName Ссылка на строку с именем IP.
 
 public slots:
 	/// Обновление чата.
@@ -158,6 +156,8 @@ private:
 	bool bAutostart; ///< Флаг автозапуска.
 	static QTimer* p_ChatTimer; ///< Указатель на таймер обновления GUI.
 	static char m_chTextChatBuffer[MAX_MSG]; ///< Буфер обмена с виджетом чата.
+	static char m_chIPNameBufferUI[INET6_ADDRSTRLEN];
+	static char m_chPortNameBufferUI[PORTSTRLEN];
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD
 };
