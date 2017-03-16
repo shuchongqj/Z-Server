@@ -8,6 +8,9 @@
 // Отправка пакета адресату.
 bool SendToAddress(ConnectionData &oConnectionData, char chCommand, char *p_chBuffer, int iLength)
 {
+	char* p_chCode;
+	unsigned int* p_uiCode;
+	//
 #ifndef WIN32
 	sigset_t ssOldset, ssNewset;
 	siginfo_t sI;
@@ -21,18 +24,23 @@ bool SendToAddress(ConnectionData &oConnectionData, char chCommand, char *p_chBu
 		oConnectionData.iStatus = SOCKET_ERROR_TOO_BIG;
 		return false;
 	}
-	m_chData[0] = chCommand;
+	p_uiCode = (unsigned int*)m_chData;
+	*p_uiCode = (unsigned int)PROTOCOL_CODE;
+	p_uiCode += 1;
+	p_chCode = (char*)p_uiCode;
+	*p_chCode = chCommand;
+	p_chCode += 1;
 	if(iLength > 0)
-		memcpy((void*)&m_chData[1], (void*)p_chBuffer, iLength);
+		memcpy((void*)p_chCode, (void*)p_chBuffer, iLength);
 	//
 #ifndef WIN32
 	p_ssNewset = &ssNewset;
 	sigemptyset(&ssNewset);
 	sigaddset(&ssNewset, SIGPIPE);
 	pthread_sigmask(SIG_BLOCK, &ssNewset, &ssOldset);
-	oConnectionData.iStatus = send(oConnectionData.iSocket, (void*)m_chData, iLength + 1, 0);
+	oConnectionData.iStatus = send(oConnectionData.iSocket, (void*)m_chData, iLength + sizeof(char) + sizeof(unsigned int), 0);
 #else
-	oConnectionData.iStatus = send(oConnectionData.iSocket, (const char*)m_chData, iLength + 1, 0);
+	oConnectionData.iStatus = send(oConnectionData.iSocket, (const char*)m_chData, iLength + sizeof(char) + sizeof(unsigned int), 0);
 #endif
 #ifndef WIN32
 	while(sigtimedwait(p_ssNewset, &sI, &tsTime) >= 0 || errno != EAGAIN);

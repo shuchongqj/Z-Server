@@ -35,6 +35,7 @@ ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength,
 												  ProtocolStorage& aProtocolStorage, bool bDoNotStore)
 {
 	char* p_chCurrPos;
+	unsigned int* p_uiCurrPos;
 	ParseResult oParseResult;
 	oParseResult.iRes = PROTOPARSER_UNKNOWN_COMMAND;
 	oParseResult.bStored = false;
@@ -43,10 +44,19 @@ ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength,
 	bool bOutOfRange;
 	//
 	bOutOfRange = false;
-	p_chCurrPos = p_chData;
+	p_uiCurrPos = (unsigned int*)p_chData;
+	if(*p_uiCurrPos != (unsigned int)PROTOCOL_CODE)
+	{
+		oParseResult.iRes = PROTOPARSER_WRONG_FORMAT;
+		oParseResult.p_chExtraData = 0;
+		oParseResult.iExtraDataLength = 0;
+		return oParseResult;
+	}
+	p_uiCurrPos += 1;
+	p_chCurrPos = (char*)p_uiCurrPos;
 	oParseResult.chTypeCode = *p_chCurrPos;
-	p_chCurrPos++; // Команда уже обработана.
-	iCurrentLength = iLength - 1; // Длина всего остального, кроме первого кода.
+	p_chCurrPos += 1;
+	iCurrentLength = iLength - (sizeof(unsigned int) + sizeof(char)); // Длина всего остального, кроме кодов.
 	switch(oParseResult.chTypeCode)
 	{
 		CaseCommandHub;

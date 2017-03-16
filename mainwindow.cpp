@@ -775,7 +775,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 																					 m_chIPNameBuffer, m_chPortNameBuffer);
 														LOG_P_0(LOG_CAT_W, "Client tries to login with ban: " <<
 																QString(m_chIPNameBuffer).toStdString() + ":" +
-																QString(m_chPortNameBuffer).toStdString()); // TODO Add to IP ban auto.
+																QString(m_chPortNameBuffer).toStdString());
 														goto gLEx;
 													}
 												}

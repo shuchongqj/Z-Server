@@ -613,6 +613,11 @@ gI:				switch(oParsingResult.chTypeCode)
 					  << " from ID: " << iTPos);
 				break;
 			}
+			case PROTOPARSER_WRONG_FORMAT:
+			{
+				LOG_P_0(LOG_CAT_W, (char*)MSG_WRONG_FORMAT  << " from ID: " << iTPos);
+				break;
+			}
 		}
 		if(oParsingResult.bStored)
 		{
