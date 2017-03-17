@@ -14,7 +14,7 @@ bool AddPocketToBuffer(char chCommand, char *p_chBuffer, int iLength)
 {
 	unsigned int* p_uiCode;
 	//
-	if(iLength > (MAX_DATA - 1 - (p_chPocketsBufferPointer - m_chPocketsBuffer)))
+	if(iLength > (int)(MAX_DATA - 1 - (p_chPocketsBufferPointer - m_chPocketsBuffer) - sizeof(char) - sizeof(int)))
 	{
 		return false;
 	}
