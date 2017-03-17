@@ -20,7 +20,7 @@
 #define C_MAX_STORED_POCKETS	8
 #define MAX_DATA				1024
 #define PORTSTRLEN				6
-#define SOCKET_ERROR_TOO_BIG	_NMG-1 // См. protocol.h для занятия нового свободного номера.
+#define BUFFER_IS_FULL			_NMG-1 // См. protocol.h для занятия нового свободного номера.
 #define RETURN_THREAD			pthread_exit(0); return 0;
 #define SizeOfChars(num)		(sizeof(char) * num)
 #ifndef WIN32
@@ -54,11 +54,14 @@ struct ReceivedData
 };
 
 //== ФУНКЦИИ.
-/// Отправка пакета адресату.
-bool SendToAddress(ConnectionData &oConnectionData, char chCommand, char *p_chBuffer = 0, int iLength = 0);
-													///< \param[in,out] oConnectionData Ссылка на стр. описания соединения.
+// Создание заголовка пакета.
+bool AddPocketToBuffer(char chCommand, char *p_chBuffer = 0, int iLength = 0);
 													///< \param[in] chCommand Команда, которая будет задана в начале пакета.
 													///< \param[in] p_chBuffer Указатель на буффер с данными.
 													///< \param[in] iLength Длина пакета в байтах.
+													///< \return true, при удаче.
+/// Отправка пакета адресату.
+bool SendToAddress(ConnectionData &oConnectionData);
+													///< \param[in,out] oConnectionData Ссылка на стр. описания соединения.
 													///< \return true, при удаче.
 #endif // NET_HUB_H

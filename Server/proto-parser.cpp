@@ -42,6 +42,7 @@ ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength,
 	bDoNotStore = bDoNotStore;
 	int iCurrentLength;
 	bool bOutOfRange;
+	int iSizeOfHeader = sizeof(unsigned int) + sizeof(char);
 	//
 	bOutOfRange = false;
 	p_uiCurrPos = (unsigned int*)p_chData;
@@ -56,7 +57,7 @@ ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength,
 	p_chCurrPos = (char*)p_uiCurrPos;
 	oParseResult.chTypeCode = *p_chCurrPos;
 	p_chCurrPos += 1;
-	iCurrentLength = iLength - (sizeof(unsigned int) + sizeof(char)); // Длина всего остального, кроме кодов.
+	iCurrentLength = iLength - iSizeOfHeader; // Длина всего остального, кроме кодов.
 	switch(oParseResult.chTypeCode)
 	{
 		CaseCommandHub;
@@ -70,8 +71,10 @@ ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength,
 	// Если зашкалило...
 	if(bOutOfRange == true)
 	{
-		oParseResult.p_chExtraData = p_chData + iCurrentLength;
-		oParseResult.iExtraDataLength = iLength - iCurrentLength;
+		p_chData += iCurrentLength - 1;
+		p_chData += iSizeOfHeader;
+		oParseResult.p_chExtraData = p_chData;
+		oParseResult.iExtraDataLength = iLength - iCurrentLength - iSizeOfHeader;
 	}
 	else
 	{

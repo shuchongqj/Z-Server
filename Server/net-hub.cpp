@@ -4,50 +4,63 @@
 #include <signal.h>
 #endif
 
+//== ПЕРЕМЕННЫЕ.
+char m_chPocketsBuffer[MAX_DATA];
+char* p_chPocketsBufferPointer = m_chPocketsBuffer;
+
 //== ФУНКЦИИ.
-// Отправка пакета адресату.
-bool SendToAddress(ConnectionData &oConnectionData, char chCommand, char *p_chBuffer, int iLength)
+// Создание заголовка пакета.
+bool AddPocketToBuffer(char chCommand, char *p_chBuffer, int iLength)
 {
-	char* p_chCode;
 	unsigned int* p_uiCode;
+	//
+	if(iLength > (MAX_DATA - 1 - (p_chPocketsBufferPointer - m_chPocketsBuffer)))
+	{
+		return false;
+	}
+	p_uiCode = (unsigned int*)p_chPocketsBufferPointer;
+	*p_uiCode = (unsigned int)PROTOCOL_CODE;
+	p_uiCode += 1;
+	p_chPocketsBufferPointer = (char*)p_uiCode;
+	*p_chPocketsBufferPointer = chCommand;
+	p_chPocketsBufferPointer += 1;
+	if((iLength > 0) & (p_chBuffer != 0))
+		memcpy((void*)p_chPocketsBufferPointer, (void*)p_chBuffer, iLength);
+	p_chPocketsBufferPointer += iLength;
+	return true;
+}
+
+// Отправка пакета адресату.
+bool SendToAddress(ConnectionData &oConnectionData)
+{
+	int iLength;
 	//
 #ifndef WIN32
 	sigset_t ssOldset, ssNewset;
 	siginfo_t sI;
 	struct timespec tsTime = {0, 0};
 	sigset_t* p_ssNewset;
-#endif
-	char m_chData[MAX_DATA];
-	//
-	if(iLength > (MAX_DATA - 1))
-	{
-		oConnectionData.iStatus = SOCKET_ERROR_TOO_BIG;
-		return false;
-	}
-	p_uiCode = (unsigned int*)m_chData;
-	*p_uiCode = (unsigned int)PROTOCOL_CODE;
-	p_uiCode += 1;
-	p_chCode = (char*)p_uiCode;
-	*p_chCode = chCommand;
-	p_chCode += 1;
-	if(iLength > 0)
-		memcpy((void*)p_chCode, (void*)p_chBuffer, iLength);
-	//
-#ifndef WIN32
 	p_ssNewset = &ssNewset;
 	sigemptyset(&ssNewset);
 	sigaddset(&ssNewset, SIGPIPE);
 	pthread_sigmask(SIG_BLOCK, &ssNewset, &ssOldset);
-	oConnectionData.iStatus = send(oConnectionData.iSocket, (void*)m_chData, iLength + sizeof(char) + sizeof(unsigned int), 0);
+	iLength = p_chPocketsBufferPointer - m_chPocketsBuffer;
+	oConnectionData.iStatus = send(oConnectionData.iSocket, (void*)m_chPocketsBuffer, iLength, 0);
 #else
-	oConnectionData.iStatus = send(oConnectionData.iSocket, (const char*)m_chData, iLength + sizeof(char) + sizeof(unsigned int), 0);
+	oConnectionData.iStatus = send(oConnectionData.iSocket,
+								   (const char*)mm_chPocketsBuffer, p_chPocketsBufferPointer - m_chPocketsBuffer, 0);
 #endif
 #ifndef WIN32
 	while(sigtimedwait(p_ssNewset, &sI, &tsTime) >= 0 || errno != EAGAIN);
 	pthread_sigmask(SIG_SETMASK, &ssOldset, 0);
 #endif
+	p_chPocketsBufferPointer = m_chPocketsBuffer;
 	if(oConnectionData.iStatus == -1)
+	{
 		return false;
+	}
 	else
+	{
 		return true;
+	}
 }

@@ -104,6 +104,9 @@ public:
 								///< \param[in] p_chBuffer Указатель на буфер с данными для отправки.
 								///< \param[in] iLength Длина буфера в байтах.
 								///< \return true, при удаче.
+	/// Отправка буфера клиенту на текущее выбранное соединение.
+	static bool SendBufferToClient();
+								///< \return true, при удаче.
 	/// Установка текущего индекса соединения для исходящих.
 	static bool SetCurrentConnection(unsigned int uiIndex);
 								///< \param[in] uiIndex Индекс соединения.
@@ -139,13 +142,18 @@ public:
 
 private:
 	/// Функция отправки пакета по соединению немедленно.
-	static bool SendToConnectionImmediately(ConnectionData &oConnectionData,
+	static bool SendToConnectionImmediately(ConnectionData& a_ConnectionData,
 							 char chCommand, bool bFullFlag = false, char* p_chBuffer = 0, int iLength = 0);
-								///< \param[in] oConnectionData Ссылка структуру принятых данных и описания соединения.
+								///< \param[in] a_ConnectionData Ссылка структуру принятых данных и описания соединения.
 								///< \param[in] chCommand Код команды протокола.
 								///< \param[in] bFullFlag Признак переполнения на сервере для фиктивной попытки отправки.
 								///< \param[in] p_chBuffer Указатель на буфер с данными для отправки.
 								///< \param[in] iLength Длина буфера в байтах.
+								///< \return true, при удаче.
+	/// Функция отправки буфера по соединению.
+	static bool SendBufferToConnection(ConnectionData &a_ConnectionData, bool bFullFlag = false);
+								///< \param[in] a_ConnectionData Ссылка структуру принятых данных и описания соединения.
+								///< \param[in] bFullFlag Признак переполнения на сервере для фиктивной попытки отправки.
 								///< \return true, при удаче.
 	/// Очистка позиции данных потока.
 	static void CleanThrDadaPos(unsigned int uiPos);

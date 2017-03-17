@@ -963,7 +963,8 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 					//
 					memcpy(oPTextMessage.m_chLogin, SERVER_NAME, SizeOfChars(MAX_AUTH_LOGIN));
 					memcpy(oPTextMessage.m_chMsg, (char*)p_ui->Chat_lineEdit->text().toStdString().c_str(), SizeOfChars(MAX_MSG));
-					p_Server->SendToClientImmediately(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
+					AddPocketToBuffer(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
+					p_Server->SendBufferToClient();
 				}
 			}
 			strChatMsg = QString(SERVER_NAME) + " => " + p_ui->Chat_lineEdit->text();

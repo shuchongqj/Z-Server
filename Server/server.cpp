@@ -85,26 +85,47 @@ bool Server::CheckReady()
 }
 
 // Функция отправки пакета по соединению немедленно.
-bool Server::SendToConnectionImmediately(ConnectionData &oConnectionData, char chCommand,
+bool Server::SendToConnectionImmediately(ConnectionData &a_ConnectionData, char chCommand,
 						  bool bFullFlag, char *p_chBuffer, int iLength)
 {
-	bool bRes = false;
 	if(bFullFlag == false)
 	{
-		if(SendToAddress(oConnectionData, chCommand, p_chBuffer, iLength) == false)
+		if(AddPocketToBuffer(chCommand, p_chBuffer, iLength) == false)
+		{
+			LOG_P_0(LOG_CAT_E, "Pockets buffer is full.");
+			return false;
+		}
+		if(SendToAddress(a_ConnectionData) == false)
 		{
 			LOG_P_0(LOG_CAT_E, "Socket error on sending data.");
-		}
-		else
-		{
-			bRes = true;
+			return false;
 		}
 	}
 	else
 	{
 		LOG_P_0(LOG_CAT_E, "Client buffer is full.");
+		return false;
 	}
-	return bRes;
+	return true;
+}
+
+// Функция отправки буфера по соединению.
+bool Server::SendBufferToConnection(ConnectionData &a_ConnectionData, bool bFullFlag)
+{
+	if(bFullFlag == false)
+	{
+		if(SendToAddress(a_ConnectionData) == false)
+		{
+			LOG_P_0(LOG_CAT_E, "Socket error on sending data.");
+			return false;
+		}
+	}
+	else
+	{
+		LOG_P_0(LOG_CAT_E, "Client buffer is full.");
+		return false;
+	}
+	return true;
 }
 
 // Отправка пакета клиенту на текущее выбранное соединение немедленно.
@@ -117,6 +138,32 @@ bool Server::SendToClientImmediately(char chCommand, char* p_chBuffer, int iLeng
 	{
 		if(SendToConnectionImmediately(mThreadDadas[iSelectedConnection].oConnectionData,
 					  chCommand, false, p_chBuffer, iLength) == true)
+			bRes = true;
+	}
+gUE:pthread_mutex_unlock(&ptConnMutex);
+	if(bRes == false)
+	{
+		if(iSelectedConnection == CONNECTION_SEL_ERROR)
+		{
+			LOG_P_0(LOG_CAT_E, "Sending failed - wrong connection.");
+		}
+		else
+		{
+			LOG_P_0(LOG_CAT_E, "Sending failed for: " << iSelectedConnection);
+		}
+	}
+	return bRes;
+}
+
+// Отправка буфера клиенту на текущее выбранное соединение.
+bool Server::SendBufferToClient()
+{
+	bool bRes = false;
+	pthread_mutex_lock(&ptConnMutex);
+	if(iSelectedConnection == CONNECTION_SEL_ERROR) goto gUE;
+	if((mThreadDadas[iSelectedConnection].bFullOnClient == false) & (mThreadDadas[iSelectedConnection].bSecured == true))
+	{
+		if(SendBufferToConnection(mThreadDadas[iSelectedConnection].oConnectionData) == true)
 			bRes = true;
 	}
 gUE:pthread_mutex_unlock(&ptConnMutex);
