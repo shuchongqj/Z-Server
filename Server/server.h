@@ -98,8 +98,8 @@ public:
 	/// Запрос готовности.
 	static bool CheckReady();
 				///< \return true - готов.
-	/// Отправка пакета пользователю на текущее выбранное соединение.
-	static bool SendToUser(char chCommand, char* p_chBuffer, int iLength);
+	/// Отправка пакета клиенту на текущее выбранное соединение немедленно.
+	static bool SendToClientImmediately(char chCommand, char* p_chBuffer, int iLength);
 								///< \param[in] chCommand Код команды протокола.
 								///< \param[in] p_chBuffer Указатель на буфер с данными для отправки.
 								///< \param[in] iLength Длина буфера в байтах.
@@ -138,8 +138,8 @@ public:
 								///< \param[in] uiIndex Индекс соединения.
 
 private:
-	/// Функция отправки пакета клиенту.
-	static bool SendToClient(ConnectionData &oConnectionData,
+	/// Функция отправки пакета по соединению немедленно.
+	static bool SendToConnectionImmediately(ConnectionData &oConnectionData,
 							 char chCommand, bool bFullFlag = false, char* p_chBuffer = 0, int iLength = 0);
 								///< \param[in] oConnectionData Ссылка структуру принятых данных и описания соединения.
 								///< \param[in] chCommand Код команды протокола.

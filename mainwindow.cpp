@@ -430,7 +430,7 @@ void MainWindow::UserLoginProcedures(int iPosition, unsigned int iIndex, Connect
 	oAuthorizationUnitInt.iConnectionIndex = iIndex;
 	lst_AuthorizationUnits.removeAt(iPosition);
 	lst_AuthorizationUnits.append(oAuthorizationUnitInt);
-	p_Server->SendToUser(
+	p_Server->SendToClientImmediately(
 				PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
 	LOG_P_0(LOG_CAT_I, "User is logged in: " <<
 			QString(oAuthorizationUnitInt.m_chLogin).toStdString());
@@ -476,7 +476,7 @@ int MainWindow::UserLogoutProcedures(int iPosition, ConnectionData& a_Connection
 	if(bSend)
 	{
 		// Если был запрос на отсыл ответа, значит пользователь был онлайн. Иначе - строка будет стёрта в любом случае.
-		p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(chAnswer), 1);
+		p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(chAnswer), 1);
 		// Убираем метку онлайн.
 		p_Server->FillIPAndPortNames(a_ConnectionData, m_chIPNameBuffer, m_chPortNameBuffer);
 		lstItems = p_ui->Clients_listWidget->findItems(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
@@ -669,7 +669,7 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 									(lst_AuthorizationUnits.at(iT).iConnectionIndex != CONNECTION_SEL_ERROR))
 									{
 										p_Server->SetCurrentConnection(lst_AuthorizationUnits.at(iT).iConnectionIndex);
-										p_Server->SendToUser(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
+										p_Server->SendToClientImmediately(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
 									}
 								}
 								p_Server->SetCurrentConnection(uiClientIndex);
@@ -693,7 +693,8 @@ gTEx:					p_Server->ReleaseCurrentData();
 							{
 								if(QString(oPAuthorizationDataInt.m_chLogin) == QString(SERVER_NAME))
 								{
-									p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_INCORRECT_NAME), 1);
+									p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
+																	  DEF_CHAR_PTH(AUTH_ANSWER_INCORRECT_NAME), 1);
 									p_Server->FillIPAndPortNames(oConnectionDataInt,
 																 m_chIPNameBuffer, m_chPortNameBuffer);
 									LOG_P_0(LOG_CAT_W, "Client tries to register as server: " <<
@@ -705,14 +706,16 @@ gTEx:					p_Server->ReleaseCurrentData();
 								{
 									if(QString(oPAuthorizationDataInt.m_chLogin).isEmpty())
 									{
-										p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_INCORRECT_NAME), 1);
+										p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
+																		  DEF_CHAR_PTH(AUTH_ANSWER_INCORRECT_NAME), 1);
 										goto gLEx;
 									}
 									for(int iN = 0; iN < lst_UserBanUnits.length(); iN++)
 									{
 										if(QString(oPAuthorizationDataInt.m_chLogin) == QString(lst_UserBanUnits.at(iN).m_chLogin))
 										{
-											p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_BAN), 1);
+											p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
+																			  DEF_CHAR_PTH(AUTH_ANSWER_BAN), 1);
 											p_Server->FillIPAndPortNames(oConnectionDataInt,
 																		 m_chIPNameBuffer, m_chPortNameBuffer);
 											LOG_P_0(LOG_CAT_W, "Client tries to register with banned login: " <<
@@ -728,7 +731,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 									   == QString(oPAuthorizationDataInt.m_chLogin))
 									{
 
-										p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER,
+										p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
 															 DEF_CHAR_PTH(AUTH_ANSWER_USER_PRESENT), 1);
 										LOG_P_1(LOG_CAT_W, "User`s login is already present: " <<
 												QString(oPAuthorizationDataInt.m_chLogin).toStdString());
@@ -743,7 +746,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 								lst_AuthorizationUnits.append(oAuthorizationUnitInt);
 								p_ui->Users_listWidget->addItem(QString(oAuthorizationUnitInt.m_chLogin) +
 																USER_LEVEL_TAG(oAuthorizationUnitInt.chLevel));
-								p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
+								p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
 								LOG_P_0(LOG_CAT_I, "User has been registered successfully: " <<
 										QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 								if(!SaveUsersCatalogue())
@@ -770,7 +773,8 @@ gTEx:					p_Server->ReleaseCurrentData();
 													if(QString(oPAuthorizationDataInt.m_chLogin) ==
 													   QString(lst_UserBanUnits.at(iN).m_chLogin))
 													{
-														p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_BAN), 1);
+														p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
+																						  DEF_CHAR_PTH(AUTH_ANSWER_BAN), 1);
 														p_Server->FillIPAndPortNames(oConnectionDataInt,
 																					 m_chIPNameBuffer, m_chPortNameBuffer);
 														LOG_P_0(LOG_CAT_W, "Client tries to login with ban: " <<
@@ -784,21 +788,21 @@ gTEx:					p_Server->ReleaseCurrentData();
 											}
 											else
 											{
-												p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER,
+												p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
 																	 DEF_CHAR_PTH(AUTH_ANSWER_ALREADY_LOGGED), 1);
 												LOG_P_1(LOG_CAT_W, "User is already logged in: " <<
 														QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 												goto gLEx;
 											}
 										}
-										p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER,
+										p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
 															 DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
 										LOG_P_1(LOG_CAT_W, "Wrong password for user: " <<
 												QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 										goto gLEx;
 									}
 								}
-								p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
+								p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
 								LOG_P_1(LOG_CAT_W, "Requested login is not present: " <<
 										QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 								break;
@@ -817,7 +821,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 											{
 												if(lst_AuthorizationUnits.at(iC).iConnectionIndex != (int)uiClientIndex)
 												{
-													p_Server->SendToUser(
+													p_Server->SendToClientImmediately(
 																PROTO_O_AUTHORIZATION_ANSWER,
 																DEF_CHAR_PTH(AUTH_ANSWER_ACCOUNT_IN_USE), 1);
 													p_Server->FillIPAndPortNames(oConnectionDataInt,
@@ -833,21 +837,21 @@ gTEx:					p_Server->ReleaseCurrentData();
 											}
 											else
 											{
-												p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER,
+												p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
 																	 DEF_CHAR_PTH(AUTH_ANSWER_NOT_LOGGED), 1);
 												LOG_P_1(LOG_CAT_W, "User is not logged in: " <<
 														QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 												goto gLEx;
 											}
 										}
-										p_Server->SendToUser(
+										p_Server->SendToClientImmediately(
 													PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
 										LOG_P_1(LOG_CAT_W, "Wrong password for user: " <<
 												QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 										goto gLEx;
 									}
 								}
-								p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
+								p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
 								LOG_P_1(LOG_CAT_W, "Requested login is not present: " <<
 										QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 								break;
@@ -864,7 +868,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 										{
 											if(lst_AuthorizationUnits.at(iC).iConnectionIndex != (int)uiClientIndex)
 											{
-												p_Server->SendToUser(
+												p_Server->SendToClientImmediately(
 															PROTO_O_AUTHORIZATION_ANSWER,
 															DEF_CHAR_PTH(AUTH_ANSWER_ACCOUNT_IN_USE), 1);
 												p_Server->FillIPAndPortNames(oConnectionDataInt,
@@ -878,21 +882,21 @@ gTEx:					p_Server->ReleaseCurrentData();
 											UserPurgeProcedures(iC, &oConnectionDataInt);
 											goto gLEx;
 										}
-										p_Server->SendToUser(
+										p_Server->SendToClientImmediately(
 													PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
 										LOG_P_1(LOG_CAT_W, "Wrong password for user: " <<
 												QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 										goto gLEx;
 									}
 								}
-								p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
+								p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
 								LOG_P_1(LOG_CAT_W, "Requested login is not present: " <<
 										QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 								break;
 							}
 							default:
 							{
-								p_Server->SendToUser(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_WRONG_REQUEST), 1);
+								p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_WRONG_REQUEST), 1);
 								LOG_P_0(LOG_CAT_E, "Wrong authorization request.");
 								break;
 							}
@@ -959,7 +963,7 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 					//
 					memcpy(oPTextMessage.m_chLogin, SERVER_NAME, SizeOfChars(MAX_AUTH_LOGIN));
 					memcpy(oPTextMessage.m_chMsg, (char*)p_ui->Chat_lineEdit->text().toStdString().c_str(), SizeOfChars(MAX_MSG));
-					p_Server->SendToUser(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
+					p_Server->SendToClientImmediately(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
 				}
 			}
 			strChatMsg = QString(SERVER_NAME) + " => " + p_ui->Chat_lineEdit->text();

@@ -84,8 +84,8 @@ bool Server::CheckReady()
 	return bServerAlive;
 }
 
-// Функция отправки клиенту.
-bool Server::SendToClient(ConnectionData &oConnectionData, char chCommand,
+// Функция отправки пакета по соединению немедленно.
+bool Server::SendToConnectionImmediately(ConnectionData &oConnectionData, char chCommand,
 						  bool bFullFlag, char *p_chBuffer, int iLength)
 {
 	bool bRes = false;
@@ -107,15 +107,15 @@ bool Server::SendToClient(ConnectionData &oConnectionData, char chCommand,
 	return bRes;
 }
 
-// Отправка пакета пользователю.
-bool Server::SendToUser(char chCommand, char* p_chBuffer, int iLength)
+// Отправка пакета клиенту на текущее выбранное соединение немедленно.
+bool Server::SendToClientImmediately(char chCommand, char* p_chBuffer, int iLength)
 {
 	bool bRes = false;
 	pthread_mutex_lock(&ptConnMutex);
 	if(iSelectedConnection == CONNECTION_SEL_ERROR) goto gUE;
 	if((mThreadDadas[iSelectedConnection].bFullOnClient == false) & (mThreadDadas[iSelectedConnection].bSecured == true))
 	{
-		if(SendToClient(mThreadDadas[iSelectedConnection].oConnectionData,
+		if(SendToConnectionImmediately(mThreadDadas[iSelectedConnection].oConnectionData,
 					  chCommand, false, p_chBuffer, iLength) == true)
 			bRes = true;
 	}
@@ -202,7 +202,7 @@ int Server::ReleaseCurrentData()
 			else
 			{
 				mThreadDadas[iSelectedConnection].bFullOnServer = false;
-				SendToClient(mThreadDadas[iSelectedConnection].oConnectionData, PROTO_A_BUFFER_READY);
+				SendToConnectionImmediately(mThreadDadas[iSelectedConnection].oConnectionData, PROTO_A_BUFFER_READY);
 			}
 			if(mThreadDadas[iSelectedConnection].
 			   mReceivedPockets[mThreadDadas[iSelectedConnection].uiCurrentFreePocket].bFresh == true)
@@ -268,7 +268,7 @@ void Server::KickClient(unsigned int uiIndex)
 {
 	pthread_mutex_lock(&ptConnMutex);
 	mThreadDadas[uiIndex].bKick = true;
-	if(SendToClient(mThreadDadas[uiIndex].oConnectionData, PROTO_S_KICK, mThreadDadas[uiIndex].bFullOnClient))
+	if(SendToConnectionImmediately(mThreadDadas[uiIndex].oConnectionData, PROTO_S_KICK, mThreadDadas[uiIndex].bFullOnClient))
 	{
 		pthread_mutex_unlock(&ptConnMutex);
 		MSleep(WAITING_FOR_CLIENT_DSC);
@@ -452,7 +452,7 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 			if(!strcmp((*p_vec_IPBansInt).at(uiN).m_chIP, m_chIPNameBuffer))
 			{
 				LOG_P_0(LOG_CAT_W, "Connection rejected due ban for: " << m_chIPNameBuffer);
-				SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_BAN);
+				SendToConnectionImmediately(mThreadDadas[iTPos].oConnectionData, PROTO_S_BAN);
 				MSleep(WAITING_FOR_CLIENT_DSC);
 #ifndef WIN32
 				shutdown(mThreadDadas[iTPos].oConnectionData.iSocket, SHUT_RDWR);
@@ -528,7 +528,7 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 					{
 						if(!strcmp(p_chPassword, p_CurrentData->oProtocolStorage.p_Password->m_chPassw))
 						{
-							SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_PASSW_OK);
+							SendToConnectionImmediately(mThreadDadas[iTPos].oConnectionData, PROTO_S_PASSW_OK);
 							mThreadDadas[iTPos].bSecured = true;
 							LOG_P_1(LOG_CAT_I, "Connection is secured for ID: " << iTPos);
 							LOG_P_2(LOG_CAT_I, "Free pockets: " << S_MAX_STORED_POCKETS -
@@ -537,7 +537,7 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 						}
 						else
 						{
-							SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_PASSW_ERR);
+							SendToConnectionImmediately(mThreadDadas[iTPos].oConnectionData, PROTO_S_PASSW_ERR);
 							mThreadDadas[iTPos].bSecured = false;
 							LOG_P_0(LOG_CAT_W, "Authentification failed for ID: " << iTPos);
 						}
@@ -550,7 +550,7 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 					{
 						if(oParsingResult.chTypeCode != PROTO_C_REQUEST_LEAVING)
 						{
-							SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_UNSECURED);
+							SendToConnectionImmediately(mThreadDadas[iTPos].oConnectionData, PROTO_S_UNSECURED);
 							LOG_P_0(LOG_CAT_W, "Client is not autherised, ID: " << iTPos);
 						}
 						goto gI;
@@ -589,7 +589,7 @@ gI:				switch(oParsingResult.chTypeCode)
 					case PROTO_C_REQUEST_LEAVING:
 					{
 						LOG_P_1(LOG_CAT_I, "ID: " << iTPos << " request leaving.");
-						SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_ACCEPT_LEAVING);
+						SendToConnectionImmediately(mThreadDadas[iTPos].oConnectionData, PROTO_S_ACCEPT_LEAVING);
 						LOG_P_1(LOG_CAT_I, "ID: " << iTPos << " leaving accepted.");
 						bLocalExitSignal = true; // Флаг самостоятельного отключения клиента.
 						MSleep(WAITING_FOR_CLIENT_DSC); // Ожидание самостоятельного отключения клиента.
@@ -608,7 +608,7 @@ gI:				switch(oParsingResult.chTypeCode)
 			}
 			case PROTOPARSER_UNKNOWN_COMMAND:
 			{
-				SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_UNKNOWN_COMMAND);
+				SendToConnectionImmediately(mThreadDadas[iTPos].oConnectionData, PROTO_S_UNKNOWN_COMMAND);
 				LOG_P_0(LOG_CAT_W, (char*)MSG_UNKNOWN_COMMAND  << ": '" << oParsingResult.chTypeCode << "'"
 					  << " from ID: " << iTPos);
 				break;
@@ -627,7 +627,7 @@ gI:				switch(oParsingResult.chTypeCode)
 		{
 			LOG_P_1(LOG_CAT_W, "Buffer is full for ID: " << iTPos);
 			mThreadDadas[iTPos].bFullOnServer = true;
-			SendToClient(mThreadDadas[iTPos].oConnectionData, PROTO_S_BUFFER_FULL);
+			SendToConnectionImmediately(mThreadDadas[iTPos].oConnectionData, PROTO_S_BUFFER_FULL);
 			mThreadDadas[iTPos].uiCurrentFreePocket = S_MAX_STORED_POCKETS - 1;
 		}
 		if(oParsingResult.p_chExtraData != 0)
@@ -873,7 +873,7 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 	{
 		if(mThreadDadas[iCurrPos].bInUse == true)
 		{
-			SendToClient(mThreadDadas[iCurrPos].oConnectionData, PROTO_S_SHUTDOWN_INFO);
+			SendToConnectionImmediately(mThreadDadas[iCurrPos].oConnectionData, PROTO_S_SHUTDOWN_INFO);
 		}
 	}
 	MSleep(WAITING_FOR_CLIENT_DSC * 2);
