@@ -47,8 +47,9 @@ bool SendToAddress(ConnectionData &oConnectionData)
 	iLength = p_chPocketsBufferPointer - m_chPocketsBuffer;
 	oConnectionData.iStatus = send(oConnectionData.iSocket, (void*)m_chPocketsBuffer, iLength, 0);
 #else
+	iLength = (int)(p_chPocketsBufferPointer - m_chPocketsBuffer);
 	oConnectionData.iStatus = send(oConnectionData.iSocket,
-								   (const char*)mm_chPocketsBuffer, p_chPocketsBufferPointer - m_chPocketsBuffer, 0);
+								   (const char*)m_chPocketsBuffer, iLength, 0);
 #endif
 #ifndef WIN32
 	while(sigtimedwait(p_ssNewset, &sI, &tsTime) >= 0 || errno != EAGAIN);
