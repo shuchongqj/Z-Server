@@ -3,6 +3,9 @@
 
 //== МАКРОСЫ.
 #define LOG_NAME				"Z-Server"
+#define TryMutexInit			int iLocked
+#define TryMutexLock			iLocked = pthread_mutex_trylock(&ptConnMutex)
+#define TryMutexUnlock			if(iLocked == 0) pthread_mutex_unlock(&ptConnMutex)
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL_INIT_INCLASS(Server)
@@ -85,17 +88,17 @@ bool Server::CheckReady()
 }
 
 // Функция отправки пакета по соединению немедленно.
-bool Server::SendToConnectionImmediately(ConnectionData &a_ConnectionData, char chCommand,
-						  bool bFullFlag, char *p_chBuffer, int iLength)
+bool Server::SendToConnectionImmediately(NetHub& a_NetHub, NetHub::ConnectionData &a_ConnectionData, char chCommand,
+						  bool bFullFlag, char *p_chBuffer, int iLength, bool bResetPointer)
 {
 	if(bFullFlag == false)
 	{
-		if(AddPocketToBuffer(chCommand, p_chBuffer, iLength) == false)
+		if(a_NetHub.AddPocketToBuffer(chCommand, p_chBuffer, iLength) == false)
 		{
 			LOG_P_0(LOG_CAT_E, "Pockets buffer is full.");
 			return false;
 		}
-		if(SendToAddress(a_ConnectionData) == false)
+		if(a_NetHub.SendToAddress(a_ConnectionData, bResetPointer) == false)
 		{
 			LOG_P_0(LOG_CAT_E, "Socket error on sending data.");
 			return false;
@@ -110,11 +113,11 @@ bool Server::SendToConnectionImmediately(ConnectionData &a_ConnectionData, char 
 }
 
 // Функция отправки буфера по соединению.
-bool Server::SendBufferToConnection(ConnectionData &a_ConnectionData, bool bFullFlag)
+bool Server::SendBufferToConnection(NetHub& a_NetHub, NetHub::ConnectionData &a_ConnectionData, bool bFullFlag, bool bResetPointer)
 {
 	if(bFullFlag == false)
 	{
-		if(SendToAddress(a_ConnectionData) == false)
+		if(a_NetHub.SendToAddress(a_ConnectionData, bResetPointer) == false)
 		{
 			LOG_P_0(LOG_CAT_E, "Socket error on sending data.");
 			return false;
@@ -129,18 +132,20 @@ bool Server::SendBufferToConnection(ConnectionData &a_ConnectionData, bool bFull
 }
 
 // Отправка пакета клиенту на текущее выбранное соединение немедленно.
-bool Server::SendToClientImmediately(char chCommand, char* p_chBuffer, int iLength)
+bool Server::SendToClientImmediately(NetHub& a_NetHub, char chCommand, char* p_chBuffer, int iLength, bool bResetPointer)
 {
 	bool bRes = false;
-	pthread_mutex_lock(&ptConnMutex);
+	TryMutexInit;
+	//
+	TryMutexLock;
 	if(iSelectedConnection == CONNECTION_SEL_ERROR) goto gUE;
 	if((mThreadDadas[iSelectedConnection].bFullOnClient == false) & (mThreadDadas[iSelectedConnection].bSecured == true))
 	{
-		if(SendToConnectionImmediately(mThreadDadas[iSelectedConnection].oConnectionData,
-					  chCommand, false, p_chBuffer, iLength) == true)
+		if(SendToConnectionImmediately(a_NetHub, mThreadDadas[iSelectedConnection].oConnectionData,
+					  chCommand, false, p_chBuffer, iLength, bResetPointer) == true)
 			bRes = true;
 	}
-gUE:pthread_mutex_unlock(&ptConnMutex);
+gUE:TryMutexUnlock;
 	if(bRes == false)
 	{
 		if(iSelectedConnection == CONNECTION_SEL_ERROR)
@@ -156,17 +161,19 @@ gUE:pthread_mutex_unlock(&ptConnMutex);
 }
 
 // Отправка буфера клиенту на текущее выбранное соединение.
-bool Server::SendBufferToClient()
+bool Server::SendBufferToClient(NetHub& a_NetHub, bool bResetPointer)
 {
 	bool bRes = false;
-	pthread_mutex_lock(&ptConnMutex);
+	TryMutexInit;
+	//
+	TryMutexLock;
 	if(iSelectedConnection == CONNECTION_SEL_ERROR) goto gUE;
 	if((mThreadDadas[iSelectedConnection].bFullOnClient == false) & (mThreadDadas[iSelectedConnection].bSecured == true))
 	{
-		if(SendBufferToConnection(mThreadDadas[iSelectedConnection].oConnectionData) == true)
+		if(SendBufferToConnection(a_NetHub, mThreadDadas[iSelectedConnection].oConnectionData, false, bResetPointer) == true)
 			bRes = true;
 	}
-gUE:pthread_mutex_unlock(&ptConnMutex);
+gUE:TryMutexUnlock;
 	if(bRes == false)
 	{
 		if(iSelectedConnection == CONNECTION_SEL_ERROR)
@@ -181,34 +188,41 @@ gUE:pthread_mutex_unlock(&ptConnMutex);
 	return bRes;
 }
 
-// Установка указателя кэлбэка изменения статуса подключения клиента.
+// Уст. ук. кэлбэка изменения статуса подключения клиента. !Операции с буф. пакетов в кэлбэке делать ТОЛЬКО СРАЗУ (конкурентные потоки)!
 void Server::SetClientRequestArrivedCB(CBClientRequestArrived pf_CBClientRequestArrivedIn)
 {
-	pthread_mutex_lock(&ptConnMutex);
+	TryMutexInit;
+	//
+	TryMutexLock;
 	pf_CBClientRequestArrived = pf_CBClientRequestArrivedIn;
-	pthread_mutex_unlock(&ptConnMutex);
+	TryMutexUnlock;
 }
 
-// Установка указателя кэлбэка обработки принятых пакетов от клиентов.
+// Уст.ук. кэлбэка обработки принятых пакетов от клиентов. !Операции с буфф. пакетов в кэлбэке делать ТОЛЬКО СРАЗУ (конкурентные потоки)!
 void Server::SetClientDataArrivedCB(CBClientDataArrived pf_CBClientDataArrivedIn)
 {
-	pthread_mutex_lock(&ptConnMutex);
+	TryMutexInit;
+	//
+	TryMutexLock;
 	pf_CBClientDataArrived = pf_CBClientDataArrivedIn;
-	pthread_mutex_unlock(&ptConnMutex);
+	TryMutexUnlock;
 }
 
-// Установка указателя кэлбэка отслеживания статута клиентов.
+// Уст. ук. кэлбэка отслеживания статута клиентов. !Операции с буф. пакетов в кэлбэке делать ТОЛЬКО СРАЗУ (конкурентные потоки)!
 void Server::SetClientStatusChangedCB(CBClientStatusChanged pf_CBClientStatusChangedIn)
 {
-	pthread_mutex_lock(&ptConnMutex);
+	TryMutexInit;
+	//
+	TryMutexLock;
 	pf_CBClientStatusChanged = pf_CBClientStatusChangedIn;
-	pthread_mutex_unlock(&ptConnMutex);
+	TryMutexUnlock;
 }
 
 // Установка текущего индекса осоединения для исходящих.
 bool Server::SetCurrentConnection(unsigned int uiIndex)
 {
 	bool bRes = false;
+	TryMutexInit;
 	//
 	if(uiIndex > (MAX_CONN - 1))
 	{
@@ -216,7 +230,7 @@ bool Server::SetCurrentConnection(unsigned int uiIndex)
 		LOG_P_0(LOG_CAT_E, "Index is out of range.");
 		return false;
 	}
-	pthread_mutex_lock(&ptConnMutex);
+	TryMutexLock;
 	if(mThreadDadas[uiIndex].bInUse == true)
 	{
 		iSelectedConnection = uiIndex;
@@ -228,16 +242,17 @@ bool Server::SetCurrentConnection(unsigned int uiIndex)
 		iSelectedConnection = CONNECTION_SEL_ERROR;
 		LOG_P_0(LOG_CAT_E, "Selected ID is unused: " << uiIndex);
 	}
-	pthread_mutex_unlock(&ptConnMutex);
+	TryMutexUnlock;
 	return bRes;
 }
 
 // Удаление крайнего элемента из массива принятых пакетов.
-int Server::ReleaseCurrentData()
+int Server::ReleaseCurrentData(NetHub& a_NetHub)
 {
 	int iRes = BUFFER_IS_EMPTY;
+	TryMutexInit;
 	//
-	pthread_mutex_lock(&ptConnMutex);
+	TryMutexLock;
 	if(iSelectedConnection != CONNECTION_SEL_ERROR)
 	{
 		if(mThreadDadas[iSelectedConnection].uiCurrentFreePocket > 0)
@@ -249,7 +264,7 @@ int Server::ReleaseCurrentData()
 			else
 			{
 				mThreadDadas[iSelectedConnection].bFullOnServer = false;
-				SendToConnectionImmediately(mThreadDadas[iSelectedConnection].oConnectionData, PROTO_A_BUFFER_READY);
+				SendToConnectionImmediately(a_NetHub, mThreadDadas[iSelectedConnection].oConnectionData, PROTO_A_BUFFER_READY);
 			}
 			if(mThreadDadas[iSelectedConnection].
 			   mReceivedPockets[mThreadDadas[iSelectedConnection].uiCurrentFreePocket].bFresh == true)
@@ -269,7 +284,7 @@ int Server::ReleaseCurrentData()
 		iRes = CONNECTION_SEL_ERROR;
 		LOG_P_0(LOG_CAT_E, "Wrong connection number (release).");
 	}
-	pthread_mutex_unlock(&ptConnMutex);
+	TryMutexUnlock;
 	if(iRes == BUFFER_IS_EMPTY)
 	{
 		LOG_P_0(LOG_CAT_E, "Buffer is empty.");
@@ -282,8 +297,9 @@ int Server::AccessCurrentData(void** pp_vDataBuffer)
 {
 	int iRes = DATA_ACCESS_ERROR;
 	unsigned int uiPos;
+	TryMutexInit;
 	//
-	pthread_mutex_lock(&ptConnMutex);
+	TryMutexLock;
 	if(iSelectedConnection != CONNECTION_SEL_ERROR)
 	{
 		uiPos = mThreadDadas[iSelectedConnection].uiCurrentFreePocket;
@@ -302,7 +318,7 @@ int Server::AccessCurrentData(void** pp_vDataBuffer)
 		iRes = CONNECTION_SEL_ERROR;
 		LOG_P_0(LOG_CAT_E, "Wrong connection number (access).");
 	}
-	pthread_mutex_unlock(&ptConnMutex);
+	TryMutexUnlock;
 	if(iRes == DATA_ACCESS_ERROR)
 	{
 		LOG_P_0(LOG_CAT_E, "Data access error.");
@@ -311,15 +327,18 @@ int Server::AccessCurrentData(void** pp_vDataBuffer)
 }
 
 // Принудительное отключение клиента.
-void Server::KickClient(unsigned int uiIndex)
+void Server::KickClient(NetHub& a_NetHub, unsigned int uiIndex)
 {
-	pthread_mutex_lock(&ptConnMutex);
+	TryMutexInit;
+	//
+	TryMutexLock;
 	mThreadDadas[uiIndex].bKick = true;
-	if(SendToConnectionImmediately(mThreadDadas[uiIndex].oConnectionData, PROTO_S_KICK, mThreadDadas[uiIndex].bFullOnClient))
+	if(SendToConnectionImmediately(a_NetHub,
+								   mThreadDadas[uiIndex].oConnectionData, PROTO_S_KICK, mThreadDadas[uiIndex].bFullOnClient))
 	{
-		pthread_mutex_unlock(&ptConnMutex);
+		TryMutexUnlock;
 		MSleep(WAITING_FOR_CLIENT_DSC);
-		pthread_mutex_lock(&ptConnMutex);
+		TryMutexLock;
 	}
 #ifndef WIN32
 	shutdown(mThreadDadas[uiIndex].oConnectionData.iSocket, SHUT_RDWR);
@@ -327,7 +346,7 @@ void Server::KickClient(unsigned int uiIndex)
 #else
 	closesocket(mThreadDadas[uiIndex].oConnectionData.iSocket);
 #endif
-	pthread_mutex_unlock(&ptConnMutex);
+	TryMutexUnlock;
 }
 
 // Очистка позиции данных потока.
@@ -341,7 +360,7 @@ void Server::CleanThrDadaPos(unsigned int uiPos)
 	mThreadDadas[uiPos].bFullOnServer = false;
 	mThreadDadas[uiPos].bSecured = false;
 	mThreadDadas[uiPos].uiCurrentFreePocket = 0;
-	memset(&mThreadDadas[uiPos].mReceivedPockets, 0, sizeof(ReceivedData));
+	memset(&mThreadDadas[uiPos].mReceivedPockets, 0, sizeof(NetHub::ReceivedData));
 	memset(&mThreadDadas[uiPos].m_chData, 0, sizeof(mThreadDadas[uiPos].m_chData));
 }
 
@@ -349,41 +368,46 @@ void Server::CleanThrDadaPos(unsigned int uiPos)
 int Server::FindFreeThrDadaPos()
 {
 	unsigned int uiPos = 0;
+	TryMutexInit;
 	//
-	pthread_mutex_lock(&ptConnMutex);
+	TryMutexLock;
 	for(; uiPos != MAX_CONN; uiPos++)
 	{
 		if(mThreadDadas[uiPos].bInUse == false) // Если не стоит флаг занятости - годен.
 		{
-			pthread_mutex_unlock(&ptConnMutex);
+			TryMutexUnlock;
 			return uiPos;
 		}
 	}
-	pthread_mutex_unlock(&ptConnMutex);
+	TryMutexUnlock;
 	return CONNECTION_SEL_ERROR;
 }
 
 // Получение копии структуры описания соединения по индексу.
-ConnectionData Server::GetConnectionData(unsigned int uiIndex)
+NetHub::ConnectionData Server::GetConnectionData(unsigned int uiIndex)
 {
-	ConnectionData oConnectionDataRes;
-	pthread_mutex_lock(&ptConnMutex);
+	NetHub::ConnectionData oConnectionDataRes;
+	TryMutexInit;
+	//
+	TryMutexLock;
 	if((uiIndex < MAX_CONN) & (mThreadDadas[uiIndex].bInUse == true))
 	{
 		oConnectionDataRes = mThreadDadas[uiIndex].oConnectionData;
-		pthread_mutex_unlock(&ptConnMutex);
+		TryMutexUnlock;
 		return oConnectionDataRes;
 	}
-	pthread_mutex_unlock(&ptConnMutex);
+	TryMutexUnlock;
 	oConnectionDataRes.iStatus = CONNECTION_SEL_ERROR;
 	return oConnectionDataRes;
 }
 
 // Заполнение структуры описания соединения.
-void Server::FillConnectionData(int iSocket, ConnectionData& a_ConnectionData)
+void Server::FillConnectionData(int iSocket, NetHub::ConnectionData& a_ConnectionData)
 {
+	TryMutexInit;
+	//
 	a_ConnectionData.ai_addrlen = sizeof(sockaddr);
-	pthread_mutex_lock(&ptConnMutex);
+	TryMutexLock;
 	a_ConnectionData.iSocket = iSocket;
 	a_ConnectionData.iStatus = 0;
 #ifndef WIN32
@@ -393,13 +417,15 @@ void Server::FillConnectionData(int iSocket, ConnectionData& a_ConnectionData)
 	getpeername(a_ConnectionData.iSocket, &a_ConnectionData.ai_addr,
 				(int*)&a_ConnectionData.ai_addrlen);
 #endif
-	pthread_mutex_unlock(&ptConnMutex);
+	TryMutexUnlock;
 }
 
 // Заполнение буферов имён IP и порта.
-void Server::FillIPAndPortNames(ConnectionData& a_ConnectionData, char* p_chIP, char* p_chPort)
+void Server::FillIPAndPortNames(NetHub::ConnectionData& a_ConnectionData, char* p_chIP, char* p_chPort)
 {
-	pthread_mutex_lock(&ptConnMutex);
+	TryMutexInit;
+	//
+	TryMutexLock;
 #ifndef WIN32
 	getnameinfo(&a_ConnectionData.ai_addr,
 				a_ConnectionData.ai_addrlen,
@@ -409,14 +435,12 @@ void Server::FillIPAndPortNames(ConnectionData& a_ConnectionData, char* p_chIP, 
 				(socklen_t)a_ConnectionData.ai_addrlen,
 				p_chIP, INET6_ADDRSTRLEN, p_chPort, PORTSTRLEN, NI_NUMERICHOST);
 #endif
-	pthread_mutex_unlock(&ptConnMutex);
+	TryMutexUnlock;
 }
 
 // Поток соединения.
 void* Server::ConversationThread(void* p_vNum)
 {
-	///< \param[in] p_vNum Ук. на переменную типа int с номером предоставленной структуры в mThreadDadas.
-	///< \return Заглушка.
 	int iTPos;
 	bool bKillListenerAccept;
 	ProtoParser* p_ProtoParser;
@@ -424,21 +448,23 @@ void* Server::ConversationThread(void* p_vNum)
 	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
 	char m_chPortNameBuffer[PORTSTRLEN];
 	bool bLocalExitSignal;
-	ReceivedData* p_CurrentData;
+	NetHub::ReceivedData* p_CurrentData;
 	int iTempListener;
 	int iTempTPos;
-	ConnectionData oConnectionDataInt;
+	NetHub::ConnectionData oConnectionDataInt;
 	char* p_chData;
 	int iLength;
+	NetHub* p_LocalNH;
 	//
+	p_LocalNH = new NetHub();
 	bKillListenerAccept = false;
 	bServerAlive = true;
 	bLocalExitSignal = false;
 	iTempTPos = CONNECTION_SEL_ERROR;
 	iTPos = *((int*)p_vNum); // Получили номер в массиве.
-gBA:mThreadDadas[iTPos].bKick = false;
-	if(iTPos != CONNECTION_SEL_ERROR)
+gBA:if(iTPos != CONNECTION_SEL_ERROR)
 	{
+		mThreadDadas[iTPos].bKick = false;
 		mThreadDadas[iTPos].p_Thread = pthread_self(); // Задали ссылку на текущий поток.
 #ifndef WIN32
 		LOG_P_2(LOG_CAT_I, "Waiting connection on thread: " << mThreadDadas[iTPos].p_Thread);
@@ -499,7 +525,7 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 			if(!strcmp((*p_vec_IPBansInt).at(uiN).m_chIP, m_chIPNameBuffer))
 			{
 				LOG_P_0(LOG_CAT_W, "Connection rejected due ban for: " << m_chIPNameBuffer);
-				SendToConnectionImmediately(mThreadDadas[iTPos].oConnectionData, PROTO_S_BAN);
+				SendToConnectionImmediately(*p_LocalNH, mThreadDadas[iTPos].oConnectionData, PROTO_S_BAN);
 				MSleep(WAITING_FOR_CLIENT_DSC);
 #ifndef WIN32
 				shutdown(mThreadDadas[iTPos].oConnectionData.iSocket, SHUT_RDWR);
@@ -524,7 +550,8 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 	bRequestNewConn = true; // Соединение готово - установка флага для главного потока на запрос нового.
 	if(pf_CBClientStatusChanged != 0)
 	{
-		pf_CBClientStatusChanged(true, iTPos);
+		// Вызов кэлбэка смены статуса.
+		pf_CBClientStatusChanged(*p_LocalNH, true, iTPos);
 	}
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
@@ -564,9 +591,8 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 				{
 					if(pf_CBClientRequestArrived != 0)
 					{
-						pthread_mutex_unlock(&ptConnMutex);
-						pf_CBClientRequestArrived(iTPos, oParsingResult.chTypeCode);
-						pthread_mutex_lock(&ptConnMutex);
+						// Вызов кэлбэка прибытия запроса.
+						pf_CBClientRequestArrived(*p_LocalNH, iTPos, oParsingResult.chTypeCode);
 					}
 				}
 				if(mThreadDadas[iTPos].bSecured == false)
@@ -575,7 +601,7 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 					{
 						if(!strcmp(p_chPassword, p_CurrentData->oProtocolStorage.p_Password->m_chPassw))
 						{
-							SendToConnectionImmediately(mThreadDadas[iTPos].oConnectionData, PROTO_S_PASSW_OK);
+							SendToConnectionImmediately(*p_LocalNH, mThreadDadas[iTPos].oConnectionData, PROTO_S_PASSW_OK);
 							mThreadDadas[iTPos].bSecured = true;
 							LOG_P_1(LOG_CAT_I, "Connection is secured for ID: " << iTPos);
 							LOG_P_2(LOG_CAT_I, "Free pockets: " << S_MAX_STORED_POCKETS -
@@ -584,7 +610,7 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 						}
 						else
 						{
-							SendToConnectionImmediately(mThreadDadas[iTPos].oConnectionData, PROTO_S_PASSW_ERR);
+							SendToConnectionImmediately(*p_LocalNH, mThreadDadas[iTPos].oConnectionData, PROTO_S_PASSW_ERR);
 							mThreadDadas[iTPos].bSecured = false;
 							LOG_P_0(LOG_CAT_W, "Authentification failed for ID: " << iTPos);
 						}
@@ -597,7 +623,7 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 					{
 						if(oParsingResult.chTypeCode != PROTO_C_REQUEST_LEAVING)
 						{
-							SendToConnectionImmediately(mThreadDadas[iTPos].oConnectionData, PROTO_S_UNSECURED);
+							SendToConnectionImmediately(*p_LocalNH, mThreadDadas[iTPos].oConnectionData, PROTO_S_UNSECURED);
 							LOG_P_0(LOG_CAT_W, "Client is not autherised, ID: " << iTPos);
 						}
 						goto gI;
@@ -611,9 +637,8 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 						if(pf_CBClientDataArrived != 0)
 						{
 							mThreadDadas[iTPos].uiCurrentFreePocket++;
-							pthread_mutex_unlock(&ptConnMutex);
-							pf_CBClientDataArrived(iTPos);
-							pthread_mutex_lock(&ptConnMutex);
+							// Вызов кэлбэка прибытия данных.
+							pf_CBClientDataArrived(*p_LocalNH, iTPos);
 							mThreadDadas[iTPos].uiCurrentFreePocket--;
 						}
 					}
@@ -636,7 +661,7 @@ gI:				switch(oParsingResult.chTypeCode)
 					case PROTO_C_REQUEST_LEAVING:
 					{
 						LOG_P_1(LOG_CAT_I, "ID: " << iTPos << " request leaving.");
-						SendToConnectionImmediately(mThreadDadas[iTPos].oConnectionData, PROTO_S_ACCEPT_LEAVING);
+						SendToConnectionImmediately(*p_LocalNH, mThreadDadas[iTPos].oConnectionData, PROTO_S_ACCEPT_LEAVING);
 						LOG_P_1(LOG_CAT_I, "ID: " << iTPos << " leaving accepted.");
 						bLocalExitSignal = true; // Флаг самостоятельного отключения клиента.
 						MSleep(WAITING_FOR_CLIENT_DSC); // Ожидание самостоятельного отключения клиента.
@@ -655,7 +680,7 @@ gI:				switch(oParsingResult.chTypeCode)
 			}
 			case PROTOPARSER_UNKNOWN_COMMAND:
 			{
-				SendToConnectionImmediately(mThreadDadas[iTPos].oConnectionData, PROTO_S_UNKNOWN_COMMAND);
+				SendToConnectionImmediately(*p_LocalNH, mThreadDadas[iTPos].oConnectionData, PROTO_S_UNKNOWN_COMMAND);
 				LOG_P_0(LOG_CAT_W, (char*)MSG_UNKNOWN_COMMAND  << ": '" << oParsingResult.chTypeCode << "'"
 					  << " from ID: " << iTPos);
 				break;
@@ -674,7 +699,7 @@ gI:				switch(oParsingResult.chTypeCode)
 		{
 			LOG_P_1(LOG_CAT_W, "Buffer is full for ID: " << iTPos);
 			mThreadDadas[iTPos].bFullOnServer = true;
-			SendToConnectionImmediately(mThreadDadas[iTPos].oConnectionData, PROTO_S_BUFFER_FULL);
+			SendToConnectionImmediately(*p_LocalNH, mThreadDadas[iTPos].oConnectionData, PROTO_S_BUFFER_FULL);
 			mThreadDadas[iTPos].uiCurrentFreePocket = S_MAX_STORED_POCKETS - 1;
 		}
 		if(oParsingResult.p_chExtraData != 0)
@@ -733,9 +758,8 @@ enc:if(iTPos != CONNECTION_SEL_ERROR)
 	{
 		if(pf_CBClientStatusChanged != 0)
 		{
-			pthread_mutex_unlock(&ptConnMutex);
-			pf_CBClientStatusChanged(false, iTPos);
-			pthread_mutex_lock(&ptConnMutex);
+			// Вызов кэлбэка смены статуса.
+			pf_CBClientStatusChanged(*p_LocalNH, false, iTPos);
 		}
 	}
 	if(iTPos != CONNECTION_SEL_ERROR)
@@ -749,6 +773,7 @@ enc:if(iTPos != CONNECTION_SEL_ERROR)
 	if(iSelectedConnection == (int)iTPos) iSelectedConnection = CONNECTION_SEL_ERROR;
 	if(bKillListenerAccept) bListenerAlive = false;
 	pthread_mutex_unlock(&ptConnMutex);
+	delete p_LocalNH;
 	RETURN_THREAD;
 }
 
@@ -767,6 +792,7 @@ void* Server::ServerThread(void *p_vPlug)
 	int iCurrPos = 0;
 	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
 	char m_chPortNameBuffer[PORTSTRLEN];
+	NetHub oMainNH;
 #ifdef WIN32
 	WSADATA wsadata = WSADATA();
 #endif
@@ -920,7 +946,7 @@ nc:	bRequestNewConn = false; // Вход в звено цикла ожидани
 	{
 		if(mThreadDadas[iCurrPos].bInUse == true)
 		{
-			SendToConnectionImmediately(mThreadDadas[iCurrPos].oConnectionData, PROTO_S_SHUTDOWN_INFO);
+			SendToConnectionImmediately(oMainNH, mThreadDadas[iCurrPos].oConnectionData, PROTO_S_SHUTDOWN_INFO);
 		}
 	}
 	MSleep(WAITING_FOR_CLIENT_DSC * 2);

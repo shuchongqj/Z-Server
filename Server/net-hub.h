@@ -32,36 +32,49 @@
 #define	BUFFER_IS_EMPTY			_NMG-3 // См. protocol.h для занятия нового свободного номера.
 #define MSG_GOT_MERGED			"Merged pockets has been received."
 
-//== СТРУКТУРЫ.
-/// Сруктура для данных по соединению.
-struct ConnectionData
+//== КЛАССЫ.
+/// Класс хаба сетевых операций.
+class NetHub
 {
-	int iSocket; ///< Сокет.
-	sockaddr ai_addr; ///< Адрес.
+public:
+	/// Сруктура для данных по соединению.
+	struct ConnectionData
+	{
+		int iSocket; ///< Сокет.
+		sockaddr ai_addr; ///< Адрес.
 #ifndef WIN32
-	socklen_t ai_addrlen; ///< Длина адреса.
+		socklen_t ai_addrlen; ///< Длина адреса.
 #else
-	size_t ai_addrlen; ///< Длина адреса.
+		size_t ai_addrlen; ///< Длина адреса.
 #endif
-	int iStatus; ///< Статус последней операции.
-};
+		int iStatus; ///< Статус последней операции.
+	};
+	/// Структура принятого пакета.
+	struct ReceivedData
+	{
+		bool bFresh; ///< Свежее сообщение.
+		ProtocolStorage oProtocolStorage; ///< Принятая структура хаба указателей.
+	};
 
-/// Структура принятого пакета.
-struct ReceivedData
-{
-	bool bFresh; ///< Свежее сообщение.
-	ProtocolStorage oProtocolStorage; ///< Принятая структура хаба указателей.
-};
+public:
+	/// Конструктор.
+	NetHub();
+	/// Сброс указателя позиции в буфере пакетов.
+	void ResetPocketsBufferPositionPointer();
+	/// Добавление пакета в буфер.
+	bool AddPocketToBuffer(char chCommand, char *p_chBuffer = 0, int iLength = 0);
+	///< \param[in] chCommand Команда, которая будет задана в начале пакета.
+	///< \param[in] p_chBuffer Указатель на буффер с данными.
+	///< \param[in] iLength Длина пакета в байтах.
+	///< \return true, при удаче.
+	/// Отправка пакета адресату.
+	bool SendToAddress(ConnectionData &oConnectionData, bool bResetPointer = true);
+	///< \param[in,out] oConnectionData Ссылка на стр. описания соединения.
+	///< \param[in] bResetPointer Сбрасывать ли указатель на начало буфера.
+	///< \return true, при удаче.
 
-//== ФУНКЦИИ.
-// Создание заголовка пакета.
-bool AddPocketToBuffer(char chCommand, char *p_chBuffer = 0, int iLength = 0);
-													///< \param[in] chCommand Команда, которая будет задана в начале пакета.
-													///< \param[in] p_chBuffer Указатель на буффер с данными.
-													///< \param[in] iLength Длина пакета в байтах.
-													///< \return true, при удаче.
-/// Отправка пакета адресату.
-bool SendToAddress(ConnectionData &oConnectionData);
-													///< \param[in,out] oConnectionData Ссылка на стр. описания соединения.
-													///< \return true, при удаче.
+private:
+	char m_chPocketsBuffer[MAX_DATA]; ///< Рабочий буфер пакетов.
+	char* p_chPocketsBufferPositionPointer; ///< Указатель на позицию в буфере.
+};
 #endif // NET_HUB_H

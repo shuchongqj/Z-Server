@@ -24,9 +24,9 @@
 #endif
 
 //== ОПРЕДЕЛЕНИЯ ТИПОВ.
-typedef void (*CBClientRequestArrived)(unsigned int uiClientIndex, char chRequest);
-typedef void (*CBClientDataArrived)(unsigned int uiClientIndex);
-typedef void (*CBClientStatusChanged)(bool bConnected, unsigned int uiClientIndex);
+typedef void (*CBClientRequestArrived)(NetHub& a_NetHub, unsigned int uiClientIndex, char chRequest);
+typedef void (*CBClientDataArrived)(NetHub& a_NetHub, unsigned int uiClientIndex);
+typedef void (*CBClientStatusChanged)(NetHub& a_NetHub, bool bConnected, unsigned int uiClientIndex);
 
 //== МАКРОСЫ.
 #define USER_RESPONSE_MS		100
@@ -51,8 +51,8 @@ private:
 	{
 		bool bInUse; ///< Флаг использования в соотв. потоке.
 		pthread_t p_Thread; ///< Указатель на рабочий поток.
-		ReceivedData mReceivedPockets[S_MAX_STORED_POCKETS]; ///< Массив принятых пакетов.
-		ConnectionData oConnectionData; ///< Данные по соединению.
+		NetHub::ReceivedData mReceivedPockets[S_MAX_STORED_POCKETS]; ///< Массив принятых пакетов.
+		NetHub::ConnectionData oConnectionData; ///< Данные по соединению.
 		char m_chData[MAX_DATA]; ///< Принятый пакет.
 		unsigned int uiCurrentFreePocket; ///< Текущий свободный пакет в массиве.
 		bool bFullOnServer; ///< Флаг переполнения буфера на сервере.
@@ -99,25 +99,32 @@ public:
 	static bool CheckReady();
 				///< \return true - готов.
 	/// Отправка пакета клиенту на текущее выбранное соединение немедленно.
-	static bool SendToClientImmediately(char chCommand, char* p_chBuffer, int iLength);
+	static bool SendToClientImmediately(NetHub& a_NetHub, char chCommand, char* p_chBuffer, int iLength, bool bResetPointer = true);
+								///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 								///< \param[in] chCommand Код команды протокола.
 								///< \param[in] p_chBuffer Указатель на буфер с данными для отправки.
 								///< \param[in] iLength Длина буфера в байтах.
+								///< \param[in] bResetPointer Сбрасывать ли указатель на начало буфера (для нового заполнения).
 								///< \return true, при удаче.
 	/// Отправка буфера клиенту на текущее выбранное соединение.
-	static bool SendBufferToClient();
+	static bool SendBufferToClient(NetHub& a_NetHub, bool bResetPointer = true);
+								///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
+								///< \param[in] bResetPointer Сбрасывать ли указатель на начало буфера (для нового заполнения).
 								///< \return true, при удаче.
 	/// Установка текущего индекса соединения для исходящих.
 	static bool SetCurrentConnection(unsigned int uiIndex);
 								///< \param[in] uiIndex Индекс соединения.
 								///< \return true, если соединение действительно.
-	/// Установка указателя кэлбэка изменения статуса подключения клиента.
+	/// Уст. ук. кэлбэка изменения статуса подключения клиента;
+	/// a_NetHub (буфер отправляемых паетов) использовать только единовременно - он уникален для потока и используется внутри него.
 	static void SetClientRequestArrivedCB(CBClientRequestArrived pf_CBClientRequestArrivedIn);
 								///< \param[in] pf_CBClientRequestArrivedIn Указатель на пользовательскую функцию.
-	/// Установка указателя кэлбэка обработки принятых пакетов от клиентов.
+	/// Уст.ук. кэлбэка обработки принятых пакетов от клиентов;
+	/// a_NetHub (буфер отправляемых паетов) использовать только единовременно - он уникален для потока и используется внутри него.
 	static void SetClientDataArrivedCB(CBClientDataArrived pf_CBClientDataArrivedIn);
 								///< \param[in] pf_CBClientDataArrivedIn Указатель на пользовательскую функцию.
-	/// Установка указателя кэлбэка отслеживания статута клиентов.
+	/// Уст. ук. кэлбэка отслеживания статута клиентов;
+	/// a_NetHub (буфер отправляемых паетов) использовать только единовременно - он уникален для потока и используется внутри него.
 	static void SetClientStatusChangedCB(CBClientStatusChanged pf_CBClientStatusChangedIn);
 								///< \param[in] pf_CBClientStatusChangedIn Указатель на пользовательскую функцию.
 	/// Доступ к крайнему элементу из массива принятых пакетов от текущего клиента.
@@ -125,35 +132,42 @@ public:
 								///< \param[in,out] pp_vDataBuffer Указатель на указатель на буфер с данными.
 								///< \return Код пакета, DATA_ACCESS_ERROR при ошибке, CONNECTION_SEL_ERROR соотв.
 	/// Удаление крайнего элемента из массива принятых пакетов.
-	static int ReleaseCurrentData();
+	static int ReleaseCurrentData(NetHub& a_NetHub);
+								///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 								///< \return RETVAL_OK, если удачно, BUFFER_IS_EMPTY, если пусто, CONNECTION_SEL_ERROR соотв.
 	/// Получение копии структуры описания соединения по индексу.
-	static ConnectionData GetConnectionData(unsigned int uiIndex);
+	static NetHub::ConnectionData GetConnectionData(unsigned int uiIndex);
 								///< \param[in] uiIndex Индекс соединения.
-								///< \return ConnectionData.iStatus == CONNECTION_SEL_ERROR если соединение не действительно.
+								///< \return NetHub::ConnectionData.iStatus == CONNECTION_SEL_ERROR - соединение не действительно.
 	/// Заполнение буферов имён IP и порта.
-	static void FillIPAndPortNames(ConnectionData& a_ConnectionData, char* p_chIP, char* p_chPort = 0);
+	static void FillIPAndPortNames(NetHub::ConnectionData& a_ConnectionData, char* p_chIP, char* p_chPort = 0);
 								///< \param[in] a_ConnectionData Ссылка на структуру описания соединения.
 								///< \param[in,out] p_chIP Указатель на буфер имени IP.
 								///< \param[in,out] p_chPort Указатель на буфер имени порта.
 	/// Принудительное отключение клиента.
-	static void KickClient(unsigned int uiIndex);
+	static void KickClient(NetHub& a_NetHub, unsigned int uiIndex);
+								//< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 								///< \param[in] uiIndex Индекс соединения.
-
 private:
 	/// Функция отправки пакета по соединению немедленно.
-	static bool SendToConnectionImmediately(ConnectionData& a_ConnectionData,
-							 char chCommand, bool bFullFlag = false, char* p_chBuffer = 0, int iLength = 0);
+	static bool SendToConnectionImmediately(NetHub& a_NetHub, NetHub::ConnectionData& a_ConnectionData,
+							 char chCommand, bool bFullFlag = false, char* p_chBuffer = 0,
+											int iLength = 0, bool bResetPointer = true);
+								///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 								///< \param[in] a_ConnectionData Ссылка структуру принятых данных и описания соединения.
 								///< \param[in] chCommand Код команды протокола.
 								///< \param[in] bFullFlag Признак переполнения на сервере для фиктивной попытки отправки.
 								///< \param[in] p_chBuffer Указатель на буфер с данными для отправки.
 								///< \param[in] iLength Длина буфера в байтах.
+								///< \param[in] bResetPointer Сбрасывать ли указатель на начало буфера (для нового заполнения).
 								///< \return true, при удаче.
 	/// Функция отправки буфера по соединению.
-	static bool SendBufferToConnection(ConnectionData &a_ConnectionData, bool bFullFlag = false);
+	static bool SendBufferToConnection(NetHub& a_NetHub, NetHub::ConnectionData &a_ConnectionData,
+									   bool bFullFlag = false, bool bResetPointer = true);
+								///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 								///< \param[in] a_ConnectionData Ссылка структуру принятых данных и описания соединения.
 								///< \param[in] bFullFlag Признак переполнения на сервере для фиктивной попытки отправки.
+								///< \param[in] bResetPointer Сбрасывать ли указатель на начало буфера (для нового заполнения).
 								///< \return true, при удаче.
 	/// Очистка позиции данных потока.
 	static void CleanThrDadaPos(unsigned int uiPos);
@@ -170,7 +184,7 @@ private:
 								///< \param[in] p_vPlug Заглушка.
 								///< \return Заглушка.
 	/// Заполнение структуры описания соединения.
-	static void FillConnectionData(int iSocket, ConnectionData& a_ConnectionData);
+	static void FillConnectionData(int iSocket, NetHub::ConnectionData& a_ConnectionData);
 								///< \param[in] iSocket Сокет.
 								///< \param[in,out] a_ConnectionData Ссылка на структуру для заполнения.
 };

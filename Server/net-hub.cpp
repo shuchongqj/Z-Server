@@ -4,34 +4,43 @@
 #include <signal.h>
 #endif
 
-//== ПЕРЕМЕННЫЕ.
-char m_chPocketsBuffer[MAX_DATA];
-char* p_chPocketsBufferPointer = m_chPocketsBuffer;
+//== ФУНКЦИИ КЛАССОВ.
+//== Класс хаба сетевых операций.
+// Конструктор.
+NetHub::NetHub()
+{
+	ResetPocketsBufferPositionPointer();
+}
 
-//== ФУНКЦИИ.
-// Создание заголовка пакета.
-bool AddPocketToBuffer(char chCommand, char *p_chBuffer, int iLength)
+// Сброс указателя позиции в буфере пакетов.
+void NetHub::ResetPocketsBufferPositionPointer()
+{
+	p_chPocketsBufferPositionPointer = m_chPocketsBuffer;
+}
+
+// Добавление пакета в буфер.
+bool NetHub::AddPocketToBuffer(char chCommand, char *p_chBuffer, int iLength)
 {
 	unsigned int* p_uiCode;
 	//
-	if(iLength > (int)(MAX_DATA - 1 - (p_chPocketsBufferPointer - m_chPocketsBuffer) - sizeof(char) - sizeof(int)))
+	if(iLength > (int)(MAX_DATA - 1 - (p_chPocketsBufferPositionPointer - m_chPocketsBuffer) - sizeof(char) - sizeof(int)))
 	{
 		return false;
 	}
-	p_uiCode = (unsigned int*)p_chPocketsBufferPointer;
+	p_uiCode = (unsigned int*)p_chPocketsBufferPositionPointer;
 	*p_uiCode = (unsigned int)PROTOCOL_CODE;
 	p_uiCode += 1;
-	p_chPocketsBufferPointer = (char*)p_uiCode;
-	*p_chPocketsBufferPointer = chCommand;
-	p_chPocketsBufferPointer += 1;
+	p_chPocketsBufferPositionPointer = (char*)p_uiCode;
+	*p_chPocketsBufferPositionPointer = chCommand;
+	p_chPocketsBufferPositionPointer += 1;
 	if((iLength > 0) & (p_chBuffer != 0))
-		memcpy((void*)p_chPocketsBufferPointer, (void*)p_chBuffer, iLength);
-	p_chPocketsBufferPointer += iLength;
+		memcpy((void*)p_chPocketsBufferPositionPointer, (void*)p_chBuffer, iLength);
+	p_chPocketsBufferPositionPointer += iLength;
 	return true;
 }
 
 // Отправка пакета адресату.
-bool SendToAddress(ConnectionData &oConnectionData)
+bool NetHub::SendToAddress(ConnectionData &oConnectionData, bool bResetPointer)
 {
 	int iLength;
 	//
@@ -44,10 +53,10 @@ bool SendToAddress(ConnectionData &oConnectionData)
 	sigemptyset(&ssNewset);
 	sigaddset(&ssNewset, SIGPIPE);
 	pthread_sigmask(SIG_BLOCK, &ssNewset, &ssOldset);
-	iLength = p_chPocketsBufferPointer - m_chPocketsBuffer;
+	iLength = p_chPocketsBufferPositionPointer - m_chPocketsBuffer;
 	oConnectionData.iStatus = send(oConnectionData.iSocket, (void*)m_chPocketsBuffer, iLength, 0);
 #else
-	iLength = (int)(p_chPocketsBufferPointer - m_chPocketsBuffer);
+	iLength = (int)(p_chPocketsBufferPositionPointer - m_chPocketsBuffer);
 	oConnectionData.iStatus = send(oConnectionData.iSocket,
 								   (const char*)m_chPocketsBuffer, iLength, 0);
 #endif
@@ -55,7 +64,7 @@ bool SendToAddress(ConnectionData &oConnectionData)
 	while(sigtimedwait(p_ssNewset, &sI, &tsTime) >= 0 || errno != EAGAIN);
 	pthread_sigmask(SIG_SETMASK, &ssOldset, 0);
 #endif
-	p_chPocketsBufferPointer = m_chPocketsBuffer;
+	if(bResetPointer) p_chPocketsBufferPositionPointer = m_chPocketsBuffer;
 	if(oConnectionData.iStatus == -1)
 	{
 		return false;

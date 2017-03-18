@@ -38,6 +38,7 @@ QTimer* MainWindow::p_ChatTimer;
 char MainWindow::m_chTextChatBuffer[MAX_MSG];
 char MainWindow::m_chIPNameBufferUI[INET6_ADDRSTRLEN];
 char MainWindow::m_chPortNameBufferUI[PORTSTRLEN];
+NetHub MainWindow::oPrimaryNetHub;
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс главного окна.
@@ -415,7 +416,7 @@ void MainWindow::ServerStopProcedures()
 }
 
 // Процедуры при логине пользователя.
-void MainWindow::UserLoginProcedures(int iPosition, unsigned int iIndex, ConnectionData& a_ConnectionData)
+void MainWindow::UserLoginProcedures(NetHub& a_NetHub, int iPosition, unsigned int iIndex, NetHub::ConnectionData& a_ConnectionData)
 {
 	AuthorizationUnit oAuthorizationUnitInt;
 	CHAR_PTH;
@@ -430,7 +431,7 @@ void MainWindow::UserLoginProcedures(int iPosition, unsigned int iIndex, Connect
 	oAuthorizationUnitInt.iConnectionIndex = iIndex;
 	lst_AuthorizationUnits.removeAt(iPosition);
 	lst_AuthorizationUnits.append(oAuthorizationUnitInt);
-	p_Server->SendToClientImmediately(
+	p_Server->SendToClientImmediately(a_NetHub,
 				PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
 	LOG_P_0(LOG_CAT_I, "User is logged in: " <<
 			QString(oAuthorizationUnitInt.m_chLogin).toStdString());
@@ -450,7 +451,7 @@ void MainWindow::UserLoginProcedures(int iPosition, unsigned int iIndex, Connect
 }
 
 // Процедуры при логауте пользователя.
-int MainWindow::UserLogoutProcedures(int iPosition, ConnectionData& a_ConnectionData, char chAnswer, bool bSend)
+int MainWindow::UserLogoutProcedures(NetHub& a_NetHub, int iPosition, NetHub::ConnectionData& a_ConnectionData, char chAnswer, bool bSend)
 {
 	AuthorizationUnit oAuthorizationUnitInt;
 	CHAR_PTH;
@@ -476,7 +477,7 @@ int MainWindow::UserLogoutProcedures(int iPosition, ConnectionData& a_Connection
 	if(bSend)
 	{
 		// Если был запрос на отсыл ответа, значит пользователь был онлайн. Иначе - строка будет стёрта в любом случае.
-		p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(chAnswer), 1);
+		p_Server->SendToClientImmediately(a_NetHub, PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(chAnswer), 1);
 		// Убираем метку онлайн.
 		p_Server->FillIPAndPortNames(a_ConnectionData, m_chIPNameBuffer, m_chPortNameBuffer);
 		lstItems = p_ui->Clients_listWidget->findItems(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
@@ -496,8 +497,8 @@ int MainWindow::UserLogoutProcedures(int iPosition, ConnectionData& a_Connection
 }
 
 /// Процедуры при удалении пользователя.
-int MainWindow::UserPurgeProcedures(int iPosition,
-									   ConnectionData* p_ConnectionData, char chAnswer, bool bLogout)
+int MainWindow::UserPurgeProcedures(NetHub& a_NetHub, int iPosition,
+									   NetHub::ConnectionData* p_ConnectionData, char chAnswer, bool bLogout)
 {
 	QList<QListWidgetItem*> lstItems;
 	//
@@ -508,7 +509,7 @@ int MainWindow::UserPurgeProcedures(int iPosition,
 	}
 	if(bLogout)
 	{
-		iPosition = UserLogoutProcedures(iPosition, *p_ConnectionData, chAnswer, true);
+		iPosition = UserLogoutProcedures(a_NetHub, iPosition, *p_ConnectionData, chAnswer, true);
 	}
 	lstItems = p_ui->Users_listWidget->
 			findItems(QString(lst_AuthorizationUnits.at(iPosition).m_chLogin) +
@@ -553,10 +554,10 @@ int MainWindow::UserBanProcedures(int iPosition)
 }
 
 // Блокировка и отключение по имени адреса.
-void MainWindow::BanAndKickByAdressWithMenuProcedures(QString& a_strAddrName)
+void MainWindow::BanAndKickByAdressWithMenuProcedures(NetHub& a_NetHub, QString& a_strAddrName)
 {
 	Server::IPBanUnit oIPBanUnit;
-	ConnectionData oConnectionDataInt;
+	NetHub::ConnectionData oConnectionDataInt;
 	//
 	for(int iC = 0; iC < MAX_CONN; iC++)
 	{
@@ -568,7 +569,7 @@ void MainWindow::BanAndKickByAdressWithMenuProcedures(QString& a_strAddrName)
 			if(a_strAddrName.contains(m_chIPNameBufferUI))
 			{
 				LOG_P_0(LOG_CAT_I, MSG_KICKING << a_strAddrName.toStdString());
-				p_Server->KickClient(iC);
+				p_Server->KickClient(a_NetHub, iC);
 				p_ui->C_Bans_listWidget->addItem(m_chIPNameBufferUI);
 				memcpy(oIPBanUnit.m_chIP, m_chIPNameBufferUI, SizeOfChars(INET6_ADDRSTRLEN));
 				vec_IPBanUnits.push_back(oIPBanUnit);
@@ -580,13 +581,13 @@ void MainWindow::BanAndKickByAdressWithMenuProcedures(QString& a_strAddrName)
 }
 
 // Кэлбэк обработки отслеживания статута клиентов.
-void MainWindow::ClientStatusChangedCallback(bool bConnected, unsigned int uiClientIndex)
+void MainWindow::ClientStatusChangedCallback(NetHub& a_NetHub, bool bConnected, unsigned int uiClientIndex)
 {
 	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
 	char m_chPortNameBuffer[PORTSTRLEN];
 	QString strName;
 	QList<QListWidgetItem*> lst_MatchItems;
-	ConnectionData oConnectionDataInt;
+	NetHub::ConnectionData oConnectionDataInt;
 	//
 	LOG_P_0(LOG_CAT_I, "ID: " << uiClientIndex << " have status: " << bConnected);
 
@@ -607,7 +608,7 @@ void MainWindow::ClientStatusChangedCallback(bool bConnected, unsigned int uiCli
 			{
 				if(lst_AuthorizationUnits.at(iC).iConnectionIndex == (int)uiClientIndex)
 				{
-					UserLogoutProcedures(iC, oConnectionDataInt);
+					UserLogoutProcedures(a_NetHub, iC, oConnectionDataInt);
 					break;
 				}
 			}
@@ -627,9 +628,9 @@ void MainWindow::ClientStatusChangedCallback(bool bConnected, unsigned int uiCli
 }
 
 // Кэлбэк обработки приходящих пакетов данных.
-void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
+void MainWindow::ClientDataArrivedCallback(NetHub& a_NetHub, unsigned int uiClientIndex)
 {
-	ConnectionData oConnectionDataInt;
+	NetHub::ConnectionData oConnectionDataInt;
 	char m_chIPNameBuffer[INET6_ADDRSTRLEN];
 	char m_chPortNameBuffer[PORTSTRLEN];
 	PAuthorizationData oPAuthorizationDataInt;
@@ -641,7 +642,7 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 	if(p_Server->SetCurrentConnection(uiClientIndex) == true)
 	{
 		iLastReceivedDataCode = p_Server->AccessCurrentData(&p_vLastReceivedDataBuffer);
-		if((iLastReceivedDataCode != DATA_ACCESS_ERROR) & (iLastReceivedDataCode != CONNECTION_SEL_ERROR) )
+		if((iLastReceivedDataCode != DATA_ACCESS_ERROR) & (iLastReceivedDataCode != CONNECTION_SEL_ERROR))
 		{
 			oConnectionDataInt = p_Server->GetConnectionData(uiClientIndex);
 			if(oConnectionDataInt.iStatus != CONNECTION_SEL_ERROR)
@@ -663,15 +664,17 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 										QString(oPTextMessage.m_chMsg);
 								memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), SizeOfChars(MAX_AUTH_LOGIN) +
 									   4 + SizeOfChars(MAX_MSG));
+								a_NetHub.AddPocketToBuffer(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
 								for(int iT=0; iT < lst_AuthorizationUnits.length(); iT++)
 								{
 									if((lst_AuthorizationUnits.at(iT).iConnectionIndex != (int)uiClientIndex) &
 									(lst_AuthorizationUnits.at(iT).iConnectionIndex != CONNECTION_SEL_ERROR))
 									{
 										p_Server->SetCurrentConnection(lst_AuthorizationUnits.at(iT).iConnectionIndex);
-										p_Server->SendToClientImmediately(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
+										p_Server->SendBufferToClient(a_NetHub, false);
 									}
 								}
+								a_NetHub.ResetPocketsBufferPositionPointer();
 								p_Server->SetCurrentConnection(uiClientIndex);
 								goto gTEx;
 							}
@@ -681,7 +684,7 @@ void MainWindow::ClientDataArrivedCallback(unsigned int uiClientIndex)
 								" => " + QString(oPTextMessage.m_chMsg);
 						memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), SizeOfChars(INET6_ADDRSTRLEN) +
 							   1 + SizeOfChars(PORTSTRLEN) + 4 + SizeOfChars(MAX_MSG));
-gTEx:					p_Server->ReleaseCurrentData();
+gTEx:					p_Server->ReleaseCurrentData(a_NetHub);
 						break;
 					}
 					case PROTO_O_AUTHORIZATION_REQUEST:
@@ -693,7 +696,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 							{
 								if(QString(oPAuthorizationDataInt.m_chLogin) == QString(SERVER_NAME))
 								{
-									p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
+									p_Server->SendToClientImmediately(a_NetHub, PROTO_O_AUTHORIZATION_ANSWER,
 																	  DEF_CHAR_PTH(AUTH_ANSWER_INCORRECT_NAME), 1);
 									p_Server->FillIPAndPortNames(oConnectionDataInt,
 																 m_chIPNameBuffer, m_chPortNameBuffer);
@@ -706,7 +709,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 								{
 									if(QString(oPAuthorizationDataInt.m_chLogin).isEmpty())
 									{
-										p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
+										p_Server->SendToClientImmediately(a_NetHub, PROTO_O_AUTHORIZATION_ANSWER,
 																		  DEF_CHAR_PTH(AUTH_ANSWER_INCORRECT_NAME), 1);
 										goto gLEx;
 									}
@@ -714,7 +717,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 									{
 										if(QString(oPAuthorizationDataInt.m_chLogin) == QString(lst_UserBanUnits.at(iN).m_chLogin))
 										{
-											p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
+											p_Server->SendToClientImmediately(a_NetHub, PROTO_O_AUTHORIZATION_ANSWER,
 																			  DEF_CHAR_PTH(AUTH_ANSWER_BAN), 1);
 											p_Server->FillIPAndPortNames(oConnectionDataInt,
 																		 m_chIPNameBuffer, m_chPortNameBuffer);
@@ -731,7 +734,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 									   == QString(oPAuthorizationDataInt.m_chLogin))
 									{
 
-										p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
+										p_Server->SendToClientImmediately(a_NetHub, PROTO_O_AUTHORIZATION_ANSWER,
 															 DEF_CHAR_PTH(AUTH_ANSWER_USER_PRESENT), 1);
 										LOG_P_1(LOG_CAT_W, "User`s login is already present: " <<
 												QString(oPAuthorizationDataInt.m_chLogin).toStdString());
@@ -746,7 +749,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 								lst_AuthorizationUnits.append(oAuthorizationUnitInt);
 								p_ui->Users_listWidget->addItem(QString(oAuthorizationUnitInt.m_chLogin) +
 																USER_LEVEL_TAG(oAuthorizationUnitInt.chLevel));
-								p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
+								p_Server->SendToClientImmediately(a_NetHub, PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_OK), 1);
 								LOG_P_0(LOG_CAT_I, "User has been registered successfully: " <<
 										QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 								if(!SaveUsersCatalogue())
@@ -773,7 +776,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 													if(QString(oPAuthorizationDataInt.m_chLogin) ==
 													   QString(lst_UserBanUnits.at(iN).m_chLogin))
 													{
-														p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
+														p_Server->SendToClientImmediately(a_NetHub, PROTO_O_AUTHORIZATION_ANSWER,
 																						  DEF_CHAR_PTH(AUTH_ANSWER_BAN), 1);
 														p_Server->FillIPAndPortNames(oConnectionDataInt,
 																					 m_chIPNameBuffer, m_chPortNameBuffer);
@@ -783,26 +786,27 @@ gTEx:					p_Server->ReleaseCurrentData();
 														goto gLEx;
 													}
 												}
-												UserLoginProcedures(iC, uiClientIndex, oConnectionDataInt);
+												UserLoginProcedures(a_NetHub, iC, uiClientIndex, oConnectionDataInt);
 												goto gLEx;
 											}
 											else
 											{
-												p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
+												p_Server->SendToClientImmediately(a_NetHub, PROTO_O_AUTHORIZATION_ANSWER,
 																	 DEF_CHAR_PTH(AUTH_ANSWER_ALREADY_LOGGED), 1);
 												LOG_P_1(LOG_CAT_W, "User is already logged in: " <<
 														QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 												goto gLEx;
 											}
 										}
-										p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
+										p_Server->SendToClientImmediately(a_NetHub, PROTO_O_AUTHORIZATION_ANSWER,
 															 DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
 										LOG_P_1(LOG_CAT_W, "Wrong password for user: " <<
 												QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 										goto gLEx;
 									}
 								}
-								p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
+								p_Server->SendToClientImmediately(a_NetHub,
+																  PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
 								LOG_P_1(LOG_CAT_W, "Requested login is not present: " <<
 										QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 								break;
@@ -821,7 +825,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 											{
 												if(lst_AuthorizationUnits.at(iC).iConnectionIndex != (int)uiClientIndex)
 												{
-													p_Server->SendToClientImmediately(
+													p_Server->SendToClientImmediately(a_NetHub,
 																PROTO_O_AUTHORIZATION_ANSWER,
 																DEF_CHAR_PTH(AUTH_ANSWER_ACCOUNT_IN_USE), 1);
 													p_Server->FillIPAndPortNames(oConnectionDataInt,
@@ -832,26 +836,27 @@ gTEx:					p_Server->ReleaseCurrentData();
 															QString(m_chPortNameBuffer).toStdString());
 													goto gLEx;
 												}
-												UserLogoutProcedures(iC, oConnectionDataInt, AUTH_ANSWER_OK, true);
+												UserLogoutProcedures(a_NetHub, iC, oConnectionDataInt, AUTH_ANSWER_OK, true);
 												goto gLEx;
 											}
 											else
 											{
-												p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER,
+												p_Server->SendToClientImmediately(a_NetHub, PROTO_O_AUTHORIZATION_ANSWER,
 																	 DEF_CHAR_PTH(AUTH_ANSWER_NOT_LOGGED), 1);
 												LOG_P_1(LOG_CAT_W, "User is not logged in: " <<
 														QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 												goto gLEx;
 											}
 										}
-										p_Server->SendToClientImmediately(
+										p_Server->SendToClientImmediately(a_NetHub,
 													PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
 										LOG_P_1(LOG_CAT_W, "Wrong password for user: " <<
 												QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 										goto gLEx;
 									}
 								}
-								p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
+								p_Server->SendToClientImmediately(a_NetHub,
+																  PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
 								LOG_P_1(LOG_CAT_W, "Requested login is not present: " <<
 										QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 								break;
@@ -868,7 +873,7 @@ gTEx:					p_Server->ReleaseCurrentData();
 										{
 											if(lst_AuthorizationUnits.at(iC).iConnectionIndex != (int)uiClientIndex)
 											{
-												p_Server->SendToClientImmediately(
+												p_Server->SendToClientImmediately(a_NetHub,
 															PROTO_O_AUTHORIZATION_ANSWER,
 															DEF_CHAR_PTH(AUTH_ANSWER_ACCOUNT_IN_USE), 1);
 												p_Server->FillIPAndPortNames(oConnectionDataInt,
@@ -879,29 +884,31 @@ gTEx:					p_Server->ReleaseCurrentData();
 														QString(m_chPortNameBuffer).toStdString());
 												goto gLEx;
 											}
-											UserPurgeProcedures(iC, &oConnectionDataInt);
+											UserPurgeProcedures(a_NetHub, iC, &oConnectionDataInt);
 											goto gLEx;
 										}
-										p_Server->SendToClientImmediately(
+										p_Server->SendToClientImmediately(a_NetHub,
 													PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
 										LOG_P_1(LOG_CAT_W, "Wrong password for user: " <<
 												QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 										goto gLEx;
 									}
 								}
-								p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
+								p_Server->SendToClientImmediately(a_NetHub,
+																  PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1);
 								LOG_P_1(LOG_CAT_W, "Requested login is not present: " <<
 										QString(oPAuthorizationDataInt.m_chLogin).toStdString());
 								break;
 							}
 							default:
 							{
-								p_Server->SendToClientImmediately(PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_WRONG_REQUEST), 1);
+								p_Server->SendToClientImmediately(a_NetHub,
+																  PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_WRONG_REQUEST), 1);
 								LOG_P_0(LOG_CAT_E, "Wrong authorization request.");
 								break;
 							}
 						}
-gLEx:					p_Server->ReleaseCurrentData();
+gLEx:					p_Server->ReleaseCurrentData(a_NetHub);
 						break;
 					}
 				}
@@ -921,8 +928,9 @@ gLEx:					p_Server->ReleaseCurrentData();
 }
 
 // Кэлбэк обработки приходящих запросов.
-void MainWindow::ClientRequestArrivedCallback(unsigned int uiClientIndex, char chRequest)
+void MainWindow::ClientRequestArrivedCallback(NetHub& a_NetHub, unsigned int uiClientIndex, char chRequest)
 {
+	a_NetHub = a_NetHub;
 	LOG_P_2(LOG_CAT_I, "Client: " << uiClientIndex << " request: " << chRequest);
 }
 
@@ -955,18 +963,19 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 		}
 		else
 		{
+			PTextMessage oPTextMessage;
+			//
+			memcpy(oPTextMessage.m_chLogin, SERVER_NAME, SizeOfChars(MAX_AUTH_LOGIN));
+			memcpy(oPTextMessage.m_chMsg, (char*)p_ui->Chat_lineEdit->text().toStdString().c_str(), SizeOfChars(MAX_MSG));
+			oPrimaryNetHub.AddPocketToBuffer(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
 			for(int iNum = 0; iNum != lst_uiConnectedClients.count(); iNum++)
 			{
 				if(p_Server->SetCurrentConnection(lst_uiConnectedClients.at(iNum)))
 				{
-					PTextMessage oPTextMessage;
-					//
-					memcpy(oPTextMessage.m_chLogin, SERVER_NAME, SizeOfChars(MAX_AUTH_LOGIN));
-					memcpy(oPTextMessage.m_chMsg, (char*)p_ui->Chat_lineEdit->text().toStdString().c_str(), SizeOfChars(MAX_MSG));
-					AddPocketToBuffer(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
-					p_Server->SendBufferToClient();
+					p_Server->SendBufferToClient(oPrimaryNetHub, false);
 				}
 			}
+			oPrimaryNetHub.ResetPocketsBufferPositionPointer();
 			strChatMsg = QString(SERVER_NAME) + " => " + p_ui->Chat_lineEdit->text();
 			memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), sizeof(SERVER_NAME) + 4 + SizeOfChars(MAX_MSG));
 		}
@@ -1008,7 +1017,7 @@ void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &po
 	QMenu oMenu;
 	QAction* p_SelectedMenuItem;
 	QListWidgetItem* p_ListWidgetItem;
-	ConnectionData oConnectionDataInt;
+	NetHub::ConnectionData oConnectionDataInt;
 	//
 	p_ListWidgetItem = p_ui->Users_listWidget->itemAt(pos);
 	if(p_ListWidgetItem != 0)
@@ -1031,12 +1040,12 @@ void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &po
 						{
 							oConnectionDataInt = p_Server->GetConnectionData(lst_AuthorizationUnits.at(iC).iConnectionIndex);
 							LOG_P_2(LOG_CAT_I, "Erased online.");
-							UserPurgeProcedures(iC, &oConnectionDataInt, AUTH_ANSWER_ACCOUNT_ERASED);
+							UserPurgeProcedures(oPrimaryNetHub, iC, &oConnectionDataInt, AUTH_ANSWER_ACCOUNT_ERASED);
 						}
 						else
 						{
 							LOG_P_2(LOG_CAT_I, "Erased offline.");
-							UserPurgeProcedures(iC, 0, 0, false);
+							UserPurgeProcedures(oPrimaryNetHub, iC, 0, 0, false);
 						}
 						break;
 					}
@@ -1060,9 +1069,9 @@ void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &po
 							QString strIPName = QString(m_chIPNameBufferUI);
 							if(p_SelectedMenuItem->text() == MENU_TEXT_BAN_AND_KICK_IP)
 							{
-								BanAndKickByAdressWithMenuProcedures(strIPName);
+								BanAndKickByAdressWithMenuProcedures(oPrimaryNetHub, strIPName);
 							}
-							else p_Server->KickClient(iConnectionIndexInt);
+							else p_Server->KickClient(oPrimaryNetHub, iConnectionIndexInt);
 						}
 						else
 						{
@@ -1127,7 +1136,7 @@ void MainWindow::on_Clients_listWidget_customContextMenuRequested(const QPoint &
 	QMenu oMenu;
 	QAction* p_SelectedMenuItem;
 	QListWidgetItem* p_ListWidgetItem;
-	ConnectionData oConnectionDataInt;
+	NetHub::ConnectionData oConnectionDataInt;
 	//
 	p_ListWidgetItem = p_ui->Clients_listWidget->itemAt(pos);
 	if(p_ListWidgetItem != 0)
@@ -1150,7 +1159,7 @@ void MainWindow::on_Clients_listWidget_customContextMenuRequested(const QPoint &
 						if(p_ListWidgetItem->text().contains(m_chIPNameBufferUI))
 						{
 							LOG_P_0(LOG_CAT_I, MSG_KICKING << p_ListWidgetItem->text().toStdString());
-							p_Server->KickClient(iC);
+							p_Server->KickClient(oPrimaryNetHub, iC);
 						}
 					}
 				}
@@ -1159,7 +1168,7 @@ void MainWindow::on_Clients_listWidget_customContextMenuRequested(const QPoint &
 			{
 				QString strIPName = p_ListWidgetItem->text();
 				//
-				BanAndKickByAdressWithMenuProcedures(strIPName);
+				BanAndKickByAdressWithMenuProcedures(oPrimaryNetHub, strIPName);
 			}
 		}
 	}

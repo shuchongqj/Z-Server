@@ -55,14 +55,19 @@ public:
 							///< \param[in] event - Указатель на событие.
 
 	/// Кэлбэк обработки отслеживания статута клиентов.
-	static void ClientStatusChangedCallback(bool bConnected, unsigned int uiClientIndex);
+	static void ClientStatusChangedCallback(NetHub& a_NetHub, bool bConnected, unsigned int uiClientIndex);
+							///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 							///< \param[in] bConnected Статус подключения.
 							///< \param[in] uiClientIndex Индекс клиента.
 	/// Кэлбэк обработки приходящих пакетов данных.
-	static void ClientDataArrivedCallback(unsigned int uiClientIndex);
+	static void ClientDataArrivedCallback(NetHub& a_NetHub, unsigned int uiClientIndex);
+							///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 							///< \param[in] uiClientIndex Индекс клиента.
 	/// Кэлбэк обработки приходящих запросов.
-	static void ClientRequestArrivedCallback(unsigned int uiClientIndex, char chRequest);
+	static void ClientRequestArrivedCallback(NetHub& a_NetHub, unsigned int uiClientIndex, char chRequest);
+							///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
+							///< \param[in] uiClientIndex Индекс клиента.
+							///< \param[in] uiClientIndex Запрос клиента.
 
 private:
 	/// Загрузка каталога банов.
@@ -82,22 +87,25 @@ private:
 	/// Процедуры остановки сервера.
 	void ServerStopProcedures();
 	/// Процедуры при логине пользователя.
-	static void UserLoginProcedures(int iPosition,
-									  unsigned int iIndex, ConnectionData& a_ConnectionData);
+	static void UserLoginProcedures(NetHub& a_NetHub, int iPosition,
+									  unsigned int iIndex, NetHub::ConnectionData& a_ConnectionData);
+							///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 							///< \param[in] iPosition Позиция в списке автоизации.
 							///< \param[in] iIndex Индекс соединения.
 							///< \param[in] a_ConnectionData Ссылка на данные по соединению.
 	/// Процедуры при логауте пользователя.
-	static int UserLogoutProcedures(int iPosition,
-									   ConnectionData& a_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bSend = false);
+	static int UserLogoutProcedures(NetHub& a_NetHub, int iPosition,
+									   NetHub::ConnectionData& a_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bSend = false);
+							///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 							///< \param[in] iPosition Позиция в списке автоизации.
 							///< \param[in] a_ConnectionData Ссылка на данные по соединению.
 							///< \param[in] chAnswer Ответ пользователю.
 							///< \param[in] bSend Отсылать ли отчёт.
 							///< \return Новый номер текущего элемента в листе авторизации после замены параметров.
 	/// Процедуры при удалении пользователя.
-	static int UserPurgeProcedures(int iPosition,
-										ConnectionData* p_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bLogout = true);
+	static int UserPurgeProcedures(NetHub& a_NetHub, int iPosition,
+										NetHub::ConnectionData* p_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bLogout = true);
+							///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 							///< \param[in] iPosition Позиция в списке автоизации.
 							///< \param[in] p_ConnectionData Указатель на данные по соединению (не используется если не нужен логаут).
 							///< \param[in] chAnswer Ответ пользователю.
@@ -108,7 +116,8 @@ private:
 							///< \param[in] iPosition Позиция в списке.
 							///< \return Новый номер текущего элемента в листе авторизации после замены параметров.
 	/// Блокировка и отключение по имени адреса.
-	static void BanAndKickByAdressWithMenuProcedures(QString& a_strAddrName);
+	static void BanAndKickByAdressWithMenuProcedures(NetHub& a_NetHub, QString& a_strAddrName);
+							///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 							///< \param[in] a_strAddrName Ссылка на строку с именем IP.
 
 public slots:
@@ -160,6 +169,8 @@ private:
 	static char m_chPortNameBufferUI[PORTSTRLEN];
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD
+public:
+	static NetHub oPrimaryNetHub;
 };
 
 #endif // MAINWINDOW_H
