@@ -662,8 +662,7 @@ void MainWindow::ClientDataArrivedCallback(NetHub& a_NetHub, unsigned int uiClie
 							{
 								strChatMsg = QString(oPTextMessage.m_chLogin) + " => " +
 										QString(oPTextMessage.m_chMsg);
-								memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), SizeOfChars(MAX_AUTH_LOGIN) +
-									   4 + SizeOfChars(MAX_MSG));
+								memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), SizeOfChars(MAX_MSG));
 								a_NetHub.AddPocketToBuffer(PROTO_O_TEXT_MSG, (char*)&oPTextMessage, sizeof(PTextMessage));
 								for(int iT=0; iT < lst_AuthorizationUnits.length(); iT++)
 								{
@@ -682,8 +681,7 @@ void MainWindow::ClientDataArrivedCallback(NetHub& a_NetHub, unsigned int uiClie
 						p_Server->FillIPAndPortNames(oConnectionDataInt, m_chIPNameBuffer, m_chPortNameBuffer);
 						strChatMsg = QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
 								" => " + QString(oPTextMessage.m_chMsg);
-						memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), SizeOfChars(INET6_ADDRSTRLEN) +
-							   1 + SizeOfChars(PORTSTRLEN) + 4 + SizeOfChars(MAX_MSG));
+						memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), SizeOfChars(MAX_MSG));
 gTEx:					p_Server->ReleaseCurrentData(a_NetHub);
 						break;
 					}
@@ -977,7 +975,7 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 			}
 			oPrimaryNetHub.ResetPocketsBufferPositionPointer();
 			strChatMsg = QString(SERVER_NAME) + " => " + p_ui->Chat_lineEdit->text();
-			memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), sizeof(SERVER_NAME) + 4 + SizeOfChars(MAX_MSG));
+			memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), SizeOfChars(MAX_MSG));
 		}
 	}
 	else
