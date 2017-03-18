@@ -3,9 +3,6 @@
 
 //== МАКРОСЫ.
 #define LOG_NAME				"Z-Server"
-#define TryMutexInit			int iLocked
-#define TryMutexLock			iLocked = pthread_mutex_trylock(&ptConnMutex)
-#define TryMutexUnlock			if(iLocked == 0) pthread_mutex_unlock(&ptConnMutex)
 
 //== ДЕКЛАРАЦИИ СТАТИЧЕСКИХ ПЕРЕМЕННЫХ.
 LOGDECL_INIT_INCLASS(Server)

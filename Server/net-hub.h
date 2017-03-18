@@ -31,6 +31,9 @@
 #define	DATA_ACCESS_ERROR		_NMG-2 // См. protocol.h для занятия нового свободного номера.
 #define	BUFFER_IS_EMPTY			_NMG-3 // См. protocol.h для занятия нового свободного номера.
 #define MSG_GOT_MERGED			"Merged pockets has been received."
+#define TryMutexInit			int iLocked
+#define TryMutexLock			iLocked = pthread_mutex_trylock(&ptConnMutex)
+#define TryMutexUnlock			if(iLocked == 0) pthread_mutex_unlock(&ptConnMutex)
 
 //== КЛАССЫ.
 /// Класс хаба сетевых операций.
