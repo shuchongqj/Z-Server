@@ -1160,6 +1160,7 @@ void MainWindow::on_Clients_listWidget_customContextMenuRequested(const QPoint &
 						{
 							LOG_P_0(LOG_CAT_I, MSG_KICKING << p_ListWidgetItem->text().toStdString());
 							p_Server->KickClient(oPrimaryNetHub, iC);
+							return;
 						}
 					}
 				}
