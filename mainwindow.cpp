@@ -111,8 +111,7 @@ MainWindow::MainWindow(QWidget* p_parent) :
 	if(bAutostart)
 	{
 		LOG_P_0(LOG_CAT_I, "Autostart server.");
-		ServerStartProcedures();
-		p_ui->StartStop_action->toggle();
+		if(ServerStartProcedures()) p_ui->StartStop_action->toggle();
 		p_ui->Autostart_action->toggle();
 	}
 }
@@ -381,7 +380,7 @@ bool MainWindow::SaveUsersCatalogue()
 }
 
 // Процедуры запуска сервера.
-void MainWindow::ServerStartProcedures()
+bool MainWindow::ServerStartProcedures()
 {
 	lst_uiConnectedClients.clear();
 	p_Server->Start();
@@ -390,12 +389,13 @@ void MainWindow::ServerStartProcedures()
 		if(p_Server->CheckReady())
 		{
 			LOG_P_0(LOG_CAT_I, "Server is on.");
-			return;
+			return true;;
 		}
 		MSleep(USER_RESPONSE_MS);
 	}
 	LOG_P_0(LOG_CAT_E, "Can`t start server.");
 	RETVAL_SET(RETVAL_ERR);
+	return false;
 }
 
 // Процедуры остановки сервера.
@@ -1063,7 +1063,6 @@ void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &po
 						{
 							int iConnectionIndexInt = lst_AuthorizationUnits.at(iC).iConnectionIndex;
 							//
-
 							oConnectionDataInt = p_Server->GetConnectionData(iConnectionIndexInt);
 							p_Server->SetCurrentConnection(iConnectionIndexInt);
 							UserBanProcedures(iC);

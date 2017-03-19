@@ -83,7 +83,8 @@ private:
 	static bool SaveUsersCatalogue();
 							///< \return true, при удаче.
 	/// Процедуры запуска сервера.
-	void ServerStartProcedures();
+	bool ServerStartProcedures();
+							///< \return true, при удаче.
 	/// Процедуры остановки сервера.
 	void ServerStopProcedures();
 	/// Процедуры при логине пользователя.
