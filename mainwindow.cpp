@@ -1036,8 +1036,11 @@ void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &po
 					{
 						if(lst_AuthorizationUnits.at(iC).iConnectionIndex != CONNECTION_SEL_ERROR)
 						{
-							oConnectionDataInt = p_Server->GetConnectionData(lst_AuthorizationUnits.at(iC).iConnectionIndex);
+							int iConnectionIndexInt = lst_AuthorizationUnits.at(iC).iConnectionIndex;
+							//
+							oConnectionDataInt = p_Server->GetConnectionData(iConnectionIndexInt);
 							LOG_P_2(LOG_CAT_I, "Erased online.");
+							p_Server->SetCurrentConnection(iConnectionIndexInt);
 							UserPurgeProcedures(oPrimaryNetHub, iC, &oConnectionDataInt, AUTH_ANSWER_ACCOUNT_ERASED);
 						}
 						else
@@ -1059,7 +1062,10 @@ void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &po
 						if(lst_AuthorizationUnits.at(iC).iConnectionIndex != CONNECTION_SEL_ERROR)
 						{
 							int iConnectionIndexInt = lst_AuthorizationUnits.at(iC).iConnectionIndex;
+							//
+
 							oConnectionDataInt = p_Server->GetConnectionData(iConnectionIndexInt);
+							p_Server->SetCurrentConnection(iConnectionIndexInt);
 							UserBanProcedures(iC);
 							LOG_P_0(LOG_CAT_I, "Banned online.");
 							p_Server->FillIPAndPortNames(oConnectionDataInt,
