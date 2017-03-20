@@ -1119,6 +1119,7 @@ void MainWindow::on_Users_listWidget_customContextMenuRequested(const QPoint &po
 							SaveUsersCatalogue();
 							if(oAuthorizationUnitInt.iConnectionIndex != CONNECTION_SEL_ERROR)
 							{
+								p_Server->SetCurrentConnection(oAuthorizationUnitInt.iConnectionIndex);
 								p_Server->SendToClientImmediately(oPrimaryNetHub,
 															PROTO_O_AUTHORIZATION_ANSWER,
 																  DEF_CHAR_PTH(AUTH_ANSWER_LEVEL_CHANGED), 1);
