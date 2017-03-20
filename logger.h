@@ -59,17 +59,17 @@
 #define LOG_MUTEX			_ptLogMutex
 #define _LOG_OPEN(Filename)   _LOGVarname.open(Filename, std::ios_base::in|std::ios_base::out|std::ios_base::trunc)
 #define LOG_CLOSE            _LOGVarname.close()
-#define LOG(Category,Text)  _LogTimeNow = time(0);                                                                          \
+#define LOG(Category,Text)  {_LogTimeNow = time(0);                                                                         \
 							gettimeofday(&_LogTimeval, NULL);                                                               \
 							strftime(_m_chLogBuf, sizeof(_m_chLogBuf), _LOGTimeFormat, localtime(&_LogTimeNow));            \
 							sprintf(_m_chLogMSBuf, _LOGMsFormat, _LogTimeval.tv_usec);                                      \
 							_LOGVarname << _m_chLogBuf << _LOGSpc << _m_chLogMSBuf << _LOGSpc <<							\
 							Category << Text << std::endl;																	\
 							_LOGVarname.flush(); std::cout << _m_chLogBuf << _LOGSpc <<                                     \
-							_m_chLogMSBuf << _LOGSpc << Category << Text << std::endl
-#define LOG_P(Category,Text)	pthread_mutex_lock(&_ptLogMutex);															\
+							_m_chLogMSBuf << _LOGSpc << Category << Text << std::endl;}
+#define LOG_P(Category,Text)	{pthread_mutex_lock(&_ptLogMutex);															\
 								LOG(Category,Text);																			\
-								pthread_mutex_unlock(&_ptLogMutex);
+								pthread_mutex_unlock(&_ptLogMutex);}
 #ifdef LOG_LEVEL_0
 #define LOG_P_0(Category,Text)		LOG_P(Category,Text)
 #define LOG_P_1(Category,Text)

@@ -129,12 +129,12 @@ bool Server::SendBufferToConnection(NetHub& a_NetHub, NetHub::ConnectionData &a_
 }
 
 // Отправка пакета клиенту на текущее выбранное соединение немедленно.
-bool Server::SendToClientImmediately(NetHub& a_NetHub, char chCommand, char* p_chBuffer, int iLength, bool bResetPointer)
+bool Server::SendToClientImmediately(NetHub& a_NetHub, char chCommand, char* p_chBuffer, int iLength, bool bResetPointer, bool bTryLock)
 {
 	bool bRes = false;
 	TryMutexInit;
 	//
-	TryMutexLock;
+	if(bTryLock) TryMutexLock;
 	if(iSelectedConnection == CONNECTION_SEL_ERROR) goto gUE;
 	if((mThreadDadas[iSelectedConnection].bFullOnClient == false) & (mThreadDadas[iSelectedConnection].bSecured == true))
 	{
@@ -142,46 +142,38 @@ bool Server::SendToClientImmediately(NetHub& a_NetHub, char chCommand, char* p_c
 					  chCommand, false, p_chBuffer, iLength, bResetPointer) == true)
 			bRes = true;
 	}
-gUE:TryMutexUnlock;
-	if(bRes == false)
+gUE:if(bRes == false)
 	{
 		if(iSelectedConnection == CONNECTION_SEL_ERROR)
-		{
-			LOG_P_0(LOG_CAT_E, "Sending failed - wrong connection.");
-		}
+			LOG_P_0(LOG_CAT_E, "Sending failed - wrong connection.")
 		else
-		{
 			LOG_P_0(LOG_CAT_E, "Sending failed for: " << iSelectedConnection);
-		}
 	}
+	if(bTryLock) TryMutexUnlock;
 	return bRes;
 }
 
 // Отправка буфера клиенту на текущее выбранное соединение.
-bool Server::SendBufferToClient(NetHub& a_NetHub, bool bResetPointer)
+bool Server::SendBufferToClient(NetHub& a_NetHub, bool bResetPointer, bool bTryLock)
 {
 	bool bRes = false;
 	TryMutexInit;
 	//
-	TryMutexLock;
+	if(bTryLock) TryMutexLock;
 	if(iSelectedConnection == CONNECTION_SEL_ERROR) goto gUE;
 	if((mThreadDadas[iSelectedConnection].bFullOnClient == false) & (mThreadDadas[iSelectedConnection].bSecured == true))
 	{
 		if(SendBufferToConnection(a_NetHub, mThreadDadas[iSelectedConnection].oConnectionData, false, bResetPointer) == true)
 			bRes = true;
 	}
-gUE:TryMutexUnlock;
-	if(bRes == false)
+gUE:if(bRes == false)
 	{
 		if(iSelectedConnection == CONNECTION_SEL_ERROR)
-		{
-			LOG_P_0(LOG_CAT_E, "Sending failed - wrong connection.");
-		}
+			LOG_P_0(LOG_CAT_E, "Sending failed - wrong connection.")
 		else
-		{
 			LOG_P_0(LOG_CAT_E, "Sending failed for: " << iSelectedConnection);
-		}
 	}
+	if(bTryLock) TryMutexUnlock;
 	return bRes;
 }
 
@@ -216,7 +208,7 @@ void Server::SetClientStatusChangedCB(CBClientStatusChanged pf_CBClientStatusCha
 }
 
 // Установка текущего индекса осоединения для исходящих.
-bool Server::SetCurrentConnection(unsigned int uiIndex)
+bool Server::SetCurrentConnection(unsigned int uiIndex, bool bTryLock)
 {
 	bool bRes = false;
 	TryMutexInit;
@@ -227,7 +219,7 @@ bool Server::SetCurrentConnection(unsigned int uiIndex)
 		LOG_P_0(LOG_CAT_E, "Index is out of range.");
 		return false;
 	}
-	TryMutexLock;
+	if(bTryLock) TryMutexLock;
 	if(mThreadDadas[uiIndex].bInUse == true)
 	{
 		iSelectedConnection = uiIndex;
@@ -239,17 +231,17 @@ bool Server::SetCurrentConnection(unsigned int uiIndex)
 		iSelectedConnection = CONNECTION_SEL_ERROR;
 		LOG_P_0(LOG_CAT_E, "Selected ID is unused: " << uiIndex);
 	}
-	TryMutexUnlock;
+	if(bTryLock) TryMutexUnlock;
 	return bRes;
 }
 
 // Удаление крайнего элемента из массива принятых пакетов.
-int Server::ReleaseCurrentData(NetHub& a_NetHub)
+int Server::ReleaseCurrentData(NetHub& a_NetHub, bool bTryLock)
 {
 	int iRes = BUFFER_IS_EMPTY;
 	TryMutexInit;
 	//
-	TryMutexLock;
+	if(bTryLock) TryMutexLock;
 	if(iSelectedConnection != CONNECTION_SEL_ERROR)
 	{
 		if(mThreadDadas[iSelectedConnection].uiCurrentFreePocket > 0)
@@ -281,22 +273,20 @@ int Server::ReleaseCurrentData(NetHub& a_NetHub)
 		iRes = CONNECTION_SEL_ERROR;
 		LOG_P_0(LOG_CAT_E, "Wrong connection number (release).");
 	}
-	TryMutexUnlock;
+	if(bTryLock) TryMutexUnlock;
 	if(iRes == BUFFER_IS_EMPTY)
-	{
 		LOG_P_0(LOG_CAT_E, "Buffer is empty.");
-	}
 	return iRes;
 }
 
 // Доступ к крайнему элементу из массива принятых пакетов от текущего клиента.
-int Server::AccessCurrentData(void** pp_vDataBuffer)
+int Server::AccessCurrentData(void** pp_vDataBuffer, bool bTryLock)
 {
 	int iRes = DATA_ACCESS_ERROR;
 	unsigned int uiPos;
 	TryMutexInit;
 	//
-	TryMutexLock;
+	if(bTryLock) TryMutexLock;
 	if(iSelectedConnection != CONNECTION_SEL_ERROR)
 	{
 		uiPos = mThreadDadas[iSelectedConnection].uiCurrentFreePocket;
@@ -315,27 +305,24 @@ int Server::AccessCurrentData(void** pp_vDataBuffer)
 		iRes = CONNECTION_SEL_ERROR;
 		LOG_P_0(LOG_CAT_E, "Wrong connection number (access).");
 	}
-	TryMutexUnlock;
-	if(iRes == DATA_ACCESS_ERROR)
-	{
-		LOG_P_0(LOG_CAT_E, "Data access error.");
-	}
+	if(bTryLock) TryMutexUnlock;
+	if(iRes == DATA_ACCESS_ERROR) LOG_P_0(LOG_CAT_E, "Data access error.");
 	return iRes;
 }
 
 // Принудительное отключение клиента.
-void Server::KickClient(NetHub& a_NetHub, unsigned int uiIndex)
+void Server::KickClient(NetHub& a_NetHub, unsigned int uiIndex, bool bTryLock)
 {
 	TryMutexInit;
 	//
-	TryMutexLock;
+	if(bTryLock) TryMutexLock;
 	mThreadDadas[uiIndex].bKick = true;
 	if(SendToConnectionImmediately(a_NetHub,
 								   mThreadDadas[uiIndex].oConnectionData, PROTO_S_KICK, mThreadDadas[uiIndex].bFullOnClient))
 	{
-		TryMutexUnlock;
+		if(bTryLock) TryMutexUnlock;
 		MSleep(WAITING_FOR_CLIENT_DSC);
-		TryMutexLock;
+		if(bTryLock) TryMutexLock;
 	}
 #ifndef WIN32
 	shutdown(mThreadDadas[uiIndex].oConnectionData.iSocket, SHUT_RDWR);
@@ -343,7 +330,7 @@ void Server::KickClient(NetHub& a_NetHub, unsigned int uiIndex)
 #else
 	closesocket(mThreadDadas[uiIndex].oConnectionData.iSocket);
 #endif
-	TryMutexUnlock;
+	if(bTryLock) TryMutexUnlock;
 }
 
 // Очистка позиции данных потока.
@@ -381,19 +368,19 @@ int Server::FindFreeThrDadaPos()
 }
 
 // Получение копии структуры описания соединения по индексу.
-NetHub::ConnectionData Server::GetConnectionData(unsigned int uiIndex)
+NetHub::ConnectionData Server::GetConnectionData(unsigned int uiIndex, bool bTryLock)
 {
 	NetHub::ConnectionData oConnectionDataRes;
 	TryMutexInit;
 	//
-	TryMutexLock;
+	if(bTryLock) TryMutexLock;
 	if((uiIndex < MAX_CONN) & (mThreadDadas[uiIndex].bInUse == true))
 	{
 		oConnectionDataRes = mThreadDadas[uiIndex].oConnectionData;
-		TryMutexUnlock;
+		if(bTryLock) TryMutexUnlock;
 		return oConnectionDataRes;
 	}
-	TryMutexUnlock;
+	if(bTryLock) TryMutexUnlock;
 	oConnectionDataRes.iStatus = CONNECTION_SEL_ERROR;
 	return oConnectionDataRes;
 }
@@ -418,11 +405,11 @@ void Server::FillConnectionData(int iSocket, NetHub::ConnectionData& a_Connectio
 }
 
 // Заполнение буферов имён IP и порта.
-void Server::FillIPAndPortNames(NetHub::ConnectionData& a_ConnectionData, char* p_chIP, char* p_chPort)
+void Server::FillIPAndPortNames(NetHub::ConnectionData& a_ConnectionData, char* p_chIP, char* p_chPort, bool bTryLock)
 {
 	TryMutexInit;
 	//
-	TryMutexLock;
+	if(bTryLock) TryMutexLock;
 #ifndef WIN32
 	getnameinfo(&a_ConnectionData.ai_addr,
 				a_ConnectionData.ai_addrlen,
@@ -432,7 +419,7 @@ void Server::FillIPAndPortNames(NetHub::ConnectionData& a_ConnectionData, char* 
 				(socklen_t)a_ConnectionData.ai_addrlen,
 				p_chIP, INET6_ADDRSTRLEN, p_chPort, PORTSTRLEN, NI_NUMERICHOST);
 #endif
-	TryMutexUnlock;
+	if(bTryLock) TryMutexUnlock;
 }
 
 // Поток соединения.
@@ -548,7 +535,9 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 	if(pf_CBClientStatusChanged != 0)
 	{
 		// Вызов кэлбэка смены статуса.
+		//pthread_mutex_unlock(&ptConnMutex);
 		pf_CBClientStatusChanged(*p_LocalNH, true, iTPos);
+		//pthread_mutex_lock(&ptConnMutex);
 	}
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
@@ -589,7 +578,9 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 					if(pf_CBClientRequestArrived != 0)
 					{
 						// Вызов кэлбэка прибытия запроса.
+						//pthread_mutex_unlock(&ptConnMutex);
 						pf_CBClientRequestArrived(*p_LocalNH, iTPos, oParsingResult.chTypeCode);
+						//pthread_mutex_lock(&ptConnMutex);
 					}
 				}
 				if(mThreadDadas[iTPos].bSecured == false)
@@ -635,7 +626,9 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 						{
 							mThreadDadas[iTPos].uiCurrentFreePocket++;
 							// Вызов кэлбэка прибытия данных.
+							//pthread_mutex_unlock(&ptConnMutex);
 							pf_CBClientDataArrived(*p_LocalNH, iTPos);
+							//pthread_mutex_lock(&ptConnMutex);
 							mThreadDadas[iTPos].uiCurrentFreePocket--;
 						}
 					}
@@ -716,13 +709,9 @@ ec: if(bLocalExitSignal == false) // Если не было локального
 		if(bExitSignal == false)
 		{
 			if(mThreadDadas[iTPos].bKick)
-			{
-				LOG_P_1(LOG_CAT_W, "Closed due kicking out: " << m_chIPNameBuffer << " ID: " << iTPos);
-			}
+				LOG_P_1(LOG_CAT_W, "Closed due kicking out: " << m_chIPNameBuffer << " ID: " << iTPos)
 			else
-			{
 				LOG_P_0(LOG_CAT_W, "Closed by client absence: " << m_chIPNameBuffer << " ID: " << iTPos);
-			}
 		}
 	}
 	else // При локальном - закрываем здесь.
@@ -756,7 +745,9 @@ enc:if(iTPos != CONNECTION_SEL_ERROR)
 		if(pf_CBClientStatusChanged != 0)
 		{
 			// Вызов кэлбэка смены статуса.
+			//pthread_mutex_unlock(&ptConnMutex);
 			pf_CBClientStatusChanged(*p_LocalNH, false, iTPos);
+			//pthread_mutex_lock(&ptConnMutex);
 		}
 	}
 	if(iTPos != CONNECTION_SEL_ERROR)
@@ -837,9 +828,7 @@ void* Server::ServerThread(void *p_vPlug)
 		p_chPort = (char*)p_NodePort->FirstChild()->Value();
 	} FIND_IN_CHILDLIST_END(p_ListPort);
 	if(p_chPort != 0)
-	{
-		LOG_P_1(LOG_CAT_I, "Port: " << p_chPort);
-	}
+		LOG_P_1(LOG_CAT_I, "Port: " << p_chPort)
 	else
 	{
 		LOG_P_0(LOG_CAT_E, "Configuration file is corrupt! No '(Net)Port' node.");

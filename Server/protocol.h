@@ -30,6 +30,7 @@
 #define AUTH_ANSWER_ACCOUNT_IN_USE	8
 #define AUTH_ANSWER_ACCOUNT_ERASED	9
 #define AUTH_ANSWER_BAN				10
+#define AUTH_ANSWER_LEVEL_CHANGED	11
 //========================== ИСПОЛЬЗУЕМЫЕ СТРУКТУРЫ ===========================
 /// Структура текстового сообщения.
 struct PTextMessage
@@ -42,7 +43,7 @@ struct PAuthorizationData
 {
 	char chRequestCode; ///< Код запроса.
 	char m_chLogin[MAX_AUTH_LOGIN]; ///< Буфер ника.
-	char m_chPassword[MAX_AUTH_PASSWORD]; ///< Буфер ароля.
+	char m_chPassword[MAX_AUTH_PASSWORD]; ///< Буфер пароля.
 };
 // ====================== ОБЪЯВЛЕНИЯ СТРУКТУР ПАКЕТОВ =========================
 ProtocolStorageClassInit

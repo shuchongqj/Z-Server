@@ -8,6 +8,7 @@
 #define PROTOPARSER_OK					0x00
 #define PROTOPARSER_UNKNOWN_COMMAND		_NMG-4 // См. protocol.h для занятия нового свободного номера.
 #define PROTOPARSER_WRONG_FORMAT		_NMG-6
+// Сообщения.
 #define MSG_POCKET_OUT_OF_RANGE			"Pocket out of range."
 #define MSG_UNKNOWN_COMMAND				"Unknown command"
 #define MSG_WRONG_FORMAT				"Wrong format of pocket"

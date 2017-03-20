@@ -86,6 +86,7 @@ public:
 	Server(const char* cp_chSettingsPathIn, pthread_mutex_t ptLogMutex, vector<IPBanUnit>* p_vec_IPBans = 0);
 								///< \param[in] cp_chSettingsPathIn Ссылка на строку с путём к установкам сервера.
 								///< \param[in] ptLogMutex Инициализатор мьютекса лога.
+								///< \param[in] p_vec_IPBans Установка внутреннего указателя на список с банами по IP.
 	/// Деструктор.
 	~Server();
 	/// Запрос запуска сервера.
@@ -99,55 +100,67 @@ public:
 	static bool CheckReady();
 				///< \return true - готов.
 	/// Отправка пакета клиенту на текущее выбранное соединение немедленно.
-	static bool SendToClientImmediately(NetHub& a_NetHub, char chCommand, char* p_chBuffer, int iLength, bool bResetPointer = true);
+	static bool SendToClientImmediately(NetHub& a_NetHub, char chCommand, char* p_chBuffer, int iLength,
+										bool bResetPointer = true, bool bTryLock = true);
 								///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 								///< \param[in] chCommand Код команды протокола.
 								///< \param[in] p_chBuffer Указатель на буфер с данными для отправки.
 								///< \param[in] iLength Длина буфера в байтах.
 								///< \param[in] bResetPointer Сбрасывать ли указатель на начало буфера (для нового заполнения).
+								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
 								///< \return true, при удаче.
 	/// Отправка буфера клиенту на текущее выбранное соединение.
-	static bool SendBufferToClient(NetHub& a_NetHub, bool bResetPointer = true);
+	static bool SendBufferToClient(NetHub& a_NetHub, bool bResetPointer = true, bool bTryLock = true);
 								///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 								///< \param[in] bResetPointer Сбрасывать ли указатель на начало буфера (для нового заполнения).
+								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
 								///< \return true, при удаче.
 	/// Установка текущего индекса соединения для исходящих.
-	static bool SetCurrentConnection(unsigned int uiIndex);
+	static bool SetCurrentConnection(unsigned int uiIndex, bool bTryLock = true);
 								///< \param[in] uiIndex Индекс соединения.
+								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
 								///< \return true, если соединение действительно.
 	/// Уст. ук. кэлбэка изменения статуса подключения клиента;
 	/// a_NetHub (буфер отправляемых паетов) использовать только единовременно - он уникален для потока и используется внутри него.
+	/// Внутри кэлбэка ОБЯЗАТЕЛЬНО в вызовах с возможностью установки bTryLock - ставить false, кэлбэки и так под локом.
 	static void SetClientRequestArrivedCB(CBClientRequestArrived pf_CBClientRequestArrivedIn);
 								///< \param[in] pf_CBClientRequestArrivedIn Указатель на пользовательскую функцию.
 	/// Уст.ук. кэлбэка обработки принятых пакетов от клиентов;
 	/// a_NetHub (буфер отправляемых паетов) использовать только единовременно - он уникален для потока и используется внутри него.
+	/// Внутри кэлбэка ОБЯЗАТЕЛЬНО в вызовах с возможностью установки bTryLock - ставить false, кэлбэки и так под локом.
 	static void SetClientDataArrivedCB(CBClientDataArrived pf_CBClientDataArrivedIn);
 								///< \param[in] pf_CBClientDataArrivedIn Указатель на пользовательскую функцию.
 	/// Уст. ук. кэлбэка отслеживания статута клиентов;
 	/// a_NetHub (буфер отправляемых паетов) использовать только единовременно - он уникален для потока и используется внутри него.
+	/// Внутри кэлбэка ОБЯЗАТЕЛЬНО в вызовах с возможностью установки bTryLock - ставить false, кэлбэки и так под локом.
 	static void SetClientStatusChangedCB(CBClientStatusChanged pf_CBClientStatusChangedIn);
 								///< \param[in] pf_CBClientStatusChangedIn Указатель на пользовательскую функцию.
 	/// Доступ к крайнему элементу из массива принятых пакетов от текущего клиента.
-	static int AccessCurrentData(void** pp_vDataBuffer);
+	static int AccessCurrentData(void** pp_vDataBuffer, bool bTryLock = true);
 								///< \param[in,out] pp_vDataBuffer Указатель на указатель на буфер с данными.
+								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
 								///< \return Код пакета, DATA_ACCESS_ERROR при ошибке, CONNECTION_SEL_ERROR соотв.
 	/// Удаление крайнего элемента из массива принятых пакетов.
-	static int ReleaseCurrentData(NetHub& a_NetHub);
+	static int ReleaseCurrentData(NetHub& a_NetHub, bool bTryLock = true);
 								///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
+								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
 								///< \return RETVAL_OK, если удачно, BUFFER_IS_EMPTY, если пусто, CONNECTION_SEL_ERROR соотв.
 	/// Получение копии структуры описания соединения по индексу.
-	static NetHub::ConnectionData GetConnectionData(unsigned int uiIndex);
+	static NetHub::ConnectionData GetConnectionData(unsigned int uiIndex, bool bTryLock = true);
 								///< \param[in] uiIndex Индекс соединения.
+								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
 								///< \return NetHub::ConnectionData.iStatus == CONNECTION_SEL_ERROR - соединение не действительно.
 	/// Заполнение буферов имён IP и порта.
-	static void FillIPAndPortNames(NetHub::ConnectionData& a_ConnectionData, char* p_chIP, char* p_chPort = 0);
+	static void FillIPAndPortNames(NetHub::ConnectionData& a_ConnectionData, char* p_chIP, char* p_chPort = 0, bool bTryLock = true);
 								///< \param[in] a_ConnectionData Ссылка на структуру описания соединения.
 								///< \param[in,out] p_chIP Указатель на буфер имени IP.
 								///< \param[in,out] p_chPort Указатель на буфер имени порта.
+								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
 	/// Принудительное отключение клиента.
-	static void KickClient(NetHub& a_NetHub, unsigned int uiIndex);
-								//< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
+	static void KickClient(NetHub& a_NetHub, unsigned int uiIndex, bool bTryLock = true);
+								///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 								///< \param[in] uiIndex Индекс соединения.
+								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
 private:
 	/// Функция отправки пакета по соединению немедленно.
 	static bool SendToConnectionImmediately(NetHub& a_NetHub, NetHub::ConnectionData& a_ConnectionData,

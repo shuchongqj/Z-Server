@@ -43,12 +43,12 @@ bool NetHub::AddPocketToBuffer(char chCommand, char *p_chBuffer, int iLength)
 bool NetHub::SendToAddress(ConnectionData &oConnectionData, bool bResetPointer)
 {
 	int iLength;
-	//
 #ifndef WIN32
 	sigset_t ssOldset, ssNewset;
 	siginfo_t sI;
 	struct timespec tsTime = {0, 0};
 	sigset_t* p_ssNewset;
+	//
 	p_ssNewset = &ssNewset;
 	sigemptyset(&ssNewset);
 	sigaddset(&ssNewset, SIGPIPE);

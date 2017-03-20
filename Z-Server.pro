@@ -31,7 +31,8 @@ SOURCES += main.cpp \
     Server/server.cpp \
     Server/net-hub.cpp \
     mainwindow.cpp \
-    main-hub.cpp
+    main-hub.cpp \
+    Dialogs/change_level_dialog.cpp
 
 HEADERS += \
     dirent-win32/dirent.h \
@@ -48,11 +49,13 @@ HEADERS += \
     Server/server.h \
     Server/net-hub.h \
     mainwindow.h \
-    main-hub.h
+    main-hub.h \
+    Dialogs/change_level_dialog.h
 
 DISTFILES += \
     pthread/lib/pthreadVC2.lib \
     pthread/dll/pthreadVC2.dll
 
 FORMS += \
-    mainwindow.ui
+    mainwindow.ui \
+    Dialogs/change_level_dialog.ui

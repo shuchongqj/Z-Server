@@ -67,7 +67,7 @@ public:
 	static void ClientRequestArrivedCallback(NetHub& a_NetHub, unsigned int uiClientIndex, char chRequest);
 							///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 							///< \param[in] uiClientIndex Индекс клиента.
-							///< \param[in] uiClientIndex Запрос клиента.
+							///< \param[in] chRequest Запрос клиента.
 
 private:
 	/// Загрузка каталога банов.
@@ -83,20 +83,21 @@ private:
 	static bool SaveUsersCatalogue();
 							///< \return true, при удаче.
 	/// Процедуры запуска сервера.
-	bool ServerStartProcedures();
+	static bool ServerStartProcedures();
 							///< \return true, при удаче.
 	/// Процедуры остановки сервера.
-	void ServerStopProcedures();
+	static void ServerStopProcedures();
 	/// Процедуры при логине пользователя.
 	static void UserLoginProcedures(NetHub& a_NetHub, int iPosition,
-									  unsigned int iIndex, NetHub::ConnectionData& a_ConnectionData);
+									  unsigned int iIndex, NetHub::ConnectionData& a_ConnectionData, bool bTryLock = true);
 							///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 							///< \param[in] iPosition Позиция в списке автоизации.
 							///< \param[in] iIndex Индекс соединения.
 							///< \param[in] a_ConnectionData Ссылка на данные по соединению.
 	/// Процедуры при логауте пользователя.
 	static int UserLogoutProcedures(NetHub& a_NetHub, int iPosition,
-									   NetHub::ConnectionData& a_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bSend = false);
+									   NetHub::ConnectionData& a_ConnectionData, char chAnswer = AUTH_ANSWER_OK,
+									bool bSend = false, bool bTryLock = true);
 							///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 							///< \param[in] iPosition Позиция в списке автоизации.
 							///< \param[in] a_ConnectionData Ссылка на данные по соединению.
@@ -105,7 +106,8 @@ private:
 							///< \return Новый номер текущего элемента в листе авторизации после замены параметров.
 	/// Процедуры при удалении пользователя.
 	static int UserPurgeProcedures(NetHub& a_NetHub, int iPosition,
-										NetHub::ConnectionData* p_ConnectionData, char chAnswer = AUTH_ANSWER_OK, bool bLogout = true);
+										NetHub::ConnectionData* p_ConnectionData, char chAnswer = AUTH_ANSWER_OK,
+								   bool bLogout = true, bool bTryLock = true);
 							///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 							///< \param[in] iPosition Позиция в списке автоизации.
 							///< \param[in] p_ConnectionData Указатель на данные по соединению (не используется если не нужен логаут).
@@ -123,38 +125,38 @@ private:
 
 public slots:
 	/// Обновление чата.
-	void slot_UpdateChat();
+	static void slot_UpdateChat();
 
 private slots:
 	/// При нажатии на 'О программе'.
-	void on_About_action_triggered();
+	static void on_About_action_triggered();
 	/// При завершении ввода строки чата.
-	void on_Chat_lineEdit_returnPressed();
+	static void on_Chat_lineEdit_returnPressed();
 	/// При переключении кнопки 'Пуск/Стоп'.
-	void on_StartStop_action_triggered(bool checked);
+	static void on_StartStop_action_triggered(bool checked);
 							///< \param[in] checked - Позиция переключателя.
 	/// При изменении текста чата.
-	void on_Chat_textBrowser_textChanged();
+	static void on_Chat_textBrowser_textChanged();
 	/// При переключении кнопки 'Автостарт'.
-	void on_Autostart_action_triggered(bool checked);
+	static void on_Autostart_action_triggered(bool checked);
 							///< \param[in] checked - Позиция переключателя.
 	/// При нажатии ПКМ на элементе списка пользователей.
-	void on_Users_listWidget_customContextMenuRequested(const QPoint &pos);
+	static void on_Users_listWidget_customContextMenuRequested(const QPoint &pos);
 							///< \param[in] pos Ссылка на координаты точки указателя в виджете.
 	/// При нажатии ПКМ на элементе списка банов по пользователям.
-	void on_U_Bans_listWidget_customContextMenuRequested(const QPoint &pos);
+	static void on_U_Bans_listWidget_customContextMenuRequested(const QPoint &pos);
 							///< \param[in] pos Ссылка на координаты точки указателя в виджете.
 	/// При нажатии ПКМ на элементе списка соединений.
-	void on_Clients_listWidget_customContextMenuRequested(const QPoint &pos);
+	static void on_Clients_listWidget_customContextMenuRequested(const QPoint &pos);
 							///< \param[in] pos Ссылка на координаты точки указателя в виджете.
 	/// При нажатии ПКМ на элементе списка банов по адресам.
-	void on_C_Bans_listWidget_customContextMenuRequested(const QPoint &pos);
+	static void on_C_Bans_listWidget_customContextMenuRequested(const QPoint &pos);
 							///< \param[in] pos Ссылка на координаты точки указателя в виджете.
 
 private:
 	static Ui::MainWindow *p_ui; ///< Указатель на UI.
 	static const char* cp_chUISettingsName; ///< Указатель на имя файла с установками UI.
-	QSettings* p_UISettings; ///< Указатель на строку установок UI.
+	static QSettings* p_UISettings; ///< Указатель на строку установок UI.
 	static Server* p_Server; ///< Ссылка на объект сервера.
 	static QList<unsigned int> lst_uiConnectedClients; ///< Список присоединённых клиентов.
 	static list<XMLNode*> o_lUsers; ///< Главный список разъёмов документа авторизации.
@@ -163,14 +165,13 @@ private:
 	static QList<AuthorizationUnit> lst_AuthorizationUnits; ///< Список авторизованных пользователей.
 	static QList<UserBanUnit> lst_UserBanUnits; ///< Список банов по никам.
 	static vector<Server::IPBanUnit> vec_IPBanUnits; ///< Список банов по адресам.
-	bool bAutostart; ///< Флаг автозапуска.
+	static bool bAutostart; ///< Флаг автозапуска.
 	static QTimer* p_ChatTimer; ///< Указатель на таймер обновления GUI.
 	static char m_chTextChatBuffer[MAX_MSG]; ///< Буфер обмена с виджетом чата.
 	static char m_chIPNameBufferUI[INET6_ADDRSTRLEN];
 	static char m_chPortNameBufferUI[PORTSTRLEN];
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD
-public:
 	static NetHub oPrimaryNetHub;
 };
 
