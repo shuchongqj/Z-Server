@@ -115,6 +115,9 @@ public:
 								///< \param[in] bResetPointer Сбрасывать ли указатель на начало буфера (для нового заполнения).
 								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
 								///< \return true, при удаче.
+	// Получение текущего индекса соединения для исходящих.
+	int GetCurrentConnection(bool bTryLock = true);
+								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
 	/// Установка текущего индекса соединения для исходящих.
 	static bool SetCurrentConnection(unsigned int uiIndex, bool bTryLock = true);
 								///< \param[in] uiIndex Индекс соединения.

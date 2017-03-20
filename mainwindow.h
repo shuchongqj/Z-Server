@@ -94,6 +94,7 @@ private:
 							///< \param[in] iPosition Позиция в списке автоизации.
 							///< \param[in] iIndex Индекс соединения.
 							///< \param[in] a_ConnectionData Ссылка на данные по соединению.
+							///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
 	/// Процедуры при логауте пользователя.
 	static int UserLogoutProcedures(NetHub& a_NetHub, int iPosition,
 									   NetHub::ConnectionData& a_ConnectionData, char chAnswer = AUTH_ANSWER_OK,
@@ -103,6 +104,7 @@ private:
 							///< \param[in] a_ConnectionData Ссылка на данные по соединению.
 							///< \param[in] chAnswer Ответ пользователю.
 							///< \param[in] bSend Отсылать ли отчёт.
+							///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
 							///< \return Новый номер текущего элемента в листе авторизации после замены параметров.
 	/// Процедуры при удалении пользователя.
 	static int UserPurgeProcedures(NetHub& a_NetHub, int iPosition,
@@ -113,6 +115,7 @@ private:
 							///< \param[in] p_ConnectionData Указатель на данные по соединению (не используется если не нужен логаут).
 							///< \param[in] chAnswer Ответ пользователю.
 							///< \param[in] bLogout Нужны ли процедуры логаута бывшего пользователя.
+							///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
 							///< \return Новый номер текущего элемента в листе авторизации после замены параметров.
 	/// Процедуры при блокировке пользователя.
 	static int UserBanProcedures(int iPosition);
@@ -122,6 +125,10 @@ private:
 	static void BanAndKickByAdressWithMenuProcedures(NetHub& a_NetHub, QString& a_strAddrName);
 							///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 							///< \param[in] a_strAddrName Ссылка на строку с именем IP.
+	/// Информирование пользователей о изменении лобби.
+	static void LobbyChangedInform(NetHub& a_NetHub, bool bTryLock = true);
+							///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
+							///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
 
 public slots:
 	/// Обновление чата.

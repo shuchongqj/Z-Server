@@ -66,6 +66,7 @@ ProtoParser::ParseResult ProtoParser::ParsePocket(char* p_chData, int iLength,
 		CasePocket(PROTO_O_TEXT_MSG, TextMsg);
 		CasePocket(PROTO_O_AUTHORIZATION_REQUEST, AuthorizationRequest);
 		CasePocket(PROTO_O_AUTHORIZATION_ANSWER, AuthorizationAnswer);
+		CasePocket(PROTO_O_AUTHORIZATION_LOBBY, LobbyAnswer);
 	}
 	if(oParseResult.bStored == true) aProtocolStorage.chTypeCode = oParseResult.chTypeCode;
 	// Если зашкалило...

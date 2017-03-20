@@ -7,6 +7,14 @@
 //== МАКРОСЫ.
 #define LOG_NAME				"Z-Admin"
 #define SERVER_NAME				"SERVER"
+#define UserNotLoggedInMacro	p_Server->SendToClientImmediately(a_NetHub,										\
+									PROTO_O_AUTHORIZATION_ANSWER,												\
+									DEF_CHAR_PTH(AUTH_ANSWER_NOT_LOGGED), 1, true, false);						\
+								p_Server->FillIPAndPortNames(oConnectionDataInt,								\
+								m_chIPNameBuffer, m_chPortNameBuffer, false);									\
+								LOG_P_1(LOG_CAT_W, MSG_USER_NOT_LOGGED_IN <<									\
+									QString(m_chIPNameBuffer).toStdString() + ":" +								\
+									QString(m_chPortNameBuffer).toStdString());
 // Сообщения.
 #define MSG_USERS_SINC_FAULT	"Users list sinchronization fault."
 #define MSG_CLIENTS_SINC_FAULT	"Clients list sinchronization fault."
@@ -15,6 +23,7 @@
 #define MSG_USERS_AUTH_EMPTY	"Users authorization list is empty."
 #define MSG_KICKING				"Kicking out: "
 #define MSG_LOGGED_OFF_KICKING	"Logged off after kicking: "
+#define MSG_USER_NOT_LOGGED_IN	"User is not logged in: "
 #define USER_LEVEL_TAG(Level)	QString("[" + QString::number(Level) + "]")
 // Тексты меню.
 #define MENU_TEXT_USERS_DELETE		"Удалить"
@@ -410,6 +419,24 @@ void MainWindow::ServerStopProcedures()
 	RETVAL_SET(RETVAL_ERR);
 }
 
+// Информирование пользователей о изменении лобби.
+void MainWindow::LobbyChangedInform(NetHub& a_NetHub, bool bTryLock)
+{
+	int iConnMem = p_Server->GetCurrentConnection(bTryLock);
+	CHAR_PTH;
+	//
+	for(int iC=0; iC < lst_AuthorizationUnits.length(); iC++)
+	{
+		if(lst_AuthorizationUnits.at(iC).iConnectionIndex != CONNECTION_SEL_ERROR)
+		{
+			p_Server->SetCurrentConnection(lst_AuthorizationUnits.at(iC).iConnectionIndex, bTryLock);
+			p_Server->SendToClientImmediately(a_NetHub, PROTO_O_AUTHORIZATION_ANSWER,
+											  DEF_CHAR_PTH(AUTH_ANSWER_LOBBY_CHANGED), 1, true, bTryLock);
+		}
+	}
+	if(iConnMem != CONNECTION_SEL_ERROR) p_Server->SetCurrentConnection(iConnMem, bTryLock);
+}
+
 // Процедуры при логине пользователя.
 void MainWindow::UserLoginProcedures(NetHub& a_NetHub, int iPosition, unsigned int iIndex,
 									 NetHub::ConnectionData& a_ConnectionData, bool bTryLock)
@@ -444,6 +471,7 @@ void MainWindow::UserLoginProcedures(NetHub& a_NetHub, int iPosition, unsigned i
 				setText(QString(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
 							"[" + QString(oAuthorizationUnitInt.m_chLogin) + "]"));
 	}
+	LobbyChangedInform(a_NetHub, bTryLock);
 }
 
 // Процедуры при логауте пользователя.
@@ -488,8 +516,10 @@ int MainWindow::UserLogoutProcedures(NetHub& a_NetHub, int iPosition, NetHub::Co
 		{
 			lstItems.first()->
 					setText(QString(QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer)));
+
 		}
 	}
+	LobbyChangedInform(a_NetHub, bTryLock);
 	return lst_AuthorizationUnits.count() - 1;
 }
 
@@ -587,7 +617,6 @@ void MainWindow::ClientStatusChangedCallback(NetHub& a_NetHub, bool bConnected, 
 	NetHub::ConnectionData oConnectionDataInt;
 	//
 	LOG_P_0(LOG_CAT_I, "ID: " << uiClientIndex << " have status: " << bConnected);
-
 	oConnectionDataInt = p_Server->GetConnectionData(uiClientIndex, false);
 	if(oConnectionDataInt.iStatus != CONNECTION_SEL_ERROR)
 	{
@@ -637,6 +666,8 @@ void MainWindow::ClientDataArrivedCallback(NetHub& a_NetHub, unsigned int uiClie
 	CHAR_PTH;
 	PTextMessage oPTextMessage;
 	QString strChatMsg;
+	int iAuthPos;
+	PLobbyAnswer oPLobbyAnswer;
 	//
 	if(p_Server->SetCurrentConnection(uiClientIndex, false) == true)
 	{
@@ -752,12 +783,25 @@ gTEx:					p_Server->ReleaseCurrentData(a_NetHub, false);
 									LOG_P_0(LOG_CAT_E, MSG_CANNOT_SAVE_USERS);
 									RETVAL_SET(RETVAL_ERR);
 								}
+								LobbyChangedInform(a_NetHub, false);
 								break;
 							}
 							case AUTH_REQUEST_LOGIN:
 							{
-								for(int iC=0; iC < lst_AuthorizationUnits.length(); iC++)
+								iAuthPos = CONNECTION_SEL_ERROR;
+								for(int iC = 0; iC < lst_AuthorizationUnits.length(); iC++)
 								{
+									if(lst_AuthorizationUnits.at(iC).iConnectionIndex == (int)uiClientIndex)
+									{
+										p_Server->SendToClientImmediately(a_NetHub, PROTO_O_AUTHORIZATION_ANSWER,
+																		  DEF_CHAR_PTH(AUTH_ANSWER_DOUBLE_AUTH), 1, true, false);
+										p_Server->FillIPAndPortNames(oConnectionDataInt,
+																	 m_chIPNameBuffer, m_chPortNameBuffer, false);
+										LOG_P_0(LOG_CAT_W, "Client tries to perform a double login: " <<
+												QString(m_chIPNameBuffer).toStdString() + ":" +
+												QString(m_chPortNameBuffer).toStdString());
+										goto gLEx;
+									}
 									if(QString(lst_AuthorizationUnits.at(iC).m_chLogin) ==
 									   QString(oPAuthorizationDataInt.m_chLogin))
 									{
@@ -781,8 +825,8 @@ gTEx:					p_Server->ReleaseCurrentData(a_NetHub, false);
 														goto gLEx;
 													}
 												}
-												UserLoginProcedures(a_NetHub, iC, uiClientIndex, oConnectionDataInt, false);
-												goto gLEx;
+												iAuthPos = iC;
+												continue;
 											}
 											else
 											{
@@ -800,6 +844,11 @@ gTEx:					p_Server->ReleaseCurrentData(a_NetHub, false);
 										goto gLEx;
 									}
 								}
+								if(iAuthPos != CONNECTION_SEL_ERROR)
+								{
+									UserLoginProcedures(a_NetHub, iAuthPos, uiClientIndex, oConnectionDataInt, false);
+									goto gLEx;
+								}
 								p_Server->SendToClientImmediately(a_NetHub,
 																  PROTO_O_AUTHORIZATION_ANSWER,
 																  DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1, true, false);
@@ -811,91 +860,61 @@ gTEx:					p_Server->ReleaseCurrentData(a_NetHub, false);
 							{
 								for(int iC=0; iC < lst_AuthorizationUnits.length(); iC++)
 								{
-									if(QString(lst_AuthorizationUnits.at(iC).m_chLogin) ==
-									   QString(oPAuthorizationDataInt.m_chLogin))
+									if(lst_AuthorizationUnits.at(iC).iConnectionIndex != CONNECTION_SEL_ERROR)
 									{
-										if(QString(lst_AuthorizationUnits.at(iC).m_chPassword) ==
-										   QString(oPAuthorizationDataInt.m_chPassword))
+										if(lst_AuthorizationUnits.at(iC).iConnectionIndex == (int)uiClientIndex)
 										{
-											if(lst_AuthorizationUnits.at(iC).iConnectionIndex != CONNECTION_SEL_ERROR)
-											{
-												if(lst_AuthorizationUnits.at(iC).iConnectionIndex != (int)uiClientIndex)
-												{
-													p_Server->SendToClientImmediately(a_NetHub,
-																PROTO_O_AUTHORIZATION_ANSWER,
-																DEF_CHAR_PTH(AUTH_ANSWER_ACCOUNT_IN_USE), 1, true, false);
-													p_Server->FillIPAndPortNames(oConnectionDataInt,
-																				 m_chIPNameBuffer, m_chPortNameBuffer, false);
-													LOG_P_0(LOG_CAT_W, "Trying to access from the outside of account: " <<
-															QString(oPAuthorizationDataInt.m_chLogin).toStdString()
-															<< " " << QString(m_chIPNameBuffer).toStdString() + ":" +
-															QString(m_chPortNameBuffer).toStdString());
-													goto gLEx;
-												}
-												UserLogoutProcedures(a_NetHub, iC, oConnectionDataInt, AUTH_ANSWER_OK, true, false);
-												goto gLEx;
-											}
-											else
-											{
-												p_Server->SendToClientImmediately(a_NetHub, PROTO_O_AUTHORIZATION_ANSWER,
-																	 DEF_CHAR_PTH(AUTH_ANSWER_NOT_LOGGED), 1, true, false);
-												LOG_P_1(LOG_CAT_W, "User is not logged in: " <<
-														QString(oPAuthorizationDataInt.m_chLogin).toStdString());
-												goto gLEx;
-											}
+											UserLogoutProcedures(a_NetHub, iC, oConnectionDataInt, AUTH_ANSWER_OK, true, false);
+											goto gLEx;
 										}
-										p_Server->SendToClientImmediately(a_NetHub,
-													PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1, true, false);
-										LOG_P_1(LOG_CAT_W, "Wrong password for user: " <<
-												QString(oPAuthorizationDataInt.m_chLogin).toStdString());
-										goto gLEx;
 									}
 								}
-								p_Server->SendToClientImmediately(a_NetHub,
-																  PROTO_O_AUTHORIZATION_ANSWER,
-																  DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1, true, false);
-								LOG_P_1(LOG_CAT_W, "Requested login is not present: " <<
-										QString(oPAuthorizationDataInt.m_chLogin).toStdString());
+								UserNotLoggedInMacro;
 								break;
 							}
 							case AUTH_REQUEST_PURGE:
 							{
 								for(int iC=0; iC < lst_AuthorizationUnits.length(); iC++)
 								{
-									if(QString(lst_AuthorizationUnits.at(iC).m_chLogin) ==
-									   QString(oPAuthorizationDataInt.m_chLogin))
+									if(lst_AuthorizationUnits.at(iC).iConnectionIndex != CONNECTION_SEL_ERROR)
 									{
-										if(QString(lst_AuthorizationUnits.at(iC).m_chPassword) ==
-										   QString(oPAuthorizationDataInt.m_chPassword))
+										if(lst_AuthorizationUnits.at(iC).iConnectionIndex == (int)uiClientIndex)
 										{
-											if(lst_AuthorizationUnits.at(iC).iConnectionIndex != (int)uiClientIndex)
-											{
-												p_Server->SendToClientImmediately(a_NetHub,
-															PROTO_O_AUTHORIZATION_ANSWER,
-															DEF_CHAR_PTH(AUTH_ANSWER_ACCOUNT_IN_USE), 1, true, false);
-												p_Server->FillIPAndPortNames(oConnectionDataInt,
-																			 m_chIPNameBuffer, m_chPortNameBuffer, false);
-												LOG_P_0(LOG_CAT_W, "Trying to access from the outside of account: " <<
-														QString(oPAuthorizationDataInt.m_chLogin).toStdString()
-														<< " " << QString(m_chIPNameBuffer).toStdString() + ":" +
-														QString(m_chPortNameBuffer).toStdString());
-												goto gLEx;
-											}
 											UserPurgeProcedures(a_NetHub, iC, &oConnectionDataInt, 0, true, false);
 											goto gLEx;
 										}
-										p_Server->SendToClientImmediately(a_NetHub,
-													PROTO_O_AUTHORIZATION_ANSWER, DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1, true, false);
-										LOG_P_1(LOG_CAT_W, "Wrong password for user: " <<
-												QString(oPAuthorizationDataInt.m_chLogin).toStdString());
-										goto gLEx;
 									}
 								}
-								p_Server->SendToClientImmediately(a_NetHub,
-																  PROTO_O_AUTHORIZATION_ANSWER,
-																  DEF_CHAR_PTH(AUTH_ANSWER_LOGIN_FAULT), 1, true, false);
-								LOG_P_1(LOG_CAT_W, "Requested login is not present: " <<
-										QString(oPAuthorizationDataInt.m_chLogin).toStdString());
+								UserNotLoggedInMacro;
+								break;
+							}
+							case AUTH_REQUEST_LOBBY:
+							{
+								for(int iC = 0; iC < lst_AuthorizationUnits.length(); iC++)
+								{
+									if(lst_AuthorizationUnits.at(iC).iConnectionIndex != CONNECTION_SEL_ERROR)
+									{
+										if(lst_AuthorizationUnits.at(iC).iConnectionIndex == (int)uiClientIndex)
+										{
+											for(int iA = 0; iA < lst_AuthorizationUnits.length(); iA++)
+											{
+												if(lst_AuthorizationUnits.at(iA).iConnectionIndex == CONNECTION_SEL_ERROR)
+													oPLobbyAnswer.bOnline = false;
+												else oPLobbyAnswer.bOnline = true;
+												if(iA != (lst_AuthorizationUnits.length() - 1))
+													oPLobbyAnswer.bLastInQueue = false;
+												else oPLobbyAnswer.bLastInQueue = true;
+												memcpy(oPLobbyAnswer.m_chLogin,
+													   lst_AuthorizationUnits.at(iA).m_chLogin, SizeOfChars(MAX_AUTH_LOGIN));
+												a_NetHub.AddPocketToBuffer(PROTO_O_AUTHORIZATION_LOBBY,
+																		   (char*)&oPLobbyAnswer, sizeof(PLobbyAnswer));
+											}
+											p_Server->SendBufferToClient(a_NetHub, true, false);
+											goto gLEx;
+										}
+									}
+								}
+								UserNotLoggedInMacro;
 								break;
 							}
 							default:

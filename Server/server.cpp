@@ -207,7 +207,19 @@ void Server::SetClientStatusChangedCB(CBClientStatusChanged pf_CBClientStatusCha
 	TryMutexUnlock;
 }
 
-// Установка текущего индекса осоединения для исходящих.
+// Получение текущего индекса соединения для исходящих.
+int Server::GetCurrentConnection(bool bTryLock)
+{
+	int iRes;
+	TryMutexInit;
+	//
+	if(bTryLock) TryMutexLock;
+	iRes = iSelectedConnection;
+	if(bTryLock) TryMutexUnlock;
+	return iRes;
+}
+
+// Установка текущего индекса соединения для исходящих.
 bool Server::SetCurrentConnection(unsigned int uiIndex, bool bTryLock)
 {
 	bool bRes = false;
@@ -535,9 +547,7 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 	if(pf_CBClientStatusChanged != 0)
 	{
 		// Вызов кэлбэка смены статуса.
-		//pthread_mutex_unlock(&ptConnMutex);
 		pf_CBClientStatusChanged(*p_LocalNH, true, iTPos);
-		//pthread_mutex_lock(&ptConnMutex);
 	}
 	p_ProtoParser = new ProtoParser;
 	while(bExitSignal == false) // Пока не пришёл флаг общего завершения...
@@ -578,9 +588,7 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 					if(pf_CBClientRequestArrived != 0)
 					{
 						// Вызов кэлбэка прибытия запроса.
-						//pthread_mutex_unlock(&ptConnMutex);
 						pf_CBClientRequestArrived(*p_LocalNH, iTPos, oParsingResult.chTypeCode);
-						//pthread_mutex_lock(&ptConnMutex);
 					}
 				}
 				if(mThreadDadas[iTPos].bSecured == false)
@@ -626,9 +634,7 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 						{
 							mThreadDadas[iTPos].uiCurrentFreePocket++;
 							// Вызов кэлбэка прибытия данных.
-							//pthread_mutex_unlock(&ptConnMutex);
 							pf_CBClientDataArrived(*p_LocalNH, iTPos);
-							//pthread_mutex_lock(&ptConnMutex);
 							mThreadDadas[iTPos].uiCurrentFreePocket--;
 						}
 					}
@@ -745,9 +751,7 @@ enc:if(iTPos != CONNECTION_SEL_ERROR)
 		if(pf_CBClientStatusChanged != 0)
 		{
 			// Вызов кэлбэка смены статуса.
-			//pthread_mutex_unlock(&ptConnMutex);
 			pf_CBClientStatusChanged(*p_LocalNH, false, iTPos);
-			//pthread_mutex_lock(&ptConnMutex);
 		}
 	}
 	if(iTPos != CONNECTION_SEL_ERROR)
