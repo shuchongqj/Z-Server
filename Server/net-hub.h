@@ -32,6 +32,7 @@
 #endif
 #define	DATA_ACCESS_ERROR			_NMG-2 // См. protocol.h для занятия нового свободного номера.
 #define	BUFFER_IS_EMPTY				_NMG-3 // См. protocol.h для занятия нового свободного номера.
+#define	DATA_NOT_FOUND				_NMG-8 // См. protocol.h для занятия нового свободного номера.
 #define TryMutexInit			int* p_iLocked
 #define TryMutexLock			{p_iLocked = new int;																					\
 								unsigned short* p_ushC = new unsigned short;															\
@@ -73,7 +74,7 @@ public:
 	/// Структура принятого пакета.
 	struct ReceivedData
 	{
-		bool bFresh; ///< Свежее сообщение.
+		bool bBusy; ///< Признак занятой данными структуры.
 		ProtocolStorage oProtocolStorage; ///< Принятая структура хаба указателей.
 	};
 
@@ -82,8 +83,8 @@ public:
 	NetHub();
 	/// Сброс указателя позиции в буфере пакетов.
 	void ResetPocketsBufferPositionPointer();
-	/// Добавление пакета в буфер.
-	bool AddPocketToBuffer(char chCommand, char *p_chBuffer = 0, int iLength = 0);
+	/// Добавление пакета в буфер отправки.
+	bool AddPocketToOutputBuffer(char chCommand, char *p_chBuffer = 0, int iLength = 0);
 													///< \param[in] chCommand Команда, которая будет задана в начале пакета.
 													///< \param[in] p_chBuffer Указатель на буффер с данными.
 													///< \param[in] iLength Длина пакета в байтах.
@@ -93,6 +94,10 @@ public:
 													///< \param[in,out] oConnectionData Ссылка на структуру описания соединения.
 													///< \param[in] bResetPointer Сбрасывать ли указатель на начало буфера.
 													///< \return true, при удаче.
+	/// Поиск свободного элемента хранилища пакетов.
+	int FindFreeReceivedPocketsPos(NetHub::ReceivedData* p_mReceivedPockets);
+								///< \param[in] p_mReceivedPockets[] Указатель на массив с пакетами хабов.
+								///< \return Номер первой свободной позиции или BUFFER_IS_FULL.
 
 private:
 	char m_chPocketsBuffer[MAX_DATA]; ///< Рабочий буфер пакетов.

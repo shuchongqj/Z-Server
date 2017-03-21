@@ -108,13 +108,13 @@ public:
 								///< \param[in] iLength Длина буфера в байтах.
 								///< \param[in] bResetPointer Сбрасывать ли указатель на начало буфера (для нового заполнения).
 								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
-								///< \return true, при удаче.
+								///< \return true - при удаче.
 	/// Отправка буфера клиенту на текущее выбранное соединение.
 	static bool SendBufferToClient(NetHub& a_NetHub, bool bResetPointer = true, bool bTryLock = true);
 								///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 								///< \param[in] bResetPointer Сбрасывать ли указатель на начало буфера (для нового заполнения).
 								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
-								///< \return true, при удаче.
+								///< \return true - при удаче.
 	// Получение текущего индекса соединения для исходящих.
 	int GetCurrentConnection(bool bTryLock = true);
 								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
@@ -138,16 +138,18 @@ public:
 	/// Внутри кэлбэка ОБЯЗАТЕЛЬНО в вызовах с возможностью установки bTryLock - ставить false, кэлбэки и так под локом.
 	static void SetClientStatusChangedCB(CBClientStatusChanged pf_CBClientStatusChangedIn);
 								///< \param[in] pf_CBClientStatusChangedIn Указатель на пользовательскую функцию.
-	/// Доступ к крайнему элементу из массива принятых пакетов от текущего клиента.
-	static int AccessCurrentData(void** pp_vDataBuffer, bool bTryLock = true);
+	/// Доступ к первому элементу из массива принятых пакетов от текущего клиента.
+	static int AccessSelectedTypeOfData(void** pp_vDataBuffer, char chType, bool bTryLock = true);
 								///< \param[in,out] pp_vDataBuffer Указатель на указатель на буфер с данными.
+								///< \param[in] chType Тип искомого пакета.
 								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
-								///< \return Код пакета, DATA_ACCESS_ERROR при ошибке, CONNECTION_SEL_ERROR соотв.
-	/// Удаление крайнего элемента из массива принятых пакетов.
-	static int ReleaseCurrentData(NetHub& a_NetHub, bool bTryLock = true);
+								///< \return Номер в массиве при удаче или CONNECTION_SEL_ERROR и DATA_NOT_FOUND соотв.
+	/// Удаление выбранного элемента в массиве принятых пакетов.
+	static int ReleaseDataInPosition(NetHub& a_NetHub, unsigned int uiPos, bool bTryLock = true);
 								///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
+								///< \param[in] uiPos Позиция в массиве.
 								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
-								///< \return RETVAL_OK, если удачно, BUFFER_IS_EMPTY, если пусто, CONNECTION_SEL_ERROR соотв.
+								///< \return RETVAL_OK, если удачно, DATA_ACCESS_ERROR и CONNECTION_SEL_ERROR соотв.
 	/// Получение копии структуры описания соединения по индексу.
 	static NetHub::ConnectionData GetConnectionData(unsigned int uiIndex, bool bTryLock = true);
 								///< \param[in] uiIndex Индекс соединения.
@@ -176,7 +178,7 @@ private:
 								///< \param[in] p_chBuffer Указатель на буфер с данными для отправки.
 								///< \param[in] iLength Длина буфера в байтах.
 								///< \param[in] bResetPointer Сбрасывать ли указатель на начало буфера (для нового заполнения).
-								///< \return true, при удаче.
+								///< \return true - при удаче.
 	/// Функция отправки буфера по соединению.
 	static bool SendBufferToConnection(NetHub& a_NetHub, NetHub::ConnectionData &a_ConnectionData,
 									   bool bFullFlag = false, bool bResetPointer = true);
@@ -184,7 +186,7 @@ private:
 								///< \param[in] a_ConnectionData Ссылка структуру принятых данных и описания соединения.
 								///< \param[in] bFullFlag Признак переполнения на сервере для фиктивной попытки отправки.
 								///< \param[in] bResetPointer Сбрасывать ли указатель на начало буфера (для нового заполнения).
-								///< \return true, при удаче.
+								///< \return true - при удаче.
 	/// Очистка позиции данных потока.
 	static void CleanThrDadaPos(unsigned int uiPos);
 								///< \param[in] iPos Позиция в массиве.

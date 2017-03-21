@@ -18,8 +18,8 @@ void NetHub::ResetPocketsBufferPositionPointer()
 	p_chPocketsBufferPositionPointer = m_chPocketsBuffer;
 }
 
-// Добавление пакета в буфер.
-bool NetHub::AddPocketToBuffer(char chCommand, char *p_chBuffer, int iLength)
+// Добавление пакета в буфер отправки.
+bool NetHub::AddPocketToOutputBuffer(char chCommand, char *p_chBuffer, int iLength)
 {
 	unsigned int* p_uiCode;
 	//
@@ -73,4 +73,18 @@ bool NetHub::SendToAddress(ConnectionData &oConnectionData, bool bResetPointer)
 	{
 		return true;
 	}
+}
+
+// Поиск свободного элемента хранилища пакетов.
+int NetHub::FindFreeReceivedPocketsPos(NetHub::ReceivedData* p_mReceivedPockets)
+{
+	unsigned int uiPos = 0;
+	for(; uiPos != S_MAX_STORED_POCKETS; uiPos++)
+	{
+		if(p_mReceivedPockets[uiPos].bBusy == false)
+		{
+			return uiPos;
+		}
+	}
+	return BUFFER_IS_FULL;
 }

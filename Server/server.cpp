@@ -90,7 +90,7 @@ bool Server::SendToConnectionImmediately(NetHub& a_NetHub, NetHub::ConnectionDat
 {
 	if(bFullFlag == false)
 	{
-		if(a_NetHub.AddPocketToBuffer(chCommand, p_chBuffer, iLength) == false)
+		if(a_NetHub.AddPocketToOutputBuffer(chCommand, p_chBuffer, iLength) == false)
 		{
 			LOG_P_0(LOG_CAT_E, "Pockets buffer is full.");
 			return false;
@@ -248,36 +248,31 @@ bool Server::SetCurrentConnection(unsigned int uiIndex, bool bTryLock)
 }
 
 // Удаление крайнего элемента из массива принятых пакетов.
-int Server::ReleaseCurrentData(NetHub& a_NetHub, bool bTryLock)
+int Server::ReleaseDataInPosition(NetHub& a_NetHub, unsigned int uiPos, bool bTryLock)
 {
-	int iRes = BUFFER_IS_EMPTY;
+	int iRes = DATA_NOT_FOUND;
 	TryMutexInit;
 	//
 	if(bTryLock) TryMutexLock;
+	if(uiPos >= S_MAX_STORED_POCKETS)
+	{
+		if(bTryLock) TryMutexUnlock;
+		return DATA_ACCESS_ERROR;
+	}
 	if(iSelectedConnection != CONNECTION_SEL_ERROR)
 	{
-		if(mThreadDadas[iSelectedConnection].uiCurrentFreePocket > 0)
+
+		if(mThreadDadas[iSelectedConnection].bFullOnServer == true)
 		{
-			if(mThreadDadas[iSelectedConnection].bFullOnServer == false)
-			{
-				mThreadDadas[iSelectedConnection].uiCurrentFreePocket--;
-			}
-			else
-			{
-				mThreadDadas[iSelectedConnection].bFullOnServer = false;
-				SendToConnectionImmediately(a_NetHub, mThreadDadas[iSelectedConnection].oConnectionData, PROTO_A_BUFFER_READY);
-			}
-			if(mThreadDadas[iSelectedConnection].
-			   mReceivedPockets[mThreadDadas[iSelectedConnection].uiCurrentFreePocket].bFresh == true)
-			{
-				mThreadDadas[iSelectedConnection].
-						mReceivedPockets[mThreadDadas[iSelectedConnection].uiCurrentFreePocket].bFresh = false;
-				mThreadDadas[iSelectedConnection].
-						mReceivedPockets[mThreadDadas[iSelectedConnection].uiCurrentFreePocket].
-						oProtocolStorage.CleanPointers();
-				iRes = RETVAL_OK;
-				LOG_P_2(LOG_CAT_I, "Position has been released.");
-			}
+			mThreadDadas[iSelectedConnection].bFullOnServer = false;
+			SendToConnectionImmediately(a_NetHub, mThreadDadas[iSelectedConnection].oConnectionData, PROTO_A_BUFFER_READY);
+		}
+		if(mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].bBusy == true)
+		{
+			mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].bBusy = false;
+			mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].oProtocolStorage.CleanPointers();
+			iRes = RETVAL_OK;
+			LOG_P_2(LOG_CAT_I, "Position has been released.");
 		}
 	}
 	else
@@ -286,40 +281,40 @@ int Server::ReleaseCurrentData(NetHub& a_NetHub, bool bTryLock)
 		LOG_P_0(LOG_CAT_E, "Wrong connection number (release).");
 	}
 	if(bTryLock) TryMutexUnlock;
-	if(iRes == BUFFER_IS_EMPTY)
-		LOG_P_0(LOG_CAT_E, "Buffer is empty.");
+	if(iRes == DATA_NOT_FOUND) LOG_P_0(LOG_CAT_E, "Trying to relese empty position.");
 	return iRes;
 }
 
-// Доступ к крайнему элементу из массива принятых пакетов от текущего клиента.
-int Server::AccessCurrentData(void** pp_vDataBuffer, bool bTryLock)
+// Доступ к первому элементу из массива принятых пакетов от текущего клиента.
+int Server::AccessSelectedTypeOfData(void** pp_vDataBuffer, char chType, bool bTryLock)
 {
-	int iRes = DATA_ACCESS_ERROR;
-	unsigned int uiPos;
 	TryMutexInit;
 	//
 	if(bTryLock) TryMutexLock;
+
 	if(iSelectedConnection != CONNECTION_SEL_ERROR)
 	{
-		uiPos = mThreadDadas[iSelectedConnection].uiCurrentFreePocket;
-		if(mThreadDadas[iSelectedConnection].uiCurrentFreePocket > 0)
+		for(unsigned int uiPos = 0; uiPos < S_MAX_STORED_POCKETS; uiPos++)
 		{
-			if(mThreadDadas[iSelectedConnection].bFullOnServer == false) uiPos--;
-			if(mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].bFresh == true)
+			if(mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].bBusy == true)
 			{
-				*pp_vDataBuffer = mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].oProtocolStorage.GetPointer();
-				iRes = mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].oProtocolStorage.chTypeCode;
+				if(mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].oProtocolStorage.chTypeCode == chType)
+				{
+					*pp_vDataBuffer = mThreadDadas[iSelectedConnection].mReceivedPockets[uiPos].oProtocolStorage.GetPointer();
+					if(bTryLock) TryMutexUnlock;
+					return (int)uiPos;
+				}
 			}
 		}
 	}
 	else
 	{
-		iRes = CONNECTION_SEL_ERROR;
 		LOG_P_0(LOG_CAT_E, "Wrong connection number (access).");
+		if(bTryLock) TryMutexUnlock;
+		return CONNECTION_SEL_ERROR;
 	}
 	if(bTryLock) TryMutexUnlock;
-	if(iRes == DATA_ACCESS_ERROR) LOG_P_0(LOG_CAT_E, "Data access error.");
-	return iRes;
+	return DATA_NOT_FOUND;
 }
 
 // Принудительное отключение клиента.
@@ -378,6 +373,8 @@ int Server::FindFreeThrDadaPos()
 	TryMutexUnlock;
 	return CONNECTION_SEL_ERROR;
 }
+
+
 
 // Получение копии структуры описания соединения по индексу.
 NetHub::ConnectionData Server::GetConnectionData(unsigned int uiIndex, bool bTryLock)
@@ -570,7 +567,8 @@ gOE:		pthread_mutex_lock(&ptConnMutex);
 		p_chData = mThreadDadas[iTPos].m_chData;
 		iLength = mThreadDadas[iTPos].oConnectionData.iStatus;
 		//
-gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentFreePocket];
+gDp:	mThreadDadas[iTPos].uiCurrentFreePocket = p_LocalNH->FindFreeReceivedPocketsPos(mThreadDadas[iTPos].mReceivedPockets);
+		p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentFreePocket];
 		oParsingResult = p_ProtoParser->ParsePocket(p_chData, iLength, p_CurrentData->oProtocolStorage, mThreadDadas[iTPos].bFullOnServer);
 		switch(oParsingResult.iRes)
 		{
@@ -579,9 +577,8 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 				if(oParsingResult.bStored == true)
 				{
 					LOG_P_2(LOG_CAT_I, "Received pocket: " <<
-						(mThreadDadas[iTPos].uiCurrentFreePocket + 1) << " of " << S_MAX_STORED_POCKETS <<
-						" for ID: " << iTPos);
-					mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentFreePocket].bFresh = true;
+						(mThreadDadas[iTPos].uiCurrentFreePocket + 1) << " for ID: " << iTPos);
+					mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].uiCurrentFreePocket].bBusy = true;
 				}
 				if(oParsingResult.bStored == false)
 				{
@@ -600,9 +597,6 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 							SendToConnectionImmediately(*p_LocalNH, mThreadDadas[iTPos].oConnectionData, PROTO_S_PASSW_OK);
 							mThreadDadas[iTPos].bSecured = true;
 							LOG_P_1(LOG_CAT_I, "Connection is secured for ID: " << iTPos);
-							LOG_P_2(LOG_CAT_I, "Free pockets: " << S_MAX_STORED_POCKETS -
-								  (mThreadDadas[iTPos].uiCurrentFreePocket)
-								  << " of " << S_MAX_STORED_POCKETS << " for ID: " << iTPos);
 						}
 						else
 						{
@@ -611,8 +605,8 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 							LOG_P_0(LOG_CAT_W, "Authentification failed for ID: " << iTPos);
 						}
 						p_CurrentData->oProtocolStorage.CleanPointers();
-						p_CurrentData->bFresh = false;
-						mThreadDadas[iTPos].uiCurrentFreePocket--;
+						p_CurrentData->bBusy = false;
+						//mThreadDadas[iTPos].uiCurrentFreePocket--;
 						goto gI;
 					}
 					else
@@ -632,10 +626,8 @@ gDp:	p_CurrentData = &mThreadDadas[iTPos].mReceivedPockets[mThreadDadas[iTPos].u
 					{
 						if(pf_CBClientDataArrived != 0)
 						{
-							mThreadDadas[iTPos].uiCurrentFreePocket++;
 							// Вызов кэлбэка прибытия данных.
 							pf_CBClientDataArrived(*p_LocalNH, iTPos);
-							mThreadDadas[iTPos].uiCurrentFreePocket--;
 						}
 					}
 				}
@@ -669,8 +661,8 @@ gI:				switch(oParsingResult.chTypeCode)
 				{
 					LOG_P_2(LOG_CAT_W, "Position has been cleared.");
 					p_CurrentData->oProtocolStorage.CleanPointers();
-					p_CurrentData->bFresh = false;
-					mThreadDadas[iTPos].uiCurrentFreePocket--;
+					p_CurrentData->bBusy = false;
+					//mThreadDadas[iTPos].uiCurrentFreePocket--;
 				}
 				break;
 			}
@@ -689,14 +681,14 @@ gI:				switch(oParsingResult.chTypeCode)
 		}
 		if(oParsingResult.bStored)
 		{
-			mThreadDadas[iTPos].uiCurrentFreePocket++;
+			//mThreadDadas[iTPos].uiCurrentFreePocket++;
 		}
-		if(mThreadDadas[iTPos].uiCurrentFreePocket >= S_MAX_STORED_POCKETS)
+		if(p_LocalNH->FindFreeReceivedPocketsPos(mThreadDadas[iTPos].mReceivedPockets) == BUFFER_IS_FULL)
 		{
 			LOG_P_1(LOG_CAT_W, "Buffer is full for ID: " << iTPos);
 			mThreadDadas[iTPos].bFullOnServer = true;
 			SendToConnectionImmediately(*p_LocalNH, mThreadDadas[iTPos].oConnectionData, PROTO_S_BUFFER_FULL);
-			mThreadDadas[iTPos].uiCurrentFreePocket = S_MAX_STORED_POCKETS - 1;
+			//mThreadDadas[iTPos].uiCurrentFreePocket = S_MAX_STORED_POCKETS - 1;
 		}
 		if(oParsingResult.p_chExtraData != 0)
 		{
