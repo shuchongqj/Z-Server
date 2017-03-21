@@ -145,7 +145,10 @@ bool Server::SendToClientImmediately(NetHub& a_NetHub, char chCommand, char* p_c
 gUE:if(bRes == false)
 	{
 		if(iSelectedConnection == CONNECTION_SEL_ERROR)
-			LOG_P_0(LOG_CAT_E, "Sending failed - wrong connection.")
+		{
+			LOG_P_0(LOG_CAT_E, "Sending failed - wrong connection.");
+			RETVAL_SET(RETVAL_ERR);
+		}
 		else
 			LOG_P_0(LOG_CAT_E, "Sending failed for: " << iSelectedConnection);
 	}
@@ -169,7 +172,10 @@ bool Server::SendBufferToClient(NetHub& a_NetHub, bool bResetPointer, bool bTryL
 gUE:if(bRes == false)
 	{
 		if(iSelectedConnection == CONNECTION_SEL_ERROR)
+		{
 			LOG_P_0(LOG_CAT_E, "Sending failed - wrong connection.")
+			RETVAL_SET(RETVAL_ERR);
+		}
 		else
 			LOG_P_0(LOG_CAT_E, "Sending failed for: " << iSelectedConnection);
 	}
@@ -229,6 +235,7 @@ bool Server::SetCurrentConnection(unsigned int uiIndex, bool bTryLock)
 	{
 		iSelectedConnection = CONNECTION_SEL_ERROR;
 		LOG_P_0(LOG_CAT_E, "Index is out of range.");
+		RETVAL_SET(RETVAL_ERR);
 		return false;
 	}
 	if(bTryLock) TryMutexLock;
@@ -242,6 +249,7 @@ bool Server::SetCurrentConnection(unsigned int uiIndex, bool bTryLock)
 	{
 		iSelectedConnection = CONNECTION_SEL_ERROR;
 		LOG_P_0(LOG_CAT_E, "Selected ID is unused: " << uiIndex);
+		RETVAL_SET(RETVAL_ERR);
 	}
 	if(bTryLock) TryMutexUnlock;
 	return bRes;
@@ -257,6 +265,7 @@ int Server::ReleaseDataInPosition(NetHub& a_NetHub, unsigned int uiPos, bool bTr
 	if(uiPos >= S_MAX_STORED_POCKETS)
 	{
 		if(bTryLock) TryMutexUnlock;
+		RETVAL_SET(RETVAL_ERR);
 		return DATA_ACCESS_ERROR;
 	}
 	if(iSelectedConnection != CONNECTION_SEL_ERROR)
@@ -278,14 +287,19 @@ int Server::ReleaseDataInPosition(NetHub& a_NetHub, unsigned int uiPos, bool bTr
 	else
 	{
 		iRes = CONNECTION_SEL_ERROR;
+		RETVAL_SET(RETVAL_ERR);
 		LOG_P_0(LOG_CAT_E, "Wrong connection number (release).");
 	}
 	if(bTryLock) TryMutexUnlock;
-	if(iRes == DATA_NOT_FOUND) LOG_P_0(LOG_CAT_E, "Trying to relese empty position.");
+	if(iRes == DATA_NOT_FOUND)
+	{
+		LOG_P_0(LOG_CAT_E, "Trying to relese empty position.");
+		RETVAL_SET(RETVAL_ERR);
+	}
 	return iRes;
 }
 
-// Доступ к первому элементу из массива принятых пакетов от текущего клиента.
+// Доступ к первому элементу заданного типа из массива принятых пакетов от текущего клиента.
 int Server::AccessSelectedTypeOfData(void** pp_vDataBuffer, char chType, bool bTryLock)
 {
 	TryMutexInit;
@@ -311,6 +325,7 @@ int Server::AccessSelectedTypeOfData(void** pp_vDataBuffer, char chType, bool bT
 	{
 		LOG_P_0(LOG_CAT_E, "Wrong connection number (access).");
 		if(bTryLock) TryMutexUnlock;
+		RETVAL_SET(RETVAL_ERR);
 		return CONNECTION_SEL_ERROR;
 	}
 	if(bTryLock) TryMutexUnlock;
@@ -371,10 +386,8 @@ int Server::FindFreeThrDadaPos()
 		}
 	}
 	TryMutexUnlock;
-	return CONNECTION_SEL_ERROR;
+	return BUFFER_IS_FULL;
 }
-
-
 
 // Получение копии структуры описания соединения по индексу.
 NetHub::ConnectionData Server::GetConnectionData(unsigned int uiIndex, bool bTryLock)
@@ -391,6 +404,7 @@ NetHub::ConnectionData Server::GetConnectionData(unsigned int uiIndex, bool bTry
 	}
 	if(bTryLock) TryMutexUnlock;
 	oConnectionDataRes.iStatus = CONNECTION_SEL_ERROR;
+	RETVAL_SET(RETVAL_ERR);
 	return oConnectionDataRes;
 }
 

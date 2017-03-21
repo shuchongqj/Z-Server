@@ -138,7 +138,7 @@ public:
 	/// Внутри кэлбэка ОБЯЗАТЕЛЬНО в вызовах с возможностью установки bTryLock - ставить false, кэлбэки и так под локом.
 	static void SetClientStatusChangedCB(CBClientStatusChanged pf_CBClientStatusChangedIn);
 								///< \param[in] pf_CBClientStatusChangedIn Указатель на пользовательскую функцию.
-	/// Доступ к первому элементу из массива принятых пакетов от текущего клиента.
+	/// Доступ к первому элементу заданного типа из массива принятых пакетов от текущего клиента.
 	static int AccessSelectedTypeOfData(void** pp_vDataBuffer, char chType, bool bTryLock = true);
 								///< \param[in,out] pp_vDataBuffer Указатель на указатель на буфер с данными.
 								///< \param[in] chType Тип искомого пакета.
