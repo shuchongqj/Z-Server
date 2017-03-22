@@ -76,7 +76,7 @@ bool NetHub::SendToAddress(ConnectionData &oConnectionData, bool bResetPointer)
 }
 
 // Поиск свободного элемента хранилища пакетов.
-int NetHub::FindFreeReceivedPocketsPos(NetHub::ReceivedData* p_mReceivedPockets)
+int NetHub::FindFreeReceivedPocketsPos(ReceivedData* p_mReceivedPockets)
 {
 	unsigned int uiPos = 0;
 	for(; uiPos != S_MAX_STORED_POCKETS; uiPos++)
@@ -87,4 +87,33 @@ int NetHub::FindFreeReceivedPocketsPos(NetHub::ReceivedData* p_mReceivedPockets)
 		}
 	}
 	return BUFFER_IS_FULL;
+}
+
+// Доступ к первому элементу заданного типа из массива принятых пакетов.
+int NetHub::AccessSelectedTypeOfData(void** pp_vDataBuffer, ReceivedData* p_mReceivedPockets, char chType)
+{
+	for(unsigned int uiPos = 0; uiPos < S_MAX_STORED_POCKETS; uiPos++)
+	{
+		if(p_mReceivedPockets[uiPos].bBusy == true)
+		{
+			if(p_mReceivedPockets[uiPos].oProtocolStorage.chTypeCode == chType)
+			{
+				*pp_vDataBuffer = p_mReceivedPockets[uiPos].oProtocolStorage.GetPointer();
+				return (int)uiPos;
+			}
+		}
+	}
+	return DATA_NOT_FOUND;
+}
+
+// Удаление выбранного элемента в массиве принятых пакетов.
+int NetHub::ReleaseDataInPosition(ReceivedData* p_mReceivedPockets, unsigned int uiPos)
+{
+	if(p_mReceivedPockets[uiPos].bBusy == true)
+	{
+		p_mReceivedPockets[uiPos].bBusy = false;
+		p_mReceivedPockets[uiPos].oProtocolStorage.CleanPointers();
+		return RETVAL_OK;
+	}
+	else return DATA_NOT_FOUND;
 }

@@ -54,7 +54,7 @@ private:
 		NetHub::ReceivedData mReceivedPockets[S_MAX_STORED_POCKETS]; ///< Массив принятых пакетов.
 		NetHub::ConnectionData oConnectionData; ///< Данные по соединению.
 		char m_chData[MAX_DATA]; ///< Принятый пакет.
-		unsigned int uiCurrentFreePocket; ///< Текущий свободный пакет в массиве.
+		int iCurrentFreePocket; ///< Текущий свободный пакет в массиве.
 		bool bFullOnServer; ///< Флаг переполнения буфера на сервере.
 		bool bFullOnClient; ///< Флаг переполнения буфера на клиенте.
 		bool bSecured; ///< Флаг защищённого соединения.
@@ -139,17 +139,18 @@ public:
 	static void SetClientStatusChangedCB(CBClientStatusChanged pf_CBClientStatusChangedIn);
 								///< \param[in] pf_CBClientStatusChangedIn Указатель на пользовательскую функцию.
 	/// Доступ к первому элементу заданного типа из массива принятых пакетов от текущего клиента.
-	static int AccessSelectedTypeOfData(void** pp_vDataBuffer, char chType, bool bTryLock = true);
+	static int AccessSelectedTypeOfDataS(NetHub& a_NetHub, void** pp_vDataBuffer, char chType, bool bTryLock = true);
+								///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 								///< \param[in,out] pp_vDataBuffer Указатель на указатель на буфер с данными.
 								///< \param[in] chType Тип искомого пакета.
 								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
 								///< \return Номер в массиве при удаче или CONNECTION_SEL_ERROR и DATA_NOT_FOUND соотв.
 	/// Удаление выбранного элемента в массиве принятых пакетов.
-	static int ReleaseDataInPosition(NetHub& a_NetHub, unsigned int uiPos, bool bTryLock = true);
+	static int ReleaseDataInPositionS(NetHub& a_NetHub, unsigned int uiPos, bool bTryLock = true);
 								///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 								///< \param[in] uiPos Позиция в массиве.
 								///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
-								///< \return RETVAL_OK, если удачно, DATA_ACCESS_ERROR и CONNECTION_SEL_ERROR соотв.
+								///< \return RETVAL_OK, если удачно и CONNECTION_SEL_ERROR соотв.
 	/// Получение копии структуры описания соединения по индексу.
 	static NetHub::ConnectionData GetConnectionData(unsigned int uiIndex, bool bTryLock = true);
 								///< \param[in] uiIndex Индекс соединения.

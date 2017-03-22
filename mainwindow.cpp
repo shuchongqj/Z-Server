@@ -119,7 +119,8 @@ MainWindow::MainWindow(QWidget* p_parent) :
 	if(bAutostart)
 	{
 		LOG_P_0(LOG_CAT_I, "Autostart server.");
-		if(ServerStartProcedures()) p_ui->StartStop_action->toggle();
+		if(ServerStartProcedures()) p_ui->StartStop_action->setChecked(true);
+		else p_ui->StartStop_action->setChecked(false);
 		p_ui->Autostart_action->toggle();
 	}
 }
@@ -675,7 +676,7 @@ void MainWindow::ClientDataArrivedCallback(NetHub& a_NetHub, unsigned int uiClie
 		//========  Раздел PROTO_O_TEXT_MSG. ========
 		while(true)
 		{
-			iAccessResult = p_Server->AccessSelectedTypeOfData(&p_vLastReceivedDataBuffer, PROTO_O_TEXT_MSG, false);
+			iAccessResult = p_Server->AccessSelectedTypeOfDataS(a_NetHub, &p_vLastReceivedDataBuffer, PROTO_O_TEXT_MSG, false);
 			if(iAccessResult != CONNECTION_SEL_ERROR)
 			{
 				if(iAccessResult == DATA_NOT_FOUND) break;
@@ -708,7 +709,7 @@ void MainWindow::ClientDataArrivedCallback(NetHub& a_NetHub, unsigned int uiClie
 				strChatMsg = QString(m_chIPNameBuffer) + ":" + QString(m_chPortNameBuffer) +
 						" => " + QString(oPTextMessage.m_chMsg);
 				memcpy(m_chTextChatBuffer, strChatMsg.toStdString().c_str(), SizeOfChars(MAX_MSG));
-gTEx:			p_Server->ReleaseDataInPosition(a_NetHub, iAccessResult, false);
+gTEx:			p_Server->ReleaseDataInPositionS(a_NetHub, iAccessResult, false);
 			}
 			else
 			{
@@ -719,7 +720,8 @@ gTEx:			p_Server->ReleaseDataInPosition(a_NetHub, iAccessResult, false);
 		//======== Раздел PROTO_O_AUTHORIZATION_REQUEST. ========
 		while(true)
 		{
-			iAccessResult = p_Server->AccessSelectedTypeOfData(&p_vLastReceivedDataBuffer, PROTO_O_AUTHORIZATION_REQUEST, false);
+			iAccessResult = p_Server->AccessSelectedTypeOfDataS(a_NetHub, &p_vLastReceivedDataBuffer,
+																PROTO_O_AUTHORIZATION_REQUEST, false);
 			if(iAccessResult != CONNECTION_SEL_ERROR)
 			{
 				if(iAccessResult == DATA_NOT_FOUND) break;
@@ -936,7 +938,7 @@ gTEx:			p_Server->ReleaseDataInPosition(a_NetHub, iAccessResult, false);
 						break;
 					}
 				}
-gLEx:			p_Server->ReleaseDataInPosition(a_NetHub, iAccessResult, false);
+gLEx:			p_Server->ReleaseDataInPositionS(a_NetHub, iAccessResult, false);
 			}
 			else
 			{
@@ -1009,7 +1011,11 @@ void MainWindow::on_Chat_lineEdit_returnPressed()
 // При переключении кнопки 'Пуск/Стоп'.
 void MainWindow::on_StartStop_action_triggered(bool checked)
 {
-	if(checked) ServerStartProcedures();
+	if(checked)
+	{
+		if(ServerStartProcedures()) p_ui->StartStop_action->setChecked(true);
+		else p_ui->StartStop_action->setChecked(false);
+	}
 	else ServerStopProcedures();
 }
 
@@ -1227,7 +1233,7 @@ void MainWindow::on_Clients_listWidget_customContextMenuRequested(const QPoint &
 					{
 						p_Server->FillIPAndPortNames(oConnectionDataInt,
 													 m_chIPNameBufferUI, m_chPortNameBufferUI);
-						if(p_ListWidgetItem->text().contains(m_chIPNameBufferUI))
+						if(p_ListWidgetItem->text().contains(QString(m_chIPNameBufferUI) + QString(":") + QString(m_chPortNameBufferUI)))
 						{
 							LOG_P_0(LOG_CAT_I, MSG_KICKING << p_ListWidgetItem->text().toStdString());
 							p_Server->KickClient(oPrimaryNetHub, iC);
@@ -1237,6 +1243,7 @@ void MainWindow::on_Clients_listWidget_customContextMenuRequested(const QPoint &
 				}
 			}
 			else if (p_SelectedMenuItem->text() == MENU_TEXT_BAN_AND_KICK)
+
 			{
 				strIPName = p_ListWidgetItem->text();
 				BanAndKickByAdressWithMenuProcedures(oPrimaryNetHub, strIPName);

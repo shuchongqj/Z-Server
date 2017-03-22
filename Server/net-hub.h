@@ -53,6 +53,7 @@
 								delete p_iLocked;}
 // Сообщения.
 #define MSG_GOT_MERGED			"Merged pockets has been received."
+#define MSG_RECEIVE_OVERFLOWED	"Receive owerflowed pocket."
 
 //== КЛАССЫ.
 /// Класс хаба сетевых операций.
@@ -95,9 +96,20 @@ public:
 													///< \param[in] bResetPointer Сбрасывать ли указатель на начало буфера.
 													///< \return true, при удаче.
 	/// Поиск свободного элемента хранилища пакетов.
-	int FindFreeReceivedPocketsPos(NetHub::ReceivedData* p_mReceivedPockets);
-								///< \param[in] p_mReceivedPockets[] Указатель на массив с пакетами хабов.
-								///< \return Номер первой свободной позиции или BUFFER_IS_FULL.
+	int FindFreeReceivedPocketsPos(ReceivedData* p_mReceivedPockets);
+													///< \param[in] p_mReceivedPockets Указатель на массив с пакетами хабов.
+													///< \return Номер первой свободной позиции или BUFFER_IS_FULL.
+	/// Доступ к первому элементу заданного типа из массива принятых пакетов.
+	int AccessSelectedTypeOfData(void** pp_vDataBuffer, ReceivedData* p_mReceivedPockets, char chType);
+													///< \param[in,out] pp_vDataBuffer Указатель на указатель на буфер с данными.
+													///< \param[in] p_mReceivedPockets Указатель на массив с пакетами хабов.
+													///< \param[in] chType Тип искомого пакета.
+													///< \return Номер в массиве при удаче или CONNECTION_SEL_ERROR и DATA_NOT_FOUND соотв.
+	/// Удаление выбранного элемента в массиве принятых пакетов.
+	int ReleaseDataInPosition(ReceivedData* p_mReceivedPockets, unsigned int uiPos);
+													///< \param[in] p_mReceivedPockets Указатель на массив с пакетами хабов.
+													///< \param[in] uiPos Позиция в массиве.
+													///< \return RETVAL_OK, если удачно, DATA_ACCESS_ERROR и CONNECTION_SEL_ERROR соотв.
 
 private:
 	char m_chPocketsBuffer[MAX_DATA]; ///< Рабочий буфер пакетов.
