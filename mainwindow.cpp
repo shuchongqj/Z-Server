@@ -918,6 +918,7 @@ gTEx:			p_Server->ReleaseDataInPositionS(a_NetHub, iAccessResult, false);
 										else oPLobbyAnswer.bLastInQueue = true;
 										memcpy(oPLobbyAnswer.m_chLogin,
 											   lst_AuthorizationUnits.at(iA).m_chLogin, SizeOfChars(MAX_AUTH_LOGIN));
+										oPLobbyAnswer.chLevel = lst_AuthorizationUnits.at(iA).chLevel;
 										a_NetHub.AddPocketToOutputBuffer(PROTO_O_AUTHORIZATION_LOBBY,
 																   (char*)&oPLobbyAnswer, sizeof(PLobbyAnswer));
 									}

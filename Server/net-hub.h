@@ -33,7 +33,7 @@
 #define	DATA_ACCESS_ERROR			_NMG-2 // См. protocol.h для занятия нового свободного номера.
 #define	BUFFER_IS_EMPTY				_NMG-3 // См. protocol.h для занятия нового свободного номера.
 #define	DATA_NOT_FOUND				_NMG-8 // См. protocol.h для занятия нового свободного номера.
-#define TryMutexInit			int* p_iLocked
+#define TryMutexInit			int* p_iLocked = 0;
 #define TryMutexLock			{p_iLocked = new int;																					\
 								unsigned short* p_ushC = new unsigned short;															\
 								for(*p_ushC = 0; *p_ushC < PTHREAD_TRYLOCK_ATTEMPTS; *p_ushC += 1)										\
