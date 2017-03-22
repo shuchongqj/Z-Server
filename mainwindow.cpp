@@ -72,10 +72,32 @@ MainWindow::MainWindow(QWidget* p_parent) :
 	if(IsFileExists((char*)cp_chUISettingsName))
 	{
 		LOG_P_2(LOG_CAT_I, "Restore UI states.");
+		// MainWidow.
 		if(!restoreGeometry(p_UISettings->value("Geometry").toByteArray()))
 			LOG_P_1(LOG_CAT_E, "Can`t restore Geometry UI state.");
 		if(!restoreState(p_UISettings->value("WindowState").toByteArray()))
 			LOG_P_1(LOG_CAT_E, "Can`t restore WindowState UI state.");
+		// Splitters.
+		if(!p_ui->UsersToChat_splitter->restoreGeometry(p_UISettings->value("UsersToChat_splitter_Geometry").toByteArray()))
+			LOG_P_1(LOG_CAT_E, "Can`t restore UsersToChat_splitter_Geometry UI state.");
+		if(!p_ui->UsersToChat_splitter->restoreState(p_UISettings->value("UsersToChat_splitter_State").toByteArray()))
+			LOG_P_1(LOG_CAT_E, "Can`t restore UsersToChat_splitter_State UI state.");
+		//
+		if(!p_ui->UsersToClients_splitter->restoreGeometry(p_UISettings->value("UsersToClients_splitter_Geometry").toByteArray()))
+			LOG_P_1(LOG_CAT_E, "Can`t restore UsersToClients_splitter_Geometry UI state.");
+		if(!p_ui->UsersToClients_splitter->restoreState(p_UISettings->value("UsersToClients_splitter_State").toByteArray()))
+			LOG_P_1(LOG_CAT_E, "Can`t restore UsersToClients_splitter_State UI state.");
+		//
+		if(!p_ui->ClientsToIPBan_splitter->restoreGeometry(p_UISettings->value("ClientsToIPBan_splitter_Geometry").toByteArray()))
+			LOG_P_1(LOG_CAT_E, "Can`t restore ClientsToIPBan_splitter_Geometry UI state.");
+		if(!p_ui->ClientsToIPBan_splitter->restoreState(p_UISettings->value("ClientsToIPBan_splitter_State").toByteArray()))
+			LOG_P_1(LOG_CAT_E, "Can`t restore ClientsToIPBan_splitter_State UI state.");
+		//
+		if(!p_ui->UsersToNickBan_splitter->restoreGeometry(p_UISettings->value("UsersToNickBan_splitter_Geometry").toByteArray()))
+			LOG_P_1(LOG_CAT_E, "Can`t restore UsersToNickBan_splitter_Geometry UI state.");
+		if(!p_ui->UsersToNickBan_splitter->restoreState(p_UISettings->value("UsersToNickBan_splitter_State").toByteArray()))
+			LOG_P_1(LOG_CAT_E, "Can`t restore UsersToNickBan_splitter_State UI state.");
+		//
 		bAutostart = p_UISettings->value("Autostart").toBool();
 	}
 	else
@@ -144,6 +166,19 @@ void MainWindow::closeEvent(QCloseEvent *event)
 {
 	p_UISettings->setValue("Geometry", saveGeometry());
 	p_UISettings->setValue("WindowState", saveState());
+	//
+	p_UISettings->setValue("UsersToChat_splitter_Geometry", p_ui->UsersToChat_splitter->saveGeometry());
+	p_UISettings->setValue("UsersToChat_splitter_State", p_ui->UsersToChat_splitter->saveState());
+	//
+	p_UISettings->setValue("UsersToClients_splitter_Geometry", p_ui->UsersToClients_splitter->saveGeometry());
+	p_UISettings->setValue("UsersToClients_splitter_State", p_ui->UsersToClients_splitter->saveState());
+	//
+	p_UISettings->setValue("ClientsToIPBan_splitter_Geometry", p_ui->ClientsToIPBan_splitter->saveGeometry());
+	p_UISettings->setValue("ClientsToIPBan_splitter_State", p_ui->ClientsToIPBan_splitter->saveState());
+	//
+	p_UISettings->setValue("UsersToNickBan_splitter_Geometry", p_ui->UsersToNickBan_splitter->saveGeometry());
+	p_UISettings->setValue("UsersToNickBan_splitter_State", p_ui->UsersToNickBan_splitter->saveState());
+	//
 	p_UISettings->setValue("Autostart", bAutostart);
 	QMainWindow::closeEvent(event);
 }
