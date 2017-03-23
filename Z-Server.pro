@@ -10,8 +10,9 @@ CONFIG += no_batch
 }
 
 unix {
-LIBS += -ldl -lX11 -lXtst
+LIBS += -L../Urho3D/lib -lX11 -lXtst -lUrho3D -ldl
 QMAKE_CXX = /usr/bin/gcc
+QMAKE_CXXFLAGS += -pthread -fno-strict-aliasing -Wno-sign-compare -Wno-unused-parameter
 }
 
 win32 {
@@ -22,6 +23,13 @@ LIBS += "C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib\x64\User32.Lib"
 }
 
 TEMPLATE = app
+
+DEFINES += _SECURE_SCL=0 ENABLE_SSE ENABLE_MINIDUMPS
+DEFINES += ENABLE_FILEWATCHER ENABLE_PROFILING ENABLE_LOGGING
+DEFINES += _CRT_SECURE_NO_WARNINGS HAVE_STDINT_H
+
+INCLUDEPATH += ../Urho3D/include
+INCLUDEPATH += ../Urho3D/include/Urho3D/ThirdParty
 
 SOURCES += main.cpp \
     TinyXML2/tinyxml2.cpp \
