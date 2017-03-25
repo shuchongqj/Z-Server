@@ -6,6 +6,7 @@
 // Urho3D.
 #ifdef WIN32
 #pragma warning(disable: 4100)
+#pragma warning(disable: 4312)
 #endif
 #include <Urho3D/Engine/Application.h>
 #include <Urho3D/Graphics/Camera.h>
@@ -27,6 +28,10 @@
 #include <Urho3D/UI/UI.h>
 #include <Urho3D/Resource/XMLFile.h>
 #include <Urho3D/IO/Log.h>
+#ifdef WIN32
+#pragma warning(default: 4100)
+#pragma warning(default: 4312)
+#endif
 
 //== МАКРОСЫ.
 #define S_CONF_PATH				"./settings/server.xml"
