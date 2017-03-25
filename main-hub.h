@@ -7,6 +7,10 @@
 #ifdef WIN32
 #pragma warning(disable: 4100)
 #pragma warning(disable: 4312)
+#else
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 #include <Urho3D/Engine/Application.h>
 #include <Urho3D/Graphics/Camera.h>
@@ -31,6 +35,10 @@
 #ifdef WIN32
 #pragma warning(default: 4100)
 #pragma warning(default: 4312)
+#else
+#pragma GCC diagnostic warning "-Wsign-compare"
+#pragma GCC diagnostic warning "-Wunused-parameter"
+#pragma GCC diagnostic warning "-Wstrict-aliasing"
 #endif
 
 //== МАКРОСЫ.
