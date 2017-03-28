@@ -53,7 +53,6 @@ char MainWindow::m_chPortNameBufferUI[PORTSTRLEN];
 NetHub MainWindow::oPrimaryNetHub;
 bool MainWindow::bAutostart;
 QSettings* MainWindow::p_UISettings;
-Engine_Form* MainWindow::p_Engine_Form = 0;
 pthread_t MainWindow::UpdateThr;
 bool MainWindow::bStopUpdate = false;
 
@@ -454,7 +453,7 @@ void MainWindow::ServerStopProcedures(bool bHaltEngineRequest)
 			MSleep(USER_RESPONSE_MS);
 		}
 	}
-	else p_Engine_Form->p_Engine->Exit();
+	else Engine_Form::shp_Application->p_Engine->Exit();
 	p_Server->Stop();
 	for(unsigned char uchAtt = 0; uchAtt != 128; uchAtt++)
 	{
@@ -1359,13 +1358,13 @@ void* MainWindow::UpdateThread(void *p_vPlug)
 {
 	p_vPlug = p_vPlug;
 	//
-	p_Engine_Form = new Engine_Form(EOnClose);
-	p_Engine_Form->ShowPointer(true);
-	while(!bStopUpdate & (!p_Engine_Form->p_Engine->IsExiting()))
+	Engine_Form::EngineInitialize(EOnClose);
+	Engine_Form::shp_Application->ShowPointer(true);
+	while(!bStopUpdate & (!Engine_Form::shp_Application->p_Engine->IsExiting()))
 	{
-		p_Engine_Form->p_Engine->RunFrame();
+		Engine_Form::shp_Application->p_Engine->RunFrame();
 	}
 	bStopUpdate = false;
-	delete p_Engine_Form;
+	Engine_Form::EngineRelease();
 	RETURN_THREAD;
 }
