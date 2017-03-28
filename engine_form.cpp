@@ -4,10 +4,9 @@
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс окна отрисовщика.
 // Конструктор.
-Engine_Form::Engine_Form(CBEOnClose pf_CBEOnCloseIn, CBEOnDropFocusRequest pf_CBEOnDropFocusRequestIn) : Application(new Context)
+Engine_Form::Engine_Form(CBEOnClose pf_CBEOnCloseIn) : Application(new Context)
 {
 	pf_CBEOnClose = pf_CBEOnCloseIn;
-	pf_CBEOnDropFocusRequest = pf_CBEOnDropFocusRequestIn;
 	p_Engine = this->GetSubsystem<Engine>();
 	engineParameters["FullScreen"] = false;
 	engineParameters["WindowWidth"] = 400;
@@ -18,12 +17,20 @@ Engine_Form::Engine_Form(CBEOnClose pf_CBEOnCloseIn, CBEOnDropFocusRequest pf_CB
 	p_Engine->Initialize(engineParameters);
 	SubscribeToEvent(Urho3D::E_EXITREQUESTED, URHO3D_HANDLER(Engine_Form, OnClose));
 	SubscribeToEvent(Urho3D::E_KEYDOWN, URHO3D_HANDLER(Engine_Form, OnKeyDown));
+	bMouseVisible = false;
 }
 
 // Деструктор.
 Engine_Form::~Engine_Form()
 {
 
+}
+
+// Установка видимости указателя.
+void Engine_Form::ShowPointer(bool bShow)
+{
+	this->GetSubsystem<Input>()->SetMouseVisible(bShow);
+	bMouseVisible = bShow;
 }
 
 // При запросе на закрытие окна рендера.
@@ -45,7 +52,8 @@ void Engine_Form::OnKeyDown(StringHash eventType, VariantMap& eventData)
 	switch (iKey)
 	{
 		case KEY_TAB:
-			pf_CBEOnDropFocusRequest();
+			bMouseVisible = !bMouseVisible;
+			this->GetSubsystem<Input>()->SetMouseVisible(bMouseVisible);
 			break;
 		default:
 			break;

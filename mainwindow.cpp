@@ -1354,22 +1354,13 @@ void MainWindow::EOnClose()
 	p_ui->StartStop_action->setChecked(false);
 }
 
-// Кэлбэк обработки события запроса сброса фокуса.
-void MainWindow::EOnDropFocusRequest()
-{
-	QApplication::setActiveWindow(p_ui->Main_frame->parentWidget());
-	p_ui->Main_frame->setWindowState(Qt::WindowActive);
-	p_ui->Main_frame->activateWindow();
-}
-
 // Поток шагов движка.
 void* MainWindow::UpdateThread(void *p_vPlug)
 {
 	p_vPlug = p_vPlug;
 	//
-	p_Engine_Form = new Engine_Form(EOnClose, EOnDropFocusRequest);
-	p_Engine_Form->p_Engine->RunFrame();
-	p_ui->Main_frame->activateWindow();
+	p_Engine_Form = new Engine_Form(EOnClose);
+	p_Engine_Form->ShowPointer(true);
 	while(!bStopUpdate & (!p_Engine_Form->p_Engine->IsExiting()))
 	{
 		p_Engine_Form->p_Engine->RunFrame();

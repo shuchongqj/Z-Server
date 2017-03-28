@@ -14,7 +14,6 @@
 
 //== ОПРЕДЕЛЕНИЯ ТИПОВ.
 typedef void (*CBEOnClose)();
-typedef void (*CBEOnDropFocusRequest)();
 
 //== ФУНКЦИИ.
 /// Проверка на наличие файла.

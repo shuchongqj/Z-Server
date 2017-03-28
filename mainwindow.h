@@ -71,8 +71,6 @@ public:
 							///< \param[in] chRequest Запрос клиента.
 	/// Кэлбэк обработки события запроса на закрытие окна рендера.
 	static void EOnClose();
-	/// Кэлбэк обработки события запроса сброса фокуса.
-	static void EOnDropFocusRequest();
 
 private:
 	/// Загрузка каталога банов.

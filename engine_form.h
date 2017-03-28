@@ -57,9 +57,8 @@ class Engine_Form : public Application
 
 public:
 	/// Конструктор.
-	explicit Engine_Form(CBEOnClose pf_CBEOnCloseIn, CBEOnDropFocusRequest pf_CBEOnDropFocusRequestIn);
+	explicit Engine_Form(CBEOnClose pf_CBEOnCloseIn);
 								///< \param[in] pf_CBEOnCloseIn Указатель на кэлбэк обработки события запроса на закрытие окна рендера.
-								///< \param[in] pf_CBEOnDropFocusRequestIn Указатель на кэлбэк обработки события нажатия на клавишу TAB.
 	/// Деструктор.
 	~Engine_Form();
 	/// При запросе на закрытие окна рендера.
@@ -70,13 +69,16 @@ public:
 	void OnKeyDown(StringHash eventType, VariantMap& eventData);
 								///< \param[in] eventType Тип события.
 								///< \param[in] eventData Карта данных события
+	/// Установка видимости указателя.
+	void ShowPointer(bool bShow);
+								///< \param[in] bShow Вкл.\выкл.
 public:
 	Engine* p_Engine; ///< Подсистема движка.
 
 private:
 	VariantMap engineParameters; ///< Карта параметров движка.
 	CBEOnClose pf_CBEOnClose; ///< Указатель на кэлбэк обработки события запроса на закрытие окна рендера.
-	CBEOnDropFocusRequest pf_CBEOnDropFocusRequest; ///< Указатель на кэлбэк обработки события нажатия на клавишу TAB.
+	bool bMouseVisible; ///< Скрыт ли указатель.
 
 };
 
