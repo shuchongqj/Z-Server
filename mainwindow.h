@@ -2,7 +2,6 @@
 #define MAINWINDOW_H
 
 //== ВКЛЮЧЕНИЯ.
-//
 #include <QMainWindow>
 #include <QSettings>
 #include <QTimer>
@@ -11,6 +10,7 @@
 //
 #include "Server/server.h"
 #include "main-hub.h"
+#include "engine_form.h"
 
 //== ПРОСТРАНСТВА ИМЁН.
 namespace Ui {
@@ -69,6 +69,10 @@ public:
 							///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 							///< \param[in] uiClientIndex Индекс клиента.
 							///< \param[in] chRequest Запрос клиента.
+	/// Кэлбэк обработки события запроса на закрытие окна рендера.
+	static void EOnClose();
+	/// Кэлбэк обработки события запроса сброса фокуса.
+	static void EOnDropFocusRequest();
 
 private:
 	/// Загрузка каталога банов.
@@ -87,7 +91,7 @@ private:
 	static bool ServerStartProcedures();
 							///< \return true, при удаче.
 	/// Процедуры остановки сервера.
-	static void ServerStopProcedures();
+	static void ServerStopProcedures(bool bHaltEngineRequest);
 	/// Процедуры при логине пользователя.
 	static void UserLoginProcedures(NetHub& a_NetHub, int iPosition,
 									  unsigned int iIndex, NetHub::ConnectionData& a_ConnectionData, bool bTryLock = true);
@@ -130,6 +134,10 @@ private:
 	static void LobbyChangedInform(NetHub& a_NetHub, bool bTryLock = true);
 							///< \param[in] a_NetHub Ссылка на используемый NetHub (с собственным буфером пакетов).
 							///< \param[in] bTryLock Установить в false при использовании внутри кэлбэков.
+	// Поток шагов движка.
+	static void* UpdateThread(void *p_vPlug);
+							///< \param[in] p_vPlug Заглушка.
+							///< \return Заглушка.
 
 public slots:
 	/// Обновление чата.
@@ -176,11 +184,14 @@ private:
 	static bool bAutostart; ///< Флаг автозапуска.
 	static QTimer* p_ChatTimer; ///< Указатель на таймер обновления GUI.
 	static char m_chTextChatBuffer[MAX_MSG]; ///< Буфер обмена с виджетом чата.
-	static char m_chIPNameBufferUI[INET6_ADDRSTRLEN];
-	static char m_chPortNameBufferUI[PORTSTRLEN];
+	static char m_chIPNameBufferUI[INET6_ADDRSTRLEN]; ///< Буфер под строку адреса.
+	static char m_chPortNameBufferUI[PORTSTRLEN]; ///< Буфер под строку порта.
+	static Engine_Form* p_Engine_Form; ///< Указатель на окно отрисовки.
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD
-	static NetHub oPrimaryNetHub;
+	static NetHub oPrimaryNetHub; ///< Объект хаба сетевых утилит, годных как для сервера, так и для клиента.
+	static pthread_t UpdateThr; ///< Идентификатор потока шагов движка.
+	static bool bStopUpdate; ///< Сигнал на остановку шагов движка.
 };
 
 #endif // MAINWINDOW_H

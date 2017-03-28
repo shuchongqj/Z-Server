@@ -53,6 +53,9 @@ char MainWindow::m_chPortNameBufferUI[PORTSTRLEN];
 NetHub MainWindow::oPrimaryNetHub;
 bool MainWindow::bAutostart;
 QSettings* MainWindow::p_UISettings;
+Engine_Form* MainWindow::p_Engine_Form = 0;
+pthread_t MainWindow::UpdateThr;
+bool MainWindow::bStopUpdate = false;
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс главного окна.
@@ -150,7 +153,7 @@ MainWindow::MainWindow(QWidget* p_parent) :
 // Деструктор.
 MainWindow::~MainWindow()
 {
-	if(p_Server->CheckReady()) ServerStopProcedures();
+	if(p_Server->CheckReady()) ServerStopProcedures(false);
 	delete p_Server;
 	delete p_ChatTimer;
 	if(RETVAL == RETVAL_OK)
@@ -428,6 +431,9 @@ bool MainWindow::ServerStartProcedures()
 	{
 		if(p_Server->CheckReady())
 		{
+			LOG_P_2(LOG_CAT_I, "Starting engine thread.");
+			bStopUpdate = false;
+			pthread_create(&UpdateThr, NULL, UpdateThread, NULL);
 			LOG_P_0(LOG_CAT_I, "Server is on.");
 			return true;;
 		}
@@ -439,8 +445,16 @@ bool MainWindow::ServerStartProcedures()
 }
 
 // Процедуры остановки сервера.
-void MainWindow::ServerStopProcedures()
+void MainWindow::ServerStopProcedures(bool bHaltEngineRequest)
 {
+	if(bHaltEngineRequest)
+	{bStopUpdate = true;
+		while(bStopUpdate)
+		{
+			MSleep(USER_RESPONSE_MS);
+		}
+	}
+	else p_Engine_Form->p_Engine->Exit();
 	p_Server->Stop();
 	for(unsigned char uchAtt = 0; uchAtt != 128; uchAtt++)
 	{
@@ -1052,7 +1066,7 @@ void MainWindow::on_StartStop_action_triggered(bool checked)
 		if(ServerStartProcedures()) p_ui->StartStop_action->setChecked(true);
 		else p_ui->StartStop_action->setChecked(false);
 	}
-	else ServerStopProcedures();
+	else ServerStopProcedures(true);
 }
 
 // При изменении текста чата.
@@ -1331,4 +1345,36 @@ void MainWindow::on_C_Bans_listWidget_customContextMenuRequested(const QPoint &p
 			}
 		}
 	}
+}
+
+// Кэлбэк обработки события запроса на закрытие окна рендера.
+void MainWindow::EOnClose()
+{
+	ServerStopProcedures(false);
+	p_ui->StartStop_action->setChecked(false);
+}
+
+// Кэлбэк обработки события запроса сброса фокуса.
+void MainWindow::EOnDropFocusRequest()
+{
+	QApplication::setActiveWindow(p_ui->Main_frame->parentWidget());
+	p_ui->Main_frame->setWindowState(Qt::WindowActive);
+	p_ui->Main_frame->activateWindow();
+}
+
+// Поток шагов движка.
+void* MainWindow::UpdateThread(void *p_vPlug)
+{
+	p_vPlug = p_vPlug;
+	//
+	p_Engine_Form = new Engine_Form(EOnClose, EOnDropFocusRequest);
+	p_Engine_Form->p_Engine->RunFrame();
+	p_ui->Main_frame->activateWindow();
+	while(!bStopUpdate & (!p_Engine_Form->p_Engine->IsExiting()))
+	{
+		p_Engine_Form->p_Engine->RunFrame();
+	}
+	bStopUpdate = false;
+	delete p_Engine_Form;
+	RETURN_THREAD;
 }
