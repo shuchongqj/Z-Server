@@ -44,7 +44,7 @@ Engine_Form::Engine_Form(CBEOnClose pf_CBEOnCloseIn) : Object(new Context())
 Engine_Form::~Engine_Form()
 {
 	//delete shp_viewport;
-	delete p_Scene;
+	//delete p_Scene;
 }
 
 // Установка видимости указателя.

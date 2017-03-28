@@ -448,7 +448,8 @@ bool MainWindow::ServerStartProcedures()
 void MainWindow::ServerStopProcedures(bool bHaltEngineRequest)
 {
 	if(bHaltEngineRequest)
-	{bStopUpdate = true;
+	{
+		bStopUpdate = true;
 		while(bStopUpdate)
 		{
 			MSleep(USER_RESPONSE_MS);
@@ -1014,6 +1015,10 @@ void MainWindow::slot_UpdateChat()
 		p_ui->Chat_textBrowser->append(QString(m_chTextChatBuffer));
 		m_chTextChatBuffer[0] = 0;
 	}
+	if((p_Engine_Form == 0) & (p_ui->StartStop_action->isChecked()))
+	{
+		p_ui->StartStop_action->setChecked(false);
+	}
 }
 
 // При нажатии на 'О программе'.
@@ -1351,7 +1356,6 @@ void MainWindow::on_C_Bans_listWidget_customContextMenuRequested(const QPoint &p
 void MainWindow::EOnClose()
 {
 	ServerStopProcedures(false);
-	p_ui->StartStop_action->setChecked(false);
 }
 
 // Поток шагов движка.
@@ -1367,6 +1371,6 @@ void* MainWindow::UpdateThread(void *p_vPlug)
 		p_Engine_Form->p_Engine->RunFrame();
 	}
 	bStopUpdate = false;
-	delete p_Engine_Form;
+	p_Engine_Form = 0;
 	RETURN_THREAD;
 }
