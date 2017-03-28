@@ -184,6 +184,7 @@ private:
 	static char m_chTextChatBuffer[MAX_MSG]; ///< Буфер обмена с виджетом чата.
 	static char m_chIPNameBufferUI[INET6_ADDRSTRLEN]; ///< Буфер под строку адреса.
 	static char m_chPortNameBufferUI[PORTSTRLEN]; ///< Буфер под строку порта.
+	static Engine_Form* p_Engine_Form; ///< Указатель на окно отрисовки.
 	LOGDECL
 	LOGDECL_PTHRD_INCLASS_ADD
 	static NetHub oPrimaryNetHub; ///< Объект хаба сетевых утилит, годных как для сервера, так и для клиента.

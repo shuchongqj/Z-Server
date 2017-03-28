@@ -55,6 +55,7 @@ bool MainWindow::bAutostart;
 QSettings* MainWindow::p_UISettings;
 pthread_t MainWindow::UpdateThr;
 bool MainWindow::bStopUpdate = false;
+Engine_Form* MainWindow::p_Engine_Form = 0;
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс главного окна.
@@ -453,7 +454,7 @@ void MainWindow::ServerStopProcedures(bool bHaltEngineRequest)
 			MSleep(USER_RESPONSE_MS);
 		}
 	}
-	else Engine_Form::shp_Application->p_Engine->Exit();
+	else p_Engine_Form->p_Engine->Exit();
 	p_Server->Stop();
 	for(unsigned char uchAtt = 0; uchAtt != 128; uchAtt++)
 	{
@@ -1358,13 +1359,14 @@ void* MainWindow::UpdateThread(void *p_vPlug)
 {
 	p_vPlug = p_vPlug;
 	//
-	Engine_Form::EngineInitialize(EOnClose);
-	Engine_Form::shp_Application->ShowPointer(true);
-	while(!bStopUpdate & (!Engine_Form::shp_Application->p_Engine->IsExiting()))
+	p_Engine_Form = new Engine_Form(EOnClose);
+	p_Engine_Form->InitSystems();
+	p_Engine_Form->ShowPointer(true);
+	while(!bStopUpdate & (!p_Engine_Form->p_Engine->IsExiting()))
 	{
-		Engine_Form::shp_Application->p_Engine->RunFrame();
+		p_Engine_Form->p_Engine->RunFrame();
 	}
 	bStopUpdate = false;
-	Engine_Form::EngineRelease();
+	delete p_Engine_Form;
 	RETURN_THREAD;
 }

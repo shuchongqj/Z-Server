@@ -65,14 +65,8 @@ class Engine_Form : public Object
 	URHO3D_OBJECT(Engine_Form, Object)
 
 public:
-
-	static void EngineInitialize(CBEOnClose pf_CBEOnCloseIn);
-
-	static void EngineRelease();
-
+	/// Инициализация систем.
 	void InitSystems();
-
-
 	/// Конструктор.
 	explicit Engine_Form(CBEOnClose pf_CBEOnCloseIn);
 								///< \param[in] pf_CBEOnCloseIn Указатель на кэлбэк обработки события запроса на закрытие окна рендера.
@@ -95,11 +89,9 @@ public:
 								///< \param[in] bShow Вкл.\выкл.
 public:
 	Engine* p_Engine; ///< Подсистема движка.
-	static Urho3D::SharedPtr<Urho3D::Context> shp_Context;
-	static Urho3D::SharedPtr<Engine_Form> shp_Application;
 
 private:
-	//
+	Context* p_Context; ///< Указатель на контекст.
 	VariantMap engineParameters; ///< Карта параметров движка.
 	CBEOnClose pf_CBEOnClose; ///< Указатель на кэлбэк обработки события запроса на закрытие окна рендера.
 	bool bMouseVisible; ///< Скрыт ли указатель.
