@@ -16,8 +16,8 @@ Engine_Form::Engine_Form(CBEOnClose pf_CBEOnCloseIn, CBEOnDropFocusRequest pf_CB
 	engineParameters["TripleBuffer"] = true;
 	engineParameters["VSync"] = true;
 	p_Engine->Initialize(engineParameters);
-	SubscribeToEvent(Urho3D::E_EXITREQUESTED, URHO3D_HANDLER(Engine_Form, Engine_Form::OnClose));
-	SubscribeToEvent(Urho3D::E_KEYDOWN, URHO3D_HANDLER(Engine_Form, Engine_Form::OnKeyDown));
+	SubscribeToEvent(Urho3D::E_EXITREQUESTED, URHO3D_HANDLER(Engine_Form, OnClose));
+	SubscribeToEvent(Urho3D::E_KEYDOWN, URHO3D_HANDLER(Engine_Form, OnKeyDown));
 }
 
 // Деструктор.
