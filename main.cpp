@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
 	//
 	if(wMainWindow.iInitRes == RETVAL_OK)
 	{
+		std::setlocale(LC_NUMERIC, "en_US.UTF-8");
 		wMainWindow.show();
 		iExecResult = oApplication.exec();
 	}

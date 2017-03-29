@@ -13,14 +13,15 @@ void Engine_Form::InitSystems()
 	SubscribeToEvent(Urho3D::E_EXITREQUESTED, URHO3D_HANDLER(Engine_Form, OnClose));
 	SubscribeToEvent(Urho3D::E_KEYDOWN, URHO3D_HANDLER(Engine_Form, OnKeyDown));
 	bMouseVisible = false;
-	p_ResourceCache = this->GetSubsystem<ResourceCache>();
-	p_Scene = new Scene(p_Context);
-	shp_SceneFile = p_ResourceCache->GetFile("Scenes/SceneLoadExample.xml");
-	p_Scene->LoadXML(*shp_SceneFile);
+	p_Scene = new Scene(context_);
+	p_Scene->CreateComponent<Octree>();
+	p_Scene->CreateComponent<PhysicsWorld>();
+	File loadFile(context_, GetSubsystem<FileSystem>()->GetProgramDir() + "Data/Scenes/SceneLoadExample.xml", FILE_READ);
+	p_Scene->LoadXML(loadFile);
 	p_CameraNode = p_Scene->CreateChild("Camera");
 	p_CameraNode->CreateComponent<Camera>();
 	p_CameraNode->SetPosition(Vector3(0.0f, 2.0f, -10.0f));
-	shp_viewport = new Viewport(p_Context, p_Scene, p_CameraNode->GetComponent<Camera>());
+	shp_viewport = new Viewport(context_, p_Scene, p_CameraNode->GetComponent<Camera>());
 	p_Renderer->SetViewport(0, shp_viewport);
 	SubscribeToEvent(Urho3D::E_UPDATE, URHO3D_HANDLER(Engine_Form, OnUpdate));
 }
@@ -30,8 +31,7 @@ Engine_Form::Engine_Form(CBEOnClose pf_CBEOnCloseIn) : Object(new Context())
 {
 	pf_CBEOnClose = pf_CBEOnCloseIn;
 	//
-	p_Context = this->GetContext();
-	p_Engine = new Engine(p_Context);
+	p_Engine = new Engine(context_);
 	engineParameters["FullScreen"] = false;
 	engineParameters["WindowWidth"] = 800;
 	engineParameters["WindowHeight"] = 600;
