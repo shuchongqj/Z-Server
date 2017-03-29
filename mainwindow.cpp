@@ -1376,8 +1376,8 @@ void* MainWindow::UpdateThread(void *p_vPlug)
 		p_Engine_Form->p_Engine->RunFrame();
 	}
 	bStopUpdate = false;
-	p_Engine_Form->p_Engine->Exit();
-	p_Engine_Form->ReleaseRef();
+	if(!p_Engine_Form->p_Engine->IsExiting()) p_Engine_Form->p_Engine->Exit();
+	delete p_Engine_Form;
 	bUpdateThreadAlive = false;
 	RETURN_THREAD;
 }

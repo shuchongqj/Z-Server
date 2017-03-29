@@ -16,8 +16,9 @@ void Engine_Form::InitSystems()
 	p_Scene = new Scene(context_);
 	p_Scene->CreateComponent<Octree>();
 	p_Scene->CreateComponent<PhysicsWorld>();
-	File loadFile(context_, GetSubsystem<FileSystem>()->GetProgramDir() + "Data/Scenes/SceneLoadExample.xml", FILE_READ);
-	p_Scene->LoadXML(loadFile);
+	p_File = new File(context_, this->GetSubsystem<FileSystem>()->GetProgramDir() + "Data/Scenes/SceneLoadExample.xml", FILE_READ);
+	p_Scene->LoadXML(*p_File);
+	delete p_File;
 	p_CameraNode = p_Scene->CreateChild("Camera");
 	p_CameraNode->CreateComponent<Camera>();
 	p_CameraNode->SetPosition(Vector3(0.0f, 2.0f, -10.0f));
@@ -43,8 +44,21 @@ Engine_Form::Engine_Form(CBEOnClose pf_CBEOnCloseIn) : Object(new Context())
 // Деструктор.
 Engine_Form::~Engine_Form()
 {
+	p_File = new File(context_, this->GetSubsystem<FileSystem>()->GetProgramDir() + "Data/Scenes/SceneLoadExample.xml", FILE_WRITE);
+	p_Scene->SaveXML(*p_File);
+	delete p_File;
 	delete shp_viewport;
 	delete p_Scene;
+	this->UnsubscribeFromAllEvents();
+	context_->RemoveSubsystem<Log>();
+	context_->RemoveSubsystem<Audio>();
+	context_->RemoveSubsystem<Graphics>();
+	context_->RemoveSubsystem<Time>();
+	context_->RemoveSubsystem<WorkQueue>();
+	context_->RemoveSubsystem<ResourceCache>();
+	context_->RemoveSubsystem<FileSystem>();
+	context_->RemoveSubsystem<UI>();
+	context_->RemoveSubsystem<Engine>();
 }
 
 // Установка видимости указателя.

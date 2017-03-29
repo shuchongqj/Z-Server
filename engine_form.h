@@ -45,6 +45,9 @@
 #include <Urho3D/Graphics/Octree.h>
 #include <Urho3D/Graphics/Renderer.h>
 #include <Urho3D/Graphics/Zone.h>
+#include <Urho3D/Audio/Audio.h>
+#include <Urho3D/Graphics/Graphics.h>
+#include <Urho3D/Core/WorkQueue.h>
 #ifdef WIN32
 #pragma warning(default: 4100)
 #pragma warning(default: 4312)
@@ -103,9 +106,10 @@ private:
 	SharedPtr<File> shp_SceneFile; ///< Указатель на файл сцены.
 	Node* p_CameraNode; ///< Указатель на разъём камеры.
 	Renderer* p_Renderer; ///< Указатель на отрисовщик.
-	SharedPtr<Viewport> shp_viewport; ///< Указатель на вид.
+	Viewport* shp_viewport; ///< Указатель на вид.
 	float fTimeStep; ///< Шаг.
 	Input* p_Input; ///< Указатель на подсистему ввода.
+	File* p_File; ///< Указатель на объект файлового интерфейса.
 	//
 	const float cfMoveSpeed = 20.0f; ///< Скорость перемещения.
 	const float cfMouseSens = 0.1f; ///< Чувствительность мыши.
