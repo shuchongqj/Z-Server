@@ -43,8 +43,8 @@ Engine_Form::Engine_Form(CBEOnClose pf_CBEOnCloseIn) : Object(new Context())
 // Деструктор.
 Engine_Form::~Engine_Form()
 {
-	//delete shp_viewport;
-	//delete p_Scene;
+	delete shp_viewport;
+	delete p_Scene;
 }
 
 // Установка видимости указателя.

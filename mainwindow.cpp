@@ -56,6 +56,7 @@ QSettings* MainWindow::p_UISettings;
 pthread_t MainWindow::UpdateThr;
 bool MainWindow::bStopUpdate = false;
 Engine_Form* MainWindow::p_Engine_Form = 0;
+bool MainWindow::bManualCloseRender = false;
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс главного окна.
@@ -1015,9 +1016,10 @@ void MainWindow::slot_UpdateChat()
 		p_ui->Chat_textBrowser->append(QString(m_chTextChatBuffer));
 		m_chTextChatBuffer[0] = 0;
 	}
-	if((p_Engine_Form == 0) & (p_ui->StartStop_action->isChecked()))
+	if((bManualCloseRender == true) & (p_ui->StartStop_action->isChecked()))
 	{
 		p_ui->StartStop_action->setChecked(false);
+		bManualCloseRender = false;
 	}
 }
 
@@ -1356,6 +1358,7 @@ void MainWindow::on_C_Bans_listWidget_customContextMenuRequested(const QPoint &p
 void MainWindow::EOnClose()
 {
 	ServerStopProcedures(false);
+	bManualCloseRender = true;
 }
 
 // Поток шагов движка.
@@ -1371,6 +1374,7 @@ void* MainWindow::UpdateThread(void *p_vPlug)
 		p_Engine_Form->p_Engine->RunFrame();
 	}
 	bStopUpdate = false;
-	p_Engine_Form = 0;
+	p_Engine_Form->p_Engine->Exit();
+	p_Engine_Form->ReleaseRef();
 	RETURN_THREAD;
 }

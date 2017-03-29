@@ -190,6 +190,7 @@ private:
 	static NetHub oPrimaryNetHub; ///< Объект хаба сетевых утилит, годных как для сервера, так и для клиента.
 	static pthread_t UpdateThr; ///< Идентификатор потока шагов движка.
 	static bool bStopUpdate; ///< Сигнал на остановку шагов движка.
+	static bool bManualCloseRender;
 };
 
 #endif // MAINWINDOW_H
