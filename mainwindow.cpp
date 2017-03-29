@@ -57,6 +57,7 @@ pthread_t MainWindow::UpdateThr;
 bool MainWindow::bStopUpdate = false;
 Engine_Form* MainWindow::p_Engine_Form = 0;
 bool MainWindow::bManualCloseRender = false;
+bool MainWindow::bUpdateThreadAlive = false;
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс главного окна.
@@ -154,7 +155,7 @@ MainWindow::MainWindow(QWidget* p_parent) :
 // Деструктор.
 MainWindow::~MainWindow()
 {
-	if(p_Server->CheckReady()) ServerStopProcedures(false);
+	if(p_Server->CheckReady()) ServerStopProcedures(bUpdateThreadAlive);
 	delete p_Server;
 	delete p_ChatTimer;
 	if(RETVAL == RETVAL_OK)
@@ -1366,6 +1367,7 @@ void* MainWindow::UpdateThread(void *p_vPlug)
 {
 	p_vPlug = p_vPlug;
 	//
+	bUpdateThreadAlive = true;
 	p_Engine_Form = new Engine_Form(EOnClose);
 	p_Engine_Form->InitSystems();
 	p_Engine_Form->ShowPointer(true);
@@ -1376,5 +1378,6 @@ void* MainWindow::UpdateThread(void *p_vPlug)
 	bStopUpdate = false;
 	p_Engine_Form->p_Engine->Exit();
 	p_Engine_Form->ReleaseRef();
+	bUpdateThreadAlive = false;
 	RETURN_THREAD;
 }
