@@ -98,7 +98,7 @@ public:
 	Engine* p_Engine; ///< Подсистема движка.
 
 private:
-	VariantMap engineParameters; ///< Карта параметров движка.
+	VariantMap* p_engineParameters; ///< Указатель на карту параметров движка.
 	CBEOnClose pf_CBEOnClose; ///< Указатель на кэлбэк обработки события запроса на закрытие окна рендера.
 	bool bMouseVisible; ///< Скрыт ли указатель.
 	ResourceCache* p_ResourceCache; ///< Указатель на загруженные ресурсы.

@@ -3,11 +3,10 @@
 
 //== ФУНКЦИИ КЛАССОВ.
 //== Класс окна отрисовщика.
-
 // Инициализация систем.
 void Engine_Form::InitSystems()
 {
-	p_Engine->Initialize(engineParameters);
+	p_Engine->Initialize(*p_engineParameters);
 	p_Input = this->GetSubsystem<Input>();
 	p_Renderer = this->GetSubsystem<Renderer>();
 	SubscribeToEvent(Urho3D::E_EXITREQUESTED, URHO3D_HANDLER(Engine_Form, OnClose));
@@ -33,12 +32,13 @@ Engine_Form::Engine_Form(CBEOnClose pf_CBEOnCloseIn) : Object(new Context())
 	pf_CBEOnClose = pf_CBEOnCloseIn;
 	//
 	p_Engine = new Engine(context_);
-	engineParameters["FullScreen"] = false;
-	engineParameters["WindowWidth"] = 800;
-	engineParameters["WindowHeight"] = 600;
-	engineParameters["WindowTitle"] = "Отрисовка";
-	engineParameters["TripleBuffer"] = true;
-	engineParameters["VSync"] = true;
+	p_engineParameters = new VariantMap;
+	(*p_engineParameters)["FullScreen"] = false;
+	(*p_engineParameters)["WindowWidth"] = 800;
+	(*p_engineParameters)["WindowHeight"] = 600;
+	(*p_engineParameters)["WindowTitle"] = "Отрисовка";
+	(*p_engineParameters)["TripleBuffer"] = true;
+	(*p_engineParameters)["VSync"] = true;
 }
 
 // Деструктор.
@@ -59,6 +59,8 @@ Engine_Form::~Engine_Form()
 	context_->RemoveSubsystem<FileSystem>();
 	context_->RemoveSubsystem<UI>();
 	context_->RemoveSubsystem<Engine>();
+	context_->ReleaseRef();
+	p_engineParameters->Clear();
 }
 
 // Установка видимости указателя.
