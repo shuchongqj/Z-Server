@@ -1368,7 +1368,7 @@ void* MainWindow::UpdateThread(void *p_vPlug)
 	p_vPlug = p_vPlug;
 	//
 	bUpdateThreadAlive = true;
-	p_Engine_Form = new Engine_Form(EOnClose);
+	p_Engine_Form = new Engine_Form(EOnClose, "Test.xml");
 	p_Engine_Form->InitSystems();
 	p_Engine_Form->ShowPointer(true);
 	while(!bStopUpdate & (!p_Engine_Form->p_Engine->IsExiting()))

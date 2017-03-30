@@ -13,24 +13,44 @@ void Engine_Form::InitSystems()
 	SubscribeToEvent(Urho3D::E_KEYDOWN, URHO3D_HANDLER(Engine_Form, OnKeyDown));
 	bMouseVisible = false;
 	p_Scene = new Scene(context_);
-	p_Scene->CreateComponent<Octree>();
-	p_Scene->CreateComponent<PhysicsWorld>();
-	p_File = new File(context_, this->GetSubsystem<FileSystem>()->GetProgramDir() + "Data/Scenes/SceneLoadExample.xml", FILE_READ);
+	p_File = new File(context_, this->GetSubsystem<FileSystem>()->GetProgramDir() + "Data/Scenes/" + strSceneNameInt.c_str(), FILE_READ);
 	p_Scene->LoadXML(*p_File);
 	delete p_File;
-	p_CameraNode = p_Scene->CreateChild("Camera");
-	p_CameraNode->CreateComponent<Camera>();
-	p_CameraNode->SetPosition(Vector3(0.0f, 2.0f, -10.0f));
+	p_Octree = p_Scene->GetComponent<Octree>();
+	if(p_Octree == 0)
+	{
+		p_Octree = p_Scene->CreateComponent<Octree>();
+	}
+	p_PhysicsWorld = p_Scene->GetComponent<PhysicsWorld>();
+	if(p_PhysicsWorld == 0)
+	{
+		p_Scene->CreateComponent<PhysicsWorld>();
+	}
+	// Потом убрать, в т.ч. и из сцены.
+	p_DebugRenderer = p_Scene->GetComponent<DebugRenderer>();
+	if(p_DebugRenderer == 0)
+	{
+		p_DebugRenderer = p_Scene->CreateComponent<DebugRenderer>();
+	}
+	// -------------
+	p_CameraNode = p_Scene->GetChild("Server_Camera");
+	if(p_CameraNode == 0)
+	{
+		p_CameraNode = p_Scene->CreateChild("Server_Camera");
+		p_CameraNode->CreateComponent<Camera>();
+		p_CameraNode->SetPosition(Vector3(0.0f, 2.0f, -10.0f));
+	}
 	shp_viewport = new Viewport(context_, p_Scene, p_CameraNode->GetComponent<Camera>());
 	p_Renderer->SetViewport(0, shp_viewport);
 	SubscribeToEvent(Urho3D::E_UPDATE, URHO3D_HANDLER(Engine_Form, OnUpdate));
 }
 
 // Конструктор.
-Engine_Form::Engine_Form(CBEOnClose pf_CBEOnCloseIn) : Object(new Context())
+Engine_Form::Engine_Form(CBEOnClose pf_CBEOnCloseIn, std::string strSceneName) : Object(new Context())
 {
 	pf_CBEOnClose = pf_CBEOnCloseIn;
 	//
+	strSceneNameInt = strSceneName;
 	p_Engine = new Engine(context_);
 	p_engineParameters = new VariantMap;
 	(*p_engineParameters)["FullScreen"] = false;
@@ -44,7 +64,7 @@ Engine_Form::Engine_Form(CBEOnClose pf_CBEOnCloseIn) : Object(new Context())
 // Деструктор.
 Engine_Form::~Engine_Form()
 {
-	p_File = new File(context_, this->GetSubsystem<FileSystem>()->GetProgramDir() + "Data/Scenes/SceneLoadExample.xml", FILE_WRITE);
+	p_File = new File(context_, this->GetSubsystem<FileSystem>()->GetProgramDir() + "Data/Scenes/" + strSceneNameInt.c_str(), FILE_WRITE);
 	p_Scene->SaveXML(*p_File);
 	delete p_File;
 	delete shp_viewport;

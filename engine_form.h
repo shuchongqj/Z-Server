@@ -48,6 +48,7 @@
 #include <Urho3D/Audio/Audio.h>
 #include <Urho3D/Graphics/Graphics.h>
 #include <Urho3D/Core/WorkQueue.h>
+#include <Urho3D/Graphics/DebugRenderer.h>
 #ifdef WIN32
 #pragma warning(default: 4100)
 #pragma warning(default: 4312)
@@ -75,8 +76,9 @@ public:
 	/// Инициализация систем.
 	void InitSystems();
 	/// Конструктор.
-	explicit Engine_Form(CBEOnClose pf_CBEOnCloseIn);
+	explicit Engine_Form(CBEOnClose pf_CBEOnCloseIn, std::string strSceneName);
 								///< \param[in] pf_CBEOnCloseIn Указатель на кэлбэк обработки события запроса на закрытие окна рендера.
+								///< \param[in] strSceneName Имя сцены.
 	/// Деструктор.
 	~Engine_Form();
 	/// При запросе на закрытие окна рендера.
@@ -98,6 +100,7 @@ public:
 	Engine* p_Engine; ///< Подсистема движка.
 
 private:
+	std::string strSceneNameInt; ///< Имя сцены.
 	VariantMap* p_engineParameters; ///< Указатель на карту параметров движка.
 	CBEOnClose pf_CBEOnClose; ///< Указатель на кэлбэк обработки события запроса на закрытие окна рендера.
 	bool bMouseVisible; ///< Скрыт ли указатель.
@@ -105,6 +108,9 @@ private:
 	Scene* p_Scene; ///< Указатель на сцену.
 	SharedPtr<File> shp_SceneFile; ///< Указатель на файл сцены.
 	Node* p_CameraNode; ///< Указатель на разъём камеры.
+	Octree* p_Octree; ///< Указатель на дерево.
+	PhysicsWorld* p_PhysicsWorld; ///< Указатель на физику.
+	DebugRenderer* p_DebugRenderer; ///< Указатель на дебаг-рендерер.
 	Renderer* p_Renderer; ///< Указатель на отрисовщик.
 	Viewport* shp_viewport; ///< Указатель на вид.
 	float fTimeStep; ///< Шаг.
